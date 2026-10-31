@@ -1,0 +1,14 @@
+.env
+models/*
+!models/.gitkeep
+hf/
+outbox/*
+!outbox/.gitkeep
+voices/*.wav
+voices/*.txt
+__pycache__/
+.venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+demo/

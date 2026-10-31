@@ -1,0 +1,125 @@
+# Weights for ComfyUI, laid out the way ComfyUI expects under models/.
+# `make models` downloads every entry without `optional = true`;
+# `make models ONLY=video,image` limits it to some stages.
+# Licenses are noted because the channel is monetised: only Apache 2.0 and MIT are on by default.
+
+[[file]]
+stage = "image"
+repo = "Comfy-Org/z_image_turbo"
+path = "split_files/diffusion_models/z_image_turbo_bf16.safetensors"
+into = "diffusion_models"
+license = "Apache-2.0"
+
+[[file]]
+stage = "image"
+repo = "Comfy-Org/z_image_turbo"
+path = "split_files/text_encoders/qwen_3_4b.safetensors"
+into = "text_encoders"
+license = "Apache-2.0"
+
+[[file]]
+stage = "image"
+repo = "Comfy-Org/z_image_turbo"
+path = "split_files/vae/ae.safetensors"
+into = "vae"
+license = "Apache-2.0"
+
+[[file]]
+stage = "video"
+repo = "Comfy-Org/Wan_2.2_ComfyUI_Repackaged"
+path = "split_files/diffusion_models/wan2.2_i2v_high_noise_14B_fp8_scaled.safetensors"
+into = "diffusion_models"
+license = "Apache-2.0"
+
+[[file]]
+stage = "video"
+repo = "Comfy-Org/Wan_2.2_ComfyUI_Repackaged"
+path = "split_files/diffusion_models/wan2.2_i2v_low_noise_14B_fp8_scaled.safetensors"
+into = "diffusion_models"
+license = "Apache-2.0"
+
+[[file]]
+stage = "video"
+repo = "Comfy-Org/Wan_2.2_ComfyUI_Repackaged"
+path = "split_files/loras/wan2.2_i2v_lightx2v_4steps_lora_v1_high_noise.safetensors"
+into = "loras"
+license = "Apache-2.0"
+
+[[file]]
+stage = "video"
+repo = "Comfy-Org/Wan_2.2_ComfyUI_Repackaged"
+path = "split_files/loras/wan2.2_i2v_lightx2v_4steps_lora_v1_low_noise.safetensors"
+into = "loras"
+license = "Apache-2.0"
+
+[[file]]
+stage = "video"
+repo = "Comfy-Org/Wan_2.2_ComfyUI_Repackaged"
+path = "split_files/vae/wan_2.1_vae.safetensors"
+into = "vae"
+license = "Apache-2.0"
+
+[[file]]
+stage = "video"
+repo = "Comfy-Org/Wan_2.1_ComfyUI_repackaged"
+path = "split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors"
+into = "text_encoders"
+license = "Apache-2.0"
+
+[[file]]
+stage = "draft"
+repo = "Comfy-Org/Wan_2.2_ComfyUI_Repackaged"
+path = "split_files/diffusion_models/wan2.2_ti2v_5B_fp16.safetensors"
+into = "diffusion_models"
+license = "Apache-2.0"
+optional = true
+
+[[file]]
+stage = "draft"
+repo = "Comfy-Org/Wan_2.2_ComfyUI_Repackaged"
+path = "split_files/vae/wan2.2_vae.safetensors"
+into = "vae"
+license = "Apache-2.0"
+optional = true
+
+[[file]]
+stage = "music"
+repo = "Comfy-Org/ace_step_1.5_ComfyUI_files"
+path = "checkpoints/ace_step_1.5_turbo_aio.safetensors"
+into = "checkpoints"
+license = "MIT"
+
+[[file]]
+stage = "character"
+repo = "Comfy-Org/Qwen-Image-Edit_ComfyUI"
+path = "split_files/diffusion_models/qwen_image_edit_2509_fp8_e4m3fn.safetensors"
+into = "diffusion_models"
+license = "Apache-2.0"
+optional = true
+
+[[file]]
+stage = "character"
+repo = "Comfy-Org/Qwen-Image_ComfyUI"
+path = "split_files/text_encoders/qwen_2.5_vl_7b_fp8_scaled.safetensors"
+into = "text_encoders"
+license = "Apache-2.0"
+optional = true
+
+[[file]]
+stage = "character"
+repo = "Comfy-Org/Qwen-Image_ComfyUI"
+path = "split_files/vae/qwen_image_vae.safetensors"
+into = "vae"
+license = "Apache-2.0"
+optional = true
+
+# Whole repos go to the Hugging Face cache shared with the service that loads them.
+[[snapshot]]
+stage = "voice"
+repo = "openbmb/VoxCPM2"
+license = "Apache-2.0"
+
+[[snapshot]]
+stage = "subtitles"
+repo = "mobiuslabsgmbh/faster-whisper-large-v3-turbo"
+license = "MIT"

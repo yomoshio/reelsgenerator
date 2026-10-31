@@ -1,0 +1,90 @@
+name: reelsmith
+
+x-gpu: &gpu
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - driver: nvidia
+            count: all
+            capabilities: [gpu]
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: reelsmith
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-reelsmith}
+      POSTGRES_DB: reelsmith
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U reelsmith"]
+      interval: 5s
+      retries: 20
+    restart: unless-stopped
+
+  llm:
+    <<: *gpu
+    image: ollama/ollama:${OLLAMA_TAG:-latest}
+    environment:
+      OLLAMA_MAX_LOADED_MODELS: "1"
+      OLLAMA_NUM_PARALLEL: "1"
+      OLLAMA_KEEP_ALIVE: "5m"
+    volumes:
+      - ollama:/root/.ollama
+    restart: unless-stopped
+
+  comfy:
+    <<: *gpu
+    build:
+      context: .
+      dockerfile: docker/comfy.Dockerfile
+    image: reelsmith/comfy:${COMFYUI_REF:-v0.43.1}
+    volumes:
+      - ./models:/opt/comfy/models
+      - comfy-output:/opt/comfy/output
+    ports:
+      - "127.0.0.1:8188:8188"   # editor for exporting workflows; not exposed beyond the host
+    shm_size: 8gb
+    restart: unless-stopped
+
+  tts:
+    <<: *gpu
+    build:
+      context: .
+      dockerfile: docker/tts.Dockerfile
+    image: reelsmith/tts:local
+    volumes:
+      - ./hf:/hf
+      - ./voices:/voices:ro
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/worker.Dockerfile
+    image: reelsmith/worker:local
+    env_file: .env
+    environment:
+      REELSMITH_DATABASE_URL: postgresql://reelsmith:${POSTGRES_PASSWORD:-reelsmith}@db:5432/reelsmith
+    volumes:
+      - media:/data/media
+      - ./outbox:/data/outbox
+      - ./hf:/hf
+    depends_on:
+      db:
+        condition: service_healthy
+      comfy:
+        condition: service_healthy
+      tts:
+        condition: service_healthy
+      llm:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  pgdata:
+  ollama:
+  comfy-output:
+  media:

@@ -1,0 +1,11 @@
+models
+hf
+outbox
+voices
+.env
+.git
+**/__pycache__
+.venv
+.mypy_cache
+.ruff_cache
+.pytest_cache
