@@ -9,6 +9,14 @@ from reelsmith.models import Character, Job, Metrics, Post, Recipe, Script, Shot
 from reelsmith.pipeline import Services
 from reelsmith.pricing import Rate, Tariff, Unit
 from reelsmith.services.ffmpeg import Cut, Word
+from reelsmith.styles import Style, Styles
+
+STYLES = Styles(Path(__file__).parent / "styles")
+REPO_STYLES = Path(__file__).parent.parent / "styles"
+
+
+def style() -> Style:
+    return STYLES.get("fake")
 
 
 def script(shots: int = 3, *, hook_kind: str = "question", title: str = "t") -> Script:
@@ -18,7 +26,13 @@ def script(shots: int = 3, *, hook_kind: str = "question", title: str = "t") -> 
         hook_kind=hook_kind,
         characters=[Character(name="Vera", look="nurse, 30s, grey cardigan")],
         shots=[
-            Shot(line=f"line {i}", picture=f"picture {i}", motion=f"motion {i}", cast=["Vera"])
+            Shot(
+                line=f"line {i}",
+                picture=f"picture {i}",
+                motion=f"motion {i}",
+                cast=["Vera"],
+                stress=["none"],
+            )
             for i in range(shots)
         ],
         music="slow drone",
@@ -26,7 +40,7 @@ def script(shots: int = 3, *, hook_kind: str = "question", title: str = "t") -> 
 
 
 def recipe(**overrides: object) -> Recipe:
-    return Recipe(**{"image": "fake", "video": "fast", **overrides})  # type: ignore[arg-type]
+    return Recipe(**{"style": "fake", "image": "fake", "video": "fast", **overrides})  # type: ignore[arg-type]
 
 
 def job(
@@ -64,6 +78,7 @@ class FakeLlm:
     name: str = "fake"
     scores: list[float] = field(default_factory=lambda: [8.0])
     hook_kind: str = "question"
+    shots: list[int] = field(default_factory=lambda: [3])
     picks: int = 0
     flag: set[int] = field(default_factory=set)
     reject: Verdict | None = None
@@ -71,25 +86,26 @@ class FakeLlm:
     inspected: int = 0
     log: list[tuple[str, list[Path]]] = field(default_factory=list)
 
-    async def write(self, idea: str, notes: str | None = None) -> Script:
+    async def write(self, idea: str, style: Style, notes: str | None = None) -> Script:
         self.written.append((idea, notes))
-        return script(hook_kind=self.hook_kind, title=f"{idea} draft {len(self.written)}")
+        count = self.shots.pop(0) if len(self.shots) > 1 else self.shots[0]
+        return script(count, hook_kind=self.hook_kind, title=f"{idea} draft {len(self.written)}")
 
-    async def review(self, script: Script) -> Verdict:
+    async def review(self, script: Script, style: Style) -> Verdict:
         score = self.scores.pop(0) if len(self.scores) > 1 else self.scores[0]
         return Verdict(score=score, notes="tighten the hook")
 
-    async def pick(self, brief: str, images: list[Path]) -> int:
+    async def pick(self, brief: str, images: list[Path], style: Style) -> int:
         self.log.append(("pick", images))
         return self.picks
 
-    async def inspect(self, motion: str, stills: list[Path]) -> Verdict:
+    async def inspect(self, motion: str, stills: list[Path], style: Style) -> Verdict:
         self.log.append(("inspect", stills))
         flagged = self.inspected in self.flag
         self.inspected += 1
         return Verdict(score=4.0 if flagged else 8.0, notes="smear" if flagged else "")
 
-    async def judge(self, script: Script, stills: list[Path]) -> Verdict:
+    async def judge(self, script: Script, stills: list[Path], style: Style) -> Verdict:
         self.log.append(("judge", stills))
         return self.reject or Verdict(score=8.5)
 
@@ -146,12 +162,17 @@ class FakeComposer:
 class FakeMontage:
     seconds_per_file: float = 3.0
     rendered: list[Cut] = field(default_factory=list)
+    moments: list[float] = field(default_factory=list)
 
     async def seconds(self, media: Path) -> float:
         return self.seconds_per_file
 
     async def stills(self, video: Path, count: int, out_dir: Path) -> list[Path]:
         return [_touch(out_dir / f"{i:02d}.png") for i in range(count)]
+
+    async def stills_at(self, video: Path, times: list[float], out_dir: Path) -> list[Path]:
+        self.moments = times
+        return [_touch(out_dir / f"{i:02d}.png") for i in range(len(times))]
 
     async def render(self, cut: Cut, out: Path) -> Path:
         self.rendered.append(cut)
@@ -205,5 +226,6 @@ def services(
         publisher=publisher or FakePublisher(),
         tariff=tariff(),
         media=media,
+        styles=STYLES,
         analytics=analytics,
     )

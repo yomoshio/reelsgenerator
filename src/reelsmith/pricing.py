@@ -1,7 +1,8 @@
 """What a call costs: GPU seconds per unit, and dollars at the hourly rent.
 
-The seconds are the research's benchmark assumptions for an RTX 5090 with FP8 weights and
-the lightx2v LoRAs on Wan. Measure your own after the first week and change the table."""
+The seconds were measured on an RTX 4090 48 GB with the graphs in workflows/ and the
+defaults in settings.py, model loading excluded. `wan-5b` is not measured yet. A different
+card or bigger clips change them; the time of each prompt is in ComfyUI's queue panel."""
 
 import time
 from collections.abc import Iterator, Mapping
@@ -29,10 +30,10 @@ class Rate:
 
 RATES: Mapping[str, Rate] = {
     "ollama": Rate(Unit.CALL, 15),
-    "z-image": Rate(Unit.IMAGE, 10),
-    "wan-2.2": Rate(Unit.SECOND, 48),
-    "wan-5b": Rate(Unit.SECOND, 12),
-    "voxcpm": Rate(Unit.CHAR, 0.05),
+    "z-image": Rate(Unit.IMAGE, 4),
+    "wan-2.2": Rate(Unit.SECOND, 14),
+    "wan-5b": Rate(Unit.SECOND, 6),
+    "voxcpm": Rate(Unit.CHAR, 0.07),
     "ace-step": Rate(Unit.SECOND, 2),
 }
 

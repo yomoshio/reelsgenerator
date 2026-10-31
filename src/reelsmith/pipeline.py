@@ -1,11 +1,11 @@
-"""The stations of the conveyor, in order, and what each one needs from outside.
+"""The stages of the conveyor in order, and the services they need.
 
 Every stage talks to one GPU service, so the conveyor can hold the card for it. That is
-why the judge (Ollama) gets stages of its own, `pick` and `check`, between the ComfyUI
-ones instead of being called in the middle of them."""
+why the judge has stages of its own, `pick` and `check`, between the ComfyUI ones."""
 
+import re
 from collections.abc import Awaitable, Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import timedelta
 from pathlib import Path
 from typing import Protocol
@@ -20,39 +20,44 @@ from reelsmith.models import (
     Recipe,
     Rewind,
     Script,
+    Shot,
     StageError,
     Status,
     Verdict,
 )
 from reelsmith.pricing import Tariff, metered
-from reelsmith.services.ffmpeg import Cut, Segment, Word, captions, shift, to_ass
+from reelsmith.services.ffmpeg import Card, Cut, Segment, Word, captions, shift, to_ass
+from reelsmith.styles import Style, Styles
 
-FRAME_STYLE = "vertical 9:16 film still, natural light, shallow depth of field, 35mm grain"
 SHOT_PADDING = 0.35  # breath after each line so cuts do not clip the last syllable
 SHOT_MIN, SHOT_MAX = 2.0, 8.0
-SCRIPT_PASS, CLIP_PASS, QA_PASS = 7.0, 6.0, 7.0
-REWRITES = 2  # script rewrites after a failed critique
-CANDIDATES = 2  # frames painted per shot
-CLIP_TRIES = 3  # animations of one shot before its last clip is kept whatever the judge says
-STILLS, QA_STILLS = 4, 8
+STILLS = 4  # per clip for the judge
 
 
-# What a stage may ask for. Real implementations live in services/, stand-ins in
-# services/synthetic.py, and tests/fakes.py has the scripted ones.
+@dataclass(frozen=True)
+class Gates:
+    """Where the judges draw the line and how often a stage may try again."""
+
+    script_pass: float = 7.0
+    clip_pass: float = 6.0
+    qa_pass: float = 7.0
+    rewrites: int = 2
+    candidates: int = 2
+    clip_tries: int = 3
 
 
 class Llm(Protocol):
     name: str
 
-    async def write(self, idea: str, notes: str | None = None) -> Script: ...
+    async def write(self, idea: str, style: Style, notes: str | None = None) -> Script: ...
 
-    async def review(self, script: Script) -> Verdict: ...
+    async def review(self, script: Script, style: Style) -> Verdict: ...
 
-    async def pick(self, brief: str, images: list[Path]) -> int: ...
+    async def pick(self, brief: str, images: list[Path], style: Style) -> int: ...
 
-    async def inspect(self, motion: str, stills: list[Path]) -> Verdict: ...
+    async def inspect(self, motion: str, stills: list[Path], style: Style) -> Verdict: ...
 
-    async def judge(self, script: Script, stills: list[Path]) -> Verdict: ...
+    async def judge(self, script: Script, stills: list[Path], style: Style) -> Verdict: ...
 
 
 class Painter(Protocol):
@@ -97,6 +102,8 @@ class Montage(Protocol):
 
     async def stills(self, video: Path, count: int, out_dir: Path) -> list[Path]: ...
 
+    async def stills_at(self, video: Path, times: list[float], out_dir: Path) -> list[Path]: ...
+
     async def render(self, cut: Cut, out: Path) -> Path: ...
 
 
@@ -122,7 +129,9 @@ class Services:
     publisher: Publisher
     tariff: Tariff
     media: Path
+    styles: Styles
     analytics: Analytics | None = None
+    gates: Gates = Gates()
 
     def painter(self, name: str) -> Painter:
         return _named(self.painters, name, "image")
@@ -131,6 +140,7 @@ class Services:
         return _named(self.animators, name, "video")
 
     def check(self, recipe: Recipe) -> None:
+        self.styles.get(recipe.style)
         self.painter(recipe.image)
         for shot in (0, recipe.hook_shots):
             self.animator(recipe.video_for(shot))
@@ -196,22 +206,25 @@ def seed_for(job_id: UUID, salt: int = 0) -> int:
     return (int.from_bytes(job_id.bytes[:4], "big") + salt) % 2**31
 
 
-# The stages. Each reads what earlier ones left on the job and adds its part.
-
-
 async def write(job: Job, s: Services) -> None:
-    """Writer and critic go round until the script scores 7 or the rewrites are spent.
-    The best draft is kept either way: the gate is advisory, the report shows it."""
+    """Writer and critic go round until the script passes or the rewrites are spent. A
+    script outside the style's shot count cannot pass. The best draft is kept either way."""
+    style = s.styles.get(job.recipe.style)
     best: tuple[Script, Verdict] | None = None
     notes: str | None = None
-    for _ in range(REWRITES + 1):
+    for _ in range(s.gates.rewrites + 1):
         with metered(job, s.tariff, stage="script", provider=s.llm.name):
-            script = await s.llm.write(job.idea, notes)
+            script = await s.llm.write(job.idea, style, notes)
         with metered(job, s.tariff, stage="critic", provider=s.llm.name):
-            verdict = await s.llm.review(script)
+            verdict = await s.llm.review(script, style)
+        if problem := style.misfit(script):
+            verdict = Verdict(
+                score=min(verdict.score, s.gates.script_pass - 1),
+                notes=f"{problem} {verdict.notes}",
+            )
         if best is None or verdict.score > best[1].score:
             best = (script, verdict)
-        if verdict.score >= SCRIPT_PASS:
+        if verdict.score >= s.gates.script_pass:
             break
         notes = verdict.notes
     if best is not None:
@@ -232,15 +245,16 @@ async def voice(job: Job, s: Services) -> None:
 
 
 async def paint(job: Job, s: Services) -> None:
-    """Two candidate frames per shot; `pick` chooses between them in the next stage."""
+    """Candidate frames for every shot; `pick` chooses among them in the next stage."""
     script, files = job.require_script(), Files(s.media, job.id)
+    style = s.styles.get(job.recipe.style)
     painter = s.painter(job.recipe.image)
     for i, shot in enumerate(script.shots):
         if i in job.assets.candidates:
             continue
-        prompt = ". ".join(p for p in (script.looks_of(shot), shot.picture, FRAME_STYLE) if p)
+        prompt = ". ".join(p for p in (script.looks_of(shot), shot.picture, style.look.frame) if p)
         made: list[Path] = []
-        for k in range(CANDIDATES):
+        for k in range(s.gates.candidates):
             seed = seed_for(job.id, 1000 + i * 10 + k)
             with metered(job, s.tariff, stage="frame", provider=painter.name, shot=i):
                 made.append(await painter.paint(prompt, seed=seed, out=files.frame(i, k)))
@@ -249,12 +263,13 @@ async def paint(job: Job, s: Services) -> None:
 
 async def pick(job: Job, s: Services) -> None:
     script, files = job.require_script(), Files(s.media, job.id)
+    style = s.styles.get(job.recipe.style)
     for i, shot in enumerate(script.shots):
         if i in job.assets.frames:
             continue
         images = [files.resolve(p) for p in job.assets.candidates[i]]
         with metered(job, s.tariff, stage="pick", provider=s.llm.name, shot=i):
-            chosen = await s.llm.pick(shot.picture, images)
+            chosen = await s.llm.pick(shot.picture, images, style)
         job.assets.frames[i] = job.assets.candidates[i][chosen]
 
 
@@ -262,9 +277,11 @@ async def animate(job: Job, s: Services) -> None:
     """One clip per shot from its chosen frame. Shots that already have a clip are skipped,
     so a rewind redoes only what `check` or QA threw away; the seed moves with the attempt."""
     script, files = job.require_script(), Files(s.media, job.id)
+    style = s.styles.get(job.recipe.style)
     for i, shot in enumerate(script.shots):
         if i in job.assets.clips:
             continue
+        motion = ". ".join(m for m in (shot.motion, style.look.motion) if m)
         animator = s.animator(job.recipe.video_for(i))
         seconds = min(shot.seconds, animator.max_seconds)
         seed = seed_for(job.id, 2000 + i * 10 + job.attempts)
@@ -278,7 +295,7 @@ async def animate(job: Job, s: Services) -> None:
         ):
             clip = await animator.animate(
                 files.resolve(job.assets.frames[i]),
-                shot.motion,
+                motion,
                 seconds=seconds,
                 seed=seed,
                 out=files.clip(i),
@@ -287,19 +304,24 @@ async def animate(job: Job, s: Services) -> None:
 
 
 async def check(job: Job, s: Services) -> None:
-    """The judge looks at four stills of every clip. A flagged clip is dropped and the job
-    goes back to `animate`, unless that shot has had its tries: then the clip stays."""
+    """The judge looks at four stills of every clip it has not seen yet. A flagged clip is
+    dropped and the job goes back to `animate`, unless that shot has had its tries: then
+    the clip stays. A clip that passed once is not judged again, or a judge that wavers
+    would send the job round until it runs out of attempts."""
     script, files = job.require_script(), Files(s.media, job.id)
+    style = s.styles.get(job.recipe.style)
     redo: list[int] = []
     for i, shot in enumerate(script.shots):
+        if _judged(job, i):
+            continue
         stills = await s.montage.stills(files.resolve(job.assets.clips[i]), STILLS, files.stills(i))
         with metered(job, s.tariff, stage="inspect", provider=s.llm.name, shot=i):
-            verdict = await s.llm.inspect(shot.motion, stills)
-        if verdict.score >= CLIP_PASS:
+            verdict = await s.llm.inspect(shot.motion, stills, style)
+        if verdict.score >= s.gates.clip_pass:
             continue
         made = _animations(job, i)
         made[-1].outcome = Outcome.FLAGGED
-        if len(made) < CLIP_TRIES:
+        if len(made) < s.gates.clip_tries:
             redo.append(i)
     for i in redo:
         del job.assets.clips[i]
@@ -309,6 +331,19 @@ async def check(job: Job, s: Services) -> None:
 
 def _animations(job: Job, shot: int) -> list[Call]:
     return [c for c in job.calls if c.stage == "animate" and c.shot == shot and not c.shared]
+
+
+def _judged(job: Job, shot: int) -> bool:
+    """Whether an inspection came after the latest animation of this shot."""
+    last = {"animate": -1, "inspect": -1}
+    for n, call in enumerate(job.calls):
+        if (
+            call.shot == shot
+            and call.stage in last
+            and not (call.shared and call.stage == "animate")
+        ):
+            last[call.stage] = n
+    return last["inspect"] > last["animate"]
 
 
 async def score(job: Job, s: Services) -> None:
@@ -325,35 +360,74 @@ async def score(job: Job, s: Services) -> None:
 
 async def assemble(job: Job, s: Services) -> None:
     """Cuts the clips to their lines, mixes voice over music, burns subtitles, then shows
-    the judge eight stills of the result. A failed QA drops the bad clips and rewinds."""
+    the judge one still from the middle of every shot. A failed QA drops the bad clips
+    and rewinds."""
     script, files = job.require_script(), Files(s.media, job.id)
+    style = s.styles.get(job.recipe.style)
     if job.assets.music is None:
         raise LookupError(f"job {job.id} reached assembly without music")
 
     segments: list[Segment] = []
     words: list[Word] = []
+    starts: list[float] = []
     start = 0.0
     for i, shot in enumerate(script.shots):
         voice = files.resolve(job.assets.voices[i])
-        words += shift(await s.transcriber.words(voice), start)
+        spoken = shift(await s.transcriber.words(voice), start)
+        words += _accented(spoken, shot)
         segments.append(Segment(files.resolve(job.assets.clips[i]), voice, shot.seconds))
+        starts.append(start)
         start += shot.seconds
 
     subtitles = files.subtitles()
-    subtitles.write_text(to_ass(captions(words)), encoding="utf-8")
+    ass = to_ass(
+        captions(words, max_words=style.captions.words), style, _cards(script, style, starts)
+    )
+    subtitles.write_text(ass, encoding="utf-8")
     cut = Cut(tuple(segments), files.resolve(job.assets.music), subtitles)
     final = await s.montage.render(cut, files.final())
     job.assets.final = files.relative(final)
 
-    stills = await s.montage.stills(final, QA_STILLS, files.stills(None))
+    middles = [start + shot.seconds / 2 for start, shot in zip(starts, script.shots, strict=True)]
+    stills = await s.montage.stills_at(final, middles, files.stills(None))
     with metered(job, s.tariff, stage="qa", provider=s.llm.name):
-        verdict = await s.llm.judge(script, stills)
+        verdict = await s.llm.judge(script, stills, style)
+    verdict.bad_shots = [i for i in verdict.bad_shots if 0 <= i < len(script.shots)]
     job.qa = verdict
-    if verdict.score < QA_PASS:
+    if verdict.score < s.gates.qa_pass:
         for i in verdict.bad_shots or list(job.assets.clips):
             job.assets.clips.pop(i, None)
         job.assets.final = None
         raise Rewind(Status.FRAMED, verdict.notes or "the cut did not pass QA")
+
+
+def _accented(words: list[Word], shot: Shot) -> list[Word]:
+    """Marks the words the writer asked to stress; the style decides how they look."""
+    wanted = {_bare(w) for phrase in shot.stress for w in phrase.split()}
+    return [replace(w, accent=_bare(w.text) in wanted) for w in words]
+
+
+def _bare(word: str) -> str:
+    return re.sub(r"\W", "", word.lower())
+
+
+def _cards(script: Script, style: Style, starts: list[float]) -> list[Card]:
+    """Overlays on the timeline: each lasts from its shot through `hold` shots, or until
+    the next overlay of its kind comes up, so two rule banners never share a frame."""
+    cards: list[Card] = []
+    for i, shot in enumerate(script.shots):
+        for overlay in shot.overlays:
+            if overlay.kind not in style.overlays:
+                continue
+            last = min(i + overlay.hold, len(script.shots)) - 1
+            end = starts[last] + script.shots[last].seconds
+            cards.append(Card(overlay.kind, overlay.text, starts[i], end))
+    following: dict[str, float] = {}
+    for n in reversed(range(len(cards))):
+        card = cards[n]
+        cards[n] = replace(card, end=min(card.end, following.get(card.kind, card.end)))
+        following[card.kind] = card.start
+    return cards
 
 
 async def publish(job: Job, s: Services) -> None:

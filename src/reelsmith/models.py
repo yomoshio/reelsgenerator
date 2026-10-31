@@ -39,9 +39,10 @@ GOOD = frozenset({Status.APPROVED, Status.PUBLISHED, Status.MEASURED})
 
 
 class Recipe(BaseModel):
-    """Which models draw and animate this job. The first `hook_shots` shots go to
-    `hook_video`, the rest to `video`."""
+    """Which models draw and animate this job and which style template shapes it. The first
+    `hook_shots` shots go to `hook_video`, the rest to `video`."""
 
+    style: str = "noir"
     image: str = "z-image"
     video: str = "wan-2.2"
     hook_video: str | None = None
@@ -58,11 +59,23 @@ class Character(BaseModel):
     look: str = Field(description="Face, age, hair, clothes. Repeated verbatim in every shot.")
 
 
+class Overlay(BaseModel):
+    """A graphic drawn over the picture: a rule banner, a label on an object, a name card."""
+
+    kind: str = Field(description="One of the kinds the style offers.")
+    text: str = Field(description="Short text in the narration language; `|` starts a second line.")
+    hold: int = Field(default=1, ge=1, le=8, description="Shots it stays up, this one included.")
+
+
 class Shot(BaseModel):
     line: str = Field(description="Voiceover for this shot, one or two short sentences.")
     picture: str = Field(description="What the still frame shows. No camera moves here.")
     motion: str = Field(description="What moves during the shot and how the camera behaves.")
     cast: list[str] = Field(default_factory=list, description="Names of characters in frame.")
+    stress: list[str] = Field(
+        min_length=1, description="One or two words of `line`, copied exactly, to highlight."
+    )
+    overlays: list[Overlay] = Field(default_factory=list)
     seconds: float = Field(default=4.0, ge=2.0, le=8.0)
 
 
@@ -71,7 +84,7 @@ class Script(BaseModel):
     hook: str = Field(description="What the viewer sees and hears in the first two seconds.")
     hook_kind: str = Field(description="One word: question, threat, promise, secret, countdown.")
     characters: list[Character]
-    shots: list[Shot] = Field(min_length=3, max_length=10)
+    shots: list[Shot] = Field(min_length=3, max_length=24)
     music: str = Field(description="Genre, tempo and mood for the background track.")
 
     def looks_of(self, shot: Shot) -> str:

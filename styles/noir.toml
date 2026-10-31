@@ -1,0 +1,33 @@
+about = "Photographic horror and mystery shorts, 30 to 50 seconds. The channel as it was before styles existed."
+
+[story]
+shots = [6, 9]
+seconds = [30, 50]
+words = 18
+brief = """
+The viewer decides in two seconds whether to stay. Open on an image or a line that
+raises a question, never on an introduction. Every shot must give a reason to watch
+the next one. End on a turn, not a summary.
+
+Suspense over gore: no blood, wounds or real violence on screen. The music is a quiet
+drone with sparse piano, nothing with a beat.
+"""
+critic = """
+Does the hook raise a question in the first two seconds? Does every shot give a reason to
+watch the next one? Is the ending a turn rather than a summary?
+"""
+
+[look]
+frame = "vertical 9:16 film still, natural light, shallow depth of field, 35mm grain"
+motion = ""
+judge = """
+The pictures are photographic film stills of a horror short. Look for smeared or melting
+faces, extra limbs, and text inside the frame.
+"""
+
+[captions]
+font = "Montserrat ExtraBold"
+size = 92
+margin_v = 620
+words = 3
+accent = "FFFFFF"

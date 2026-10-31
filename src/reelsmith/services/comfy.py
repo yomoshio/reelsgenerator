@@ -1,9 +1,9 @@
 """ComfyUI over HTTP: the key frames, the clips and the music.
 
-Graphs are exported from the ComfyUI editor with "Export (API)" and kept in git. Inputs
-the code fills in are marked in the editor by node title: a node titled `@prompt:text`
-gets its `text` input replaced by the `prompt` value. One slot may mark several nodes,
-which Wan 2.2 needs: its high- and low-noise samplers share a seed."""
+Graphs are kept in API format in workflows/. Inputs the code fills in are marked by node
+title: a node titled `@prompt:text` gets its `text` input replaced by the `prompt` value.
+A title may carry several slots (`@width:width @height:height`), and one slot may mark
+several nodes, which Wan 2.2 needs: its two samplers share a seed and a step count."""
 
 from __future__ import annotations
 
@@ -56,6 +56,10 @@ class Workflow:
             raise WorkflowMismatch(f"{self.name}: no nodes titled for {sorted(missing)}")
         return self
 
+    def supported(self, **values: object) -> dict[str, object]:
+        """The values this graph has slots for; a hand-made graph may lack the optional ones."""
+        return {name: value for name, value in values.items() if name in self._slots}
+
     def bind(self, **values: object) -> Graph:
         unknown = values.keys() - self._slots.keys()
         if unknown:
@@ -73,10 +77,13 @@ def _find_slots(graph: Graph) -> dict[str, list[Slot]]:
         title = node.get("_meta", {}).get("title", "")
         if not title.startswith("@"):
             continue
-        name, sep, field = title[1:].partition(":")
-        if not sep or field not in node.get("inputs", {}):
-            raise WorkflowMismatch(f"node {node_id} title {title!r} must be @slot:<existing input>")
-        slots[name].append(Slot(node_id, field))
+        for token in title.split():
+            name, sep, field = token.removeprefix("@").partition(":")
+            if not token.startswith("@") or not sep or field not in node.get("inputs", {}):
+                raise WorkflowMismatch(
+                    f"node {node_id} title {title!r}: each part must be @slot:<existing input>"
+                )
+            slots[name].append(Slot(node_id, field))
     return dict(slots)
 
 
@@ -140,11 +147,14 @@ class ComfyClient:
             return _outputs(entry.get("outputs", {}))
 
     async def _call(self, method: str, path: str, **kwargs: Any) -> httpx.Response:
+        # While a prompt renders, ComfyUI can take far longer than httpx's default five
+        # seconds to answer even a small request; a timeout there cost a whole attempt.
+        kwargs.setdefault("timeout", 120)
         try:
             reply = await self._http.request(method, path, **kwargs)
             reply.raise_for_status()
         except httpx.HTTPError as exc:
-            raise StageError(f"comfy: {method} {path}: {exc}") from exc
+            raise StageError(f"comfy: {method} {path}: {type(exc).__name__} {exc}".strip()) from exc
         return reply
 
 
@@ -184,13 +194,23 @@ def wan_length(seconds: float, fps: int = WAN_FPS) -> int:
 
 
 class ComfyPainter:
-    def __init__(self, client: ComfyClient, workflow: Workflow, *, name: str = "z-image") -> None:
+    def __init__(
+        self,
+        client: ComfyClient,
+        workflow: Workflow,
+        *,
+        name: str = "z-image",
+        width: int = 720,
+        height: int = 1280,
+        steps: int = 8,
+    ) -> None:
         self.name = name
         self._client = client
         self._workflow = workflow.require("prompt", "seed")
+        self._knobs = workflow.supported(width=width, height=height, steps=steps)
 
     async def paint(self, prompt: str, *, seed: int, out: Path) -> Path:
-        graph = self._workflow.bind(prompt=prompt, seed=seed)
+        graph = self._workflow.bind(prompt=prompt, seed=seed, **self._knobs)
         outputs = await self._client.run(graph, limit=180)
         return await self._client.download(_first(outputs, (".png",), self._workflow.name), out)
 
@@ -206,12 +226,19 @@ class ComfyAnimator:
         name: str = "wan-2.2",
         fps: int = WAN_FPS,
         max_seconds: float = 5.0,
+        width: int = 480,
+        height: int = 848,
+        steps: int = 4,
     ) -> None:
         self.name = name
         self.max_seconds = max_seconds
         self._fps = fps
         self._client = client
         self._workflow = workflow.require("image", "prompt", "length", "seed")
+        # The high-noise expert takes the first half of the steps, the low-noise one the rest.
+        self._knobs = workflow.supported(
+            width=width, height=height, steps=steps, split=max(steps // 2, 1)
+        )
 
     def length(self, seconds: float) -> float:
         return wan_length(seconds, self._fps) / self._fps
@@ -221,7 +248,9 @@ class ComfyAnimator:
     ) -> Path:
         image = await self._client.upload(frame)
         length = wan_length(seconds, self._fps)
-        graph = self._workflow.bind(image=image, prompt=motion, length=length, seed=seed)
+        graph = self._workflow.bind(
+            image=image, prompt=motion, length=length, seed=seed, **self._knobs
+        )
         outputs = await self._client.run(graph, limit=1800)
         return await self._client.download(_first(outputs, (".mp4",), self._workflow.name), out)
 
@@ -229,13 +258,16 @@ class ComfyAnimator:
 class ComfyComposer:
     suffix = ".flac"
 
-    def __init__(self, client: ComfyClient, workflow: Workflow, *, name: str = "ace-step") -> None:
+    def __init__(
+        self, client: ComfyClient, workflow: Workflow, *, name: str = "ace-step", steps: int = 8
+    ) -> None:
         self.name = name
         self._client = client
         self._workflow = workflow.require("tags", "seconds", "seed")
+        self._knobs = workflow.supported(steps=steps)
 
     async def compose(self, brief: str, *, seconds: float, seed: int, out: Path) -> Path:
-        graph = self._workflow.bind(tags=brief, seconds=round(seconds, 1), seed=seed)
+        graph = self._workflow.bind(tags=brief, seconds=round(seconds, 1), seed=seed, **self._knobs)
         outputs = await self._client.run(graph, limit=300)
         suffixes = (".flac", ".mp3", ".wav")
         return await self._client.download(_first(outputs, suffixes, self._workflow.name), out)

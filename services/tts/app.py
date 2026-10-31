@@ -35,7 +35,9 @@ class SpeakRequest(BaseModel):
 def _loaded() -> VoxCPM:
     global _model  # noqa: PLW0603 - one model per process, loaded on first request
     if _model is None:
-        _model = VoxCPM.from_pretrained(MODEL_ID)
+        # No torch.compile (the image has no C compiler) and no denoiser (it cleans other
+        # people's recordings, and the reference clip here is made by the model itself).
+        _model = VoxCPM.from_pretrained(MODEL_ID, optimize=False, load_denoiser=False)
     return _model
 
 

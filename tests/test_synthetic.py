@@ -12,15 +12,16 @@ from reelsmith.pricing import DEFAULT
 from reelsmith.services.ffmpeg import FfmpegMontage
 from reelsmith.services.synthetic import SyntheticLlm, SyntheticNarrator, SyntheticTranscriber
 from reelsmith.store import MemoryJobs
+from tests.fakes import REPO_STYLES, style
 
 needs_ffmpeg = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg")
 
 
 async def test_synthetic_scripts_are_deterministic_and_rewrites_change_them() -> None:
     llm = SyntheticLlm()
-    first = await llm.write("зомби в метро")
-    second = await llm.write("зомби в метро")
-    rewrite = await llm.write("зомби в метро", "tighten the hook")
+    first = await llm.write("зомби в метро", style())
+    second = await llm.write("зомби в метро", style())
+    rewrite = await llm.write("зомби в метро", style(), "tighten the hook")
 
     assert first == second
     assert first.hook_kind in {"question", "threat", "promise", "secret", "countdown"}
@@ -43,7 +44,11 @@ async def test_transcriber_spreads_words_over_the_recording(tmp_path: Path) -> N
 @needs_ffmpeg
 async def test_end_to_end_synthetic_run_produces_a_final_cut(tmp_path: Path) -> None:
     services = synthetic_services(
-        media=tmp_path / "media", outbox=tmp_path / "outbox", tariff=DEFAULT, analytics=True
+        media=tmp_path / "media",
+        outbox=tmp_path / "outbox",
+        styles=REPO_STYLES,
+        tariff=DEFAULT,
+        analytics=True,
     )
     stages = [replace(s, settled=timedelta(0)) for s in stages_for(services)]
     store = MemoryJobs()

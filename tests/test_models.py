@@ -8,7 +8,7 @@ from tests.fakes import recipe
 
 
 def _shot(line: str, cast: list[str] | None = None) -> Shot:
-    return Shot(line=line, picture="corridor", motion="slow push in", cast=cast or [])
+    return Shot(line=line, picture="corridor", motion="slow push in", cast=cast or [], stress=["x"])
 
 
 def _script() -> Script:

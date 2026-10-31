@@ -11,7 +11,7 @@ from psycopg_pool import AsyncConnectionPool
 
 from reelsmith.conveyor import Conveyor, Gpu, GpuTenant
 from reelsmith.models import Job, Recipe, Status
-from reelsmith.pipeline import STAGES, Animator, Painter, Services, Stage
+from reelsmith.pipeline import STAGES, Animator, Services, Stage
 from reelsmith.pricing import DEFAULT, Tariff
 from reelsmith.report import Arm, Report, compare, report
 from reelsmith.services import synthetic
@@ -29,6 +29,7 @@ from reelsmith.services.voxcpm import VoxNarrator
 from reelsmith.services.whisper import WhisperTranscriber
 from reelsmith.settings import Settings
 from reelsmith.store import MemoryJobs, PostgresJobs, Store
+from reelsmith.styles import Styles
 
 WAN_GRAPHS = {"wan-2.2": ("animate.json", 16), "wan-5b": ("animate-draft.json", 24)}
 DEMO_IDEAS = (
@@ -62,42 +63,63 @@ def local_services(
     comfy: httpx.AsyncClient,
     tts: httpx.AsyncClient,
 ) -> tuple[Services, dict[str, GpuTenant]]:
-    """The three graphs every run needs must be exported; the 5B draft graph is optional
-    and only adds the `wan-5b` model when present."""
+    """The three graphs in workflows/ are required; `animate-draft.json` is optional and
+    adds the `wan-5b` model when present."""
     llm = OllamaLlm(
         ollama,
         writer_model=settings.writer_model,
         judge_model=settings.judge_model,
         language=settings.language,
+        writer_temperature=settings.writer_temperature,
+        critic_temperature=settings.critic_temperature,
+        judge_temperature=settings.judge_temperature,
+        context=settings.llm_context,
     )
     client = ComfyClient(comfy)
-    narrator = VoxNarrator(tts, settings.voice)
+    narrator = VoxNarrator(tts, settings.voice, cfg=settings.voice_cfg, steps=settings.voice_steps)
 
     def graph(file: str) -> Workflow:
         path = settings.workflows / file
         if not path.exists():
             raise FileNotFoundError(
-                f"export {file} into {settings.workflows}; see workflows/README.md"
+                f"export {file} into {settings.workflows}; see docs/workflows.md"
             )
         return Workflow.load(path)
 
-    painters: dict[str, Painter] = {"z-image": ComfyPainter(client, graph("keyframe.json"))}
+    painter = ComfyPainter(
+        client,
+        graph("keyframe.json"),
+        width=settings.frame_width,
+        height=settings.frame_height,
+        steps=settings.frame_steps,
+    )
     animators: dict[str, Animator] = {}
     for name, (file, fps) in WAN_GRAPHS.items():
         if name == "wan-2.2" or (settings.workflows / file).exists():
-            animators[name] = ComfyAnimator(client, graph(file), name=name, fps=fps)
+            animators[name] = ComfyAnimator(
+                client,
+                graph(file),
+                name=name,
+                fps=fps,
+                max_seconds=settings.clip_seconds,
+                width=settings.clip_width,
+                height=settings.clip_height,
+                steps=settings.clip_steps,
+            )
 
     services = Services(
         llm=llm,
-        painters=painters,
+        painters={"z-image": painter},
         animators=animators,
         narrator=narrator,
-        composer=ComfyComposer(client, graph("score.json")),
+        composer=ComfyComposer(client, graph("score.json"), steps=settings.music_steps),
         transcriber=WhisperTranscriber(settings.whisper_model, settings.language),
-        montage=FfmpegMontage(),
+        montage=FfmpegMontage(music_level=settings.music_level, still_width=settings.judge_width),
         publisher=OutboxPublisher(settings.outbox),
         tariff=settings.tariff(),
         media=settings.media_root,
+        styles=Styles(settings.styles),
+        gates=settings.gates(),
     )
     return services, {"llm": llm, "comfy": client, "tts": narrator}
 
@@ -106,6 +128,7 @@ def synthetic_services(
     *,
     media: Path,
     outbox: Path,
+    styles: Path,
     tariff: Tariff,
     flag: float = 0.0,
     reject: float = 0.0,
@@ -127,6 +150,7 @@ def synthetic_services(
         publisher=OutboxPublisher(outbox),
         tariff=tariff,
         media=media,
+        styles=Styles(styles),
         analytics=synthetic.SyntheticAnalytics() if analytics else None,
     )
 
@@ -152,7 +176,10 @@ async def application(
         tenants: dict[str, GpuTenant] = {}
         if settings.services == "synthetic":
             services = synthetic_services(
-                media=settings.media_root, outbox=settings.outbox, tariff=settings.tariff()
+                media=settings.media_root,
+                outbox=settings.outbox,
+                styles=settings.styles,
+                tariff=settings.tariff(),
             )
         else:
             http = [
@@ -181,20 +208,27 @@ class DemoResult:
 
 
 async def demo(
-    ideas: list[str], *, arm_a: Recipe, arm_b: Recipe, out: Path, tariff: Tariff = DEFAULT
+    ideas: list[str],
+    *,
+    arm_a: Recipe,
+    arm_b: Recipe,
+    out: Path,
+    styles: Path,
+    tariff: Tariff = DEFAULT,
 ) -> DemoResult:
     """The whole conveyor in memory on synthetic models, with arm B forked on the same frames.
-
-    Nothing here reaches a model or a database; ffmpeg does the only real work. The point is
-    to watch the gates, the rewinds, the cost ledger and the comparison behave end to end."""
+    Nothing reaches a model or a database; ffmpeg does the only real work."""
     services = synthetic_services(
         media=out / "media",
         outbox=out / "outbox",
+        styles=styles,
         tariff=tariff,
         flag=DEMO_FLAG,
         reject=DEMO_REJECT,
         analytics=True,
     )
+    services.check(arm_a)
+    services.check(arm_b)
     stages = [replace(s, settled=timedelta(0)) for s in stages_for(services)]
     store = MemoryJobs()
     parents = [Job.new(idea, arm_a) for idea in ideas]

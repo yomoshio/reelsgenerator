@@ -1,15 +1,27 @@
 import json
+from dataclasses import replace
 from pathlib import Path
 from uuid import UUID
 
 import pytest
 
-from reelsmith.models import Call, Job, Metrics, Outcome, Post, Rewind, StageError, Status, Verdict
+from reelsmith.models import (
+    Call,
+    Job,
+    Metrics,
+    Outcome,
+    Overlay,
+    Post,
+    Rewind,
+    StageError,
+    Status,
+    Verdict,
+)
 from reelsmith.pipeline import (
-    FRAME_STYLE,
-    QA_STILLS,
     STAGES,
     Files,
+    Gates,
+    _cards,
     animate,
     assemble,
     check,
@@ -35,6 +47,7 @@ from tests.fakes import (
     recipe,
     script,
     services,
+    style,
 )
 
 
@@ -123,8 +136,17 @@ async def test_paint_makes_two_candidates_per_shot_and_skips_done_shots(tmp_path
     assert {c.shot for c in made.calls} == {1, 2}
     assert _stages(made).count("frame") == 4
     prompt, _ = painter.log[0]
-    assert prompt == f"nurse, 30s, grey cardigan. picture 1. {FRAME_STYLE}"
+    assert prompt == "nurse, 30s, grey cardigan. picture 1. FRAME"
     assert len({seed for _, seed in painter.log}) == 4
+
+
+async def test_gates_set_how_many_frames_are_painted(tmp_path: Path) -> None:
+    painter = FakePainter()
+    made = job(status=Status.VOICED, script=script(3))
+
+    await paint(made, replace(services(tmp_path, painter=painter), gates=Gates(candidates=1)))
+
+    assert [len(c) for c in made.assets.candidates.values()] == [1, 1, 1]
 
 
 async def test_pick_chooses_among_the_candidates(tmp_path: Path) -> None:
@@ -205,6 +227,21 @@ async def test_check_drops_flagged_clips_and_rewinds(tmp_path: Path) -> None:
     assert _stages(made).count("inspect") == 3
 
 
+async def test_check_does_not_judge_a_clip_twice(tmp_path: Path) -> None:
+    llm = FakeLlm(flag={1})
+    made = _animated(3)
+    with pytest.raises(Rewind):
+        await check(made, services(tmp_path, llm=llm))
+    made.calls.append(Call(stage="animate", provider="fast", units=4, usd=0.1, shot=1))
+    made.assets.clips[1] = "clips/01.mp4"
+
+    await check(made, services(tmp_path, llm=FakeLlm(flag={1, 2})))
+
+    inspected = [c.shot for c in made.calls if c.stage == "inspect"]
+    assert inspected == [0, 1, 2, 1]
+    assert set(made.assets.clips) == {0, 1, 2}
+
+
 async def test_check_keeps_a_clip_after_its_tries(tmp_path: Path) -> None:
     llm = FakeLlm(flag={0})
     made = _animated(3, tries={0: 3})
@@ -250,8 +287,68 @@ async def test_assemble_renders_and_passes_qa(tmp_path: Path) -> None:
     assert len(montage.rendered[0].segments) == 3
     assert (tmp_path / str(made.id) / "subtitles.ass").exists()
     kind, stills = llm.log[-1]
-    assert (kind, len(stills)) == ("judge", QA_STILLS)
+    assert (kind, len(stills)) == ("judge", 3)
+    assert montage.moments == [2.0, 6.0, 10.0]
     assert _stages(made) == ["qa"]
+
+
+async def test_assemble_puts_overlays_and_stressed_words_on_the_timeline(tmp_path: Path) -> None:
+    made = _scored()
+    shots = made.require_script().shots
+    shots[0].overlays = [
+        Overlay(kind="rule", text="1. Уходи", hold=2),
+        Overlay(kind="nope", text="x"),
+    ]
+    shots[1].overlays = [Overlay(kind="tag", text="ночью")]
+    shots[0].stress = ["line"]
+
+    await assemble(made, services(tmp_path))
+
+    ass = (tmp_path / str(made.id) / "subtitles.ass").read_text(encoding="utf-8")
+    assert "Dialogue: 1,0:00:00.00,0:00:08.00,Plate-rule," in ass
+    assert "Dialogue: 1,0:00:04.00,0:00:08.00,Plate-tag," in ass
+    assert "nope" not in ass
+    assert ass.count("&H001FD2FF&") == 1
+
+
+def test_a_new_overlay_of_the_same_kind_ends_the_previous_one() -> None:
+    made = script(5)
+    shots = made.shots
+    shots[0].overlays = [
+        Overlay(kind="rule", text="1. A", hold=5),
+        Overlay(kind="tag", text="t", hold=5),
+    ]
+    shots[3].overlays = [Overlay(kind="rule", text="2. B", hold=2)]
+
+    cards = _cards(made, style(), [0.0, 4.0, 8.0, 12.0, 16.0])
+
+    spans = {(c.text, c.start, c.end) for c in cards}
+    assert spans == {("1. A", 0.0, 12.0), ("t", 0.0, 20.0), ("2. B", 12.0, 20.0)}
+
+
+async def test_write_rejects_a_script_outside_the_styles_shot_range(tmp_path: Path) -> None:
+    llm = FakeLlm(scores=[9.0], shots=[12, 11, 5])
+    made = job()
+
+    await write(made, services(tmp_path, llm=llm))
+
+    assert len(made.require_script().shots) == 5
+    assert [n for _, n in llm.written][1:] == [
+        "The script has 12 shots; this channel needs 3 to 10. tighten the hook",
+        "The script has 11 shots; this channel needs 3 to 10. tighten the hook",
+    ]
+
+
+async def test_qa_ignores_shot_numbers_the_script_does_not_have(tmp_path: Path) -> None:
+    llm = FakeLlm(reject=Verdict(score=5.0, notes="drift", bad_shots=[2, 17]))
+    made = _scored()
+
+    with pytest.raises(Rewind):
+        await assemble(made, services(tmp_path, llm=llm))
+
+    assert made.qa is not None
+    assert made.qa.bad_shots == [2]
+    assert set(made.assets.clips) == {0, 1}
 
 
 async def test_qa_rejection_rewinds_and_drops_only_the_bad_clips(tmp_path: Path) -> None:

@@ -4,18 +4,50 @@ The planning functions are pure: they build argument lists and ASS text. `Ffmpeg
 only runs what they build."""
 
 import asyncio
+import re
 from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
 from reelsmith.models import StageError
+from reelsmith.styles import Plate, Style
 
 WIDTH, HEIGHT, FPS = 1080, 1920, 30
+# Clips are rendered at 480x848, so stills wider than this only add tokens for the judge.
+STILL_WIDTH = 540
 MUSIC_LEVEL = 0.22
 
 
 @dataclass(frozen=True, slots=True)
 class Word:
+    text: str
+    start: float
+    end: float
+    accent: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class Caption:
+    words: tuple[Word, ...]
+
+    @property
+    def text(self) -> str:
+        return " ".join(w.text for w in self.words)
+
+    @property
+    def start(self) -> float:
+        return self.words[0].start
+
+    @property
+    def end(self) -> float:
+        return self.words[-1].end
+
+
+@dataclass(frozen=True, slots=True)
+class Card:
+    """An overlay placed on the timeline of the whole video."""
+
+    kind: str
     text: str
     start: float
     end: float
@@ -35,7 +67,7 @@ class Cut:
     subtitles: Path
 
 
-def ffmpeg_args(cut: Cut, out: Path) -> list[str]:
+def ffmpeg_args(cut: Cut, out: Path, *, music_level: float = MUSIC_LEVEL) -> list[str]:
     inputs: list[str] = []
     for seg in cut.segments:
         inputs += ["-i", str(seg.clip), "-i", str(seg.voice)]
@@ -49,7 +81,7 @@ def ffmpeg_args(cut: Cut, out: Path) -> list[str]:
     graph += [
         f"{video_labels}concat=n={n}:v=1:a=0,subtitles=filename='{_quoted(cut.subtitles)}'[video]",
         f"{voice_labels}concat=n={n}:v=0:a=1,asplit=2[voice][key]",
-        f"[{music_index}:a]aresample=48000,volume={MUSIC_LEVEL}[bed]",
+        f"[{music_index}:a]aresample=48000,volume={music_level}[bed]",
         "[bed][key]sidechaincompress=threshold=0.04:ratio=8:attack=20:release=400[ducked]",
         "[voice][ducked]amix=inputs=2:duration=first:normalize=0[audio]",
     ]
@@ -65,12 +97,14 @@ def ffmpeg_args(cut: Cut, out: Path) -> list[str]:
     ]  # fmt: skip
 
 
-def stills_args(video: Path, count: int, seconds: float, out_dir: Path) -> list[str]:
+def stills_args(
+    video: Path, count: int, seconds: float, out_dir: Path, *, width: int = STILL_WIDTH
+) -> list[str]:
     spacing = max(seconds / count, 0.001)
     return [
         "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
         "-i", str(video),
-        "-vf", f"fps=1/{spacing:.3f}", "-frames:v", str(count),
+        "-vf", f"fps=1/{spacing:.3f},scale={width}:-2", "-frames:v", str(count),
         str(out_dir / "%02d.png"),
     ]  # fmt: skip
 
@@ -100,10 +134,10 @@ def _quoted(path: Path) -> str:
 
 
 def shift(words: Iterable[Word], offset: float) -> list[Word]:
-    return [Word(w.text, w.start + offset, w.end + offset) for w in words]
+    return [Word(w.text, w.start + offset, w.end + offset, w.accent) for w in words]
 
 
-def captions(words: Iterable[Word], *, max_words: int = 3, max_gap: float = 0.6) -> list[Word]:
+def captions(words: Iterable[Word], *, max_words: int = 3, max_gap: float = 0.6) -> list[Caption]:
     """Groups words into short on-screen captions the way shorts are usually subtitled."""
     groups: list[list[Word]] = []
     for word in words:
@@ -112,31 +146,95 @@ def captions(words: Iterable[Word], *, max_words: int = 3, max_gap: float = 0.6)
             current.append(word)
         else:
             groups.append([word])
-    return [Word(" ".join(w.text for w in g), g[0].start, g[-1].end) for g in groups]
+    return [Caption(tuple(g)) for g in groups]
 
 
-ASS_HEADER = f"""[Script Info]
-ScriptType: v4.00+
-PlayResX: {WIDTH}
-PlayResY: {HEIGHT}
-
-[V4+ Styles]
-Format: Name, Fontname, Fontsize, PrimaryColour, OutlineColour, BackColour, Bold, \
-BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV
-Style: Caption, Montserrat ExtraBold, 92, &H00FFFFFF, &H00000000, &H64000000, -1, \
-1, 6, 0, 2, 80, 80, 620
-
-[Events]
-Format: Layer, Start, End, Style, Text
-"""
-
-
-def to_ass(lines: Iterable[Word]) -> str:
-    events = [
-        f"Dialogue: 0,{_ass_time(c.start)},{_ass_time(c.end)},Caption,{c.text.upper()}"
-        for c in lines
+def to_ass(lines: Iterable[Caption], style: Style, cards: Iterable[Card] = ()) -> str:
+    look = style.captions
+    plates = style.overlays
+    out = [
+        "[Script Info]",
+        "ScriptType: v4.00+",
+        f"PlayResX: {WIDTH}",
+        f"PlayResY: {HEIGHT}",
+        "",
+        "[V4+ Styles]",
+        "Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, "
+        "BackColour, Bold, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV",
+        f"Style: Caption,{look.font},{look.size},{_colour(look.spoken)},{_colour(look.upcoming)},"
+        f"{_colour(look.outline)},&H64000000,-1,1,{look.outline_px},0,2,80,80,{look.margin_v}",
+        *(_plate_style(kind, plate, look.font) for kind, plate in plates.items()),
+        "",
+        "[Events]",
+        "Format: Layer, Start, End, Style, Text",
     ]
-    return ASS_HEADER + "\n".join(events) + "\n"
+    for card in cards:
+        if card.kind in plates:
+            out.append(
+                _event(
+                    1,
+                    card.start,
+                    card.end,
+                    f"Plate-{card.kind}",
+                    _card_text(card, plates[card.kind]),
+                )
+            )
+    out += [_event(0, c.start, c.end, "Caption", _caption_text(c, style)) for c in lines]
+    return "\n".join(out) + "\n"
+
+
+def _plate_style(kind: str, plate: Plate, default_font: str) -> str:
+    # In a boxed style the outline colour paints the box and the outline width is its padding.
+    return (
+        f"Style: Plate-{kind},{plate.font or default_font},{plate.size},{_colour(plate.ink)},"
+        f"{_colour(plate.ink)},{_colour(plate.fill)},&H00000000,-1,3,{plate.pad},0,{plate.align},"
+        f"{plate.margin_l},{plate.margin_r},{plate.margin_v}"
+    )
+
+
+def _caption_text(caption: Caption, style: Style) -> str:
+    look = style.captions
+    parts: list[str] = []
+    for i, word in enumerate(caption.words):
+        following = caption.words[i + 1].start if i + 1 < len(caption.words) else caption.end
+        sweep = f"\\k{max(round((following - word.start) * 100), 1)}" if look.karaoke else ""
+        colour = _tag(look.accent if word.accent else look.spoken)
+        parts.append(f"{{\\1c{colour}{sweep}}}{_plain(word.text).upper()}")
+    return " ".join(parts)
+
+
+_NUMBERED = re.compile(r"^(\d+\.)\s*(.*)$")
+_POP = "{\\fad(140,100)\\fscx85\\fscy85\\t(0,180,\\fscx100\\fscy100)}"
+
+
+def _card_text(card: Card, plate: Plate) -> str:
+    first, _, second = card.text.partition("|")
+    head = _plain(first).strip()
+    head = head.upper() if plate.upper else head
+    if plate.number and (numbered := _NUMBERED.match(head)):
+        numeral, rest = numbered[1], numbered[2]
+        head = f"{{\\1c{_tag(plate.number)}}}{numeral}{{\\1c{_tag(plate.ink)}}} {rest}"
+    if detail := _plain(second).strip():
+        detail = detail.upper() if plate.upper else detail
+        head += f"\\N{{\\fs{round(plate.size * 0.6)}\\b0}}{detail}"
+    return _POP + head
+
+
+def _event(layer: int, start: float, end: float, style: str, text: str) -> str:
+    return f"Dialogue: {layer},{_ass_time(start)},{_ass_time(end)},{style},{text}"
+
+
+def _plain(text: str) -> str:
+    return re.sub(r"[{}\\]", "", text)
+
+
+def _colour(hex_rgb: str) -> str:
+    r, g, b = hex_rgb[0:2], hex_rgb[2:4], hex_rgb[4:6]
+    return f"&H00{b}{g}{r}".upper()
+
+
+def _tag(hex_rgb: str) -> str:
+    return _colour(hex_rgb) + "&"
 
 
 def _ass_time(seconds: float) -> str:
@@ -147,7 +245,33 @@ def _ass_time(seconds: float) -> str:
     return f"{hours}:{minutes:02d}:{secs:02d}.{centis:02d}"
 
 
+async def preview(style: Style, out: Path) -> Path:
+    """One frame with sample captions and every overlay of the style, for tuning a template."""
+    words = [
+        Word("Это", 0.2, 0.6),
+        Word("ударное", 0.7, 1.3, accent=True),
+        Word("слово.", 1.4, 2.0),
+    ]
+    cards = [
+        Card(kind, f"1. {kind}" if plate.number else f"{kind} | пример", 0.0, 3.0)
+        for kind, plate in style.overlays.items()
+    ]
+    subtitles = out.with_suffix(".ass")
+    subtitles.write_text(to_ass(captions(words), style, cards), encoding="utf-8")
+    await run(
+        "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+        "-f", "lavfi", "-i", f"color=c=0x0b1020:s={WIDTH}x{HEIGHT}:d=3:r=10,format=yuv420p",
+        "-vf", f"subtitles=filename='{_quoted(subtitles)}'",
+        "-ss", "1.2", "-frames:v", "1", str(out),
+    )  # fmt: skip
+    return out
+
+
 class FfmpegMontage:
+    def __init__(self, *, music_level: float = MUSIC_LEVEL, still_width: int = STILL_WIDTH) -> None:
+        self.music_level = music_level
+        self.still_width = still_width
+
     async def seconds(self, media: Path) -> float:
         out = await run(
             "ffprobe", "-v", "error", "-show_entries", "format=duration",
@@ -156,11 +280,24 @@ class FfmpegMontage:
         return float(out)
 
     async def stills(self, video: Path, count: int, out_dir: Path) -> list[Path]:
-        await run(*stills_args(video, count, await self.seconds(video), out_dir))
+        seconds = await self.seconds(video)
+        await run(*stills_args(video, count, seconds, out_dir, width=self.still_width))
         return await asyncio.to_thread(lambda: sorted(out_dir.glob("*.png")))
 
+    async def stills_at(self, video: Path, times: list[float], out_dir: Path) -> list[Path]:
+        made: list[Path] = []
+        for n, at in enumerate(times):
+            out = out_dir / f"{n:02d}.png"
+            await run(
+                "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+                "-ss", f"{at:.3f}", "-i", str(video),
+                "-frames:v", "1", "-vf", f"scale={self.still_width}:-2", str(out),
+            )  # fmt: skip
+            made.append(out)
+        return made
+
     async def render(self, cut: Cut, out: Path) -> Path:
-        await run(*ffmpeg_args(cut, out))
+        await run(*ffmpeg_args(cut, out, music_level=self.music_level))
         return out
 
 

@@ -1,0 +1,124 @@
+about = "Serial survival story told as numbered rules on flat vector graphics, 60 to 100 seconds. Each part ends on an open question about the next."
+
+[story]
+shots = [14, 20]
+seconds = [60, 100]
+words = 12
+brief = """
+You write one part of a serial story told as numbered rules. A character is in the middle
+of a crisis and the narrator explains what he must do, one rule at a time. Each rule is a
+short scene: the rule is stated in a few words, then the scene shows what happens when it
+is followed or broken.
+
+Structure of a part:
+1. Open mid-action on a concrete object, a place or a number, with the name of the person
+   it happens to. One short line of context for someone who missed the earlier parts,
+   never more.
+2. Three rules. The narrator announces each one aloud: "The first rule: ...", "The second
+   rule: ...", "The third rule: ...". The shot that says it carries a `rule` overlay with
+   the same words, an imperative of at most six words, and `hold` set to the number of
+   shots the scene lasts so the banner stays up.
+3. Every rule has a limit that can be counted: one minute of light, forty floors, three
+   knocks, a guard change at four. Say the limit, then show the clock running.
+4. After each rule, three or four shots show it at work: who does what, in exact numbers
+   (floors, minutes, names, counts). Name people by first name and describe each one once,
+   in `characters`. Use a `label` overlay on the first shot in which an object matters, a
+   `tag` for the time or place, and a `card` the first time a person appears.
+5. Quote speech through the narrator in one short line, "He says: ...", never a dialogue.
+6. The last two shots turn the part over: a person arrives who was supposed to be absent,
+   a list or a count that now holds a different name. End on the one line that changes
+   what the viewer thought, and leave the question for the next part. Never summarise.
+
+Length: fifteen to twenty shots, and every `line` is two short sentences of nine to twelve
+words in all. A part with fewer than one hundred and fifty spoken words is too short.
+
+Voice: present tense, third person, plain words, sentences of three to eight words, one
+fact per sentence. Write numbers as words, never digits,
+because the narrator reads them aloud. Do not describe fear with adjectives. The dread
+comes from specifics.
+
+The music is a low tense drone with a slow pulse, no melody.
+"""
+critic = """
+Does the narrator announce three rules aloud, each with a `rule` overlay and the right
+`hold`? Does every rule have a limit that can be counted? Is every sentence a fact with a
+number, a name or a place in it? Do the last two shots turn the part over and leave a
+question for the next one? Are numbers written as words in `line`?
+"""
+
+[look]
+frame = """
+flat vector illustration, simple geometric characters with plain featureless faces and a
+thin warm gold rim light, dark navy and near-black background, minimal props, one
+practical light source, vertical 9:16, no text, no letters, no numbers, no signs
+"""
+motion = "flat 2D animation, shapes and colours stay exactly as drawn, slow push-in, soft flicker of the light"
+judge = """
+The pictures are flat vector illustrations on dark backgrounds with featureless characters.
+Plain faces and flat shapes are intended. Text is added later, so any lettering or numerals
+inside a picture are a defect, and so is anything that looks like a photograph.
+"""
+
+[captions]
+font = "Montserrat ExtraBold"
+size = 96
+margin_v = 560
+words = 3
+spoken = "FFFFFF"
+upcoming = "8E8E93"
+accent = "FFD21F"
+outline = "000000"
+outline_px = 7
+karaoke = true
+
+[overlays.rule]
+about = "numbered rule banner at the top, '1. Rule in at most six words'. One per rule, with `hold` for the whole scene."
+align = 7
+margin_l = 30
+margin_v = 60
+size = 62
+ink = "1A1A1A"
+fill = "E9DFC4"
+pad = 20
+number = "B3261E"
+
+[overlays.tag]
+about = "green strip under the banner, at most four words: when or where the rule applies."
+align = 7
+margin_l = 60
+margin_v = 190
+size = 44
+ink = "FFFFFF"
+fill = "2E9E5B"
+pad = 14
+
+[overlays.label]
+about = "yellow callout on an object the viewer must notice, at most four words. Use sparingly."
+align = 7
+margin_l = 70
+margin_v = 980
+size = 46
+ink = "1A1A1A"
+fill = "F2B632"
+pad = 14
+
+[overlays.alert]
+about = "red stamp for a threat or a change, at most four words."
+align = 9
+margin_r = 50
+margin_v = 420
+size = 46
+ink = "FFFFFF"
+fill = "C0392B"
+pad = 14
+
+[overlays.card]
+about = "white name card, 'Name | detail line', on the first appearance of a person."
+align = 7
+margin_l = 50
+margin_v = 330
+size = 54
+ink = "1A1A1A"
+fill = "F4F4F4"
+pad = 18
+upper = false

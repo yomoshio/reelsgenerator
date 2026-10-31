@@ -8,8 +8,9 @@ import json
 import random
 from pathlib import Path
 
-from reelsmith.models import Character, Metrics, Script, Shot, Verdict
+from reelsmith.models import Character, Metrics, Overlay, Script, Shot, Verdict
 from reelsmith.services.ffmpeg import FfmpegMontage, Word, run
+from reelsmith.styles import Style
 
 HOOK_KINDS = ("question", "threat", "promise", "secret", "countdown")
 RETENTION = {"question": 0.55, "threat": 0.5, "promise": 0.45, "secret": 0.6, "countdown": 0.4}
@@ -63,13 +64,22 @@ class SyntheticLlm:
         self.flag = flag
         self.reject = reject
 
-    async def write(self, idea: str, notes: str | None = None) -> Script:
+    async def write(self, idea: str, style: Style, notes: str | None = None) -> Script:
         order = list(range(len(LINES)))
         rng(idea, notes or "").shuffle(order)
+        order = [order[n % len(order)] for n in range(max(len(order), style.story.shots[0]))]
         shots = [
-            Shot(line=LINES[i], picture=PICTURES[i], motion=MOTIONS[i], cast=["Vera"])
+            Shot(
+                line=LINES[i],
+                picture=PICTURES[i],
+                motion=MOTIONS[i],
+                cast=["Vera"],
+                stress=[LINES[i].split()[0].strip(".,")],
+            )
             for i in order
         ]
+        for kind, number in zip(style.overlays, range(1, len(shots), 3), strict=False):
+            shots[number].overlays.append(Overlay(kind=kind, text=f"{number}. {kind}", hold=2))
         return Script(
             title=idea,
             hook=shots[0].line,
@@ -79,19 +89,19 @@ class SyntheticLlm:
             music="slow drone, sparse piano, unsettling",
         )
 
-    async def review(self, script: Script) -> Verdict:
+    async def review(self, script: Script, style: Style) -> Verdict:
         score = round(5 + 4.9 * rng(script.model_dump_json()).random(), 1)
         return Verdict(score=score, notes="tighten the hook, cut the last line")
 
-    async def pick(self, brief: str, images: list[Path]) -> int:
+    async def pick(self, brief: str, images: list[Path], style: Style) -> int:
         return rng(brief, *images).randrange(len(images))
 
-    async def inspect(self, motion: str, stills: list[Path]) -> Verdict:
+    async def inspect(self, motion: str, stills: list[Path], style: Style) -> Verdict:
         if rng(motion, _fingerprint(stills)).random() < self.flag:
             return Verdict(score=4.0, notes="motion smear on the subject")
         return Verdict(score=8.0)
 
-    async def judge(self, script: Script, stills: list[Path]) -> Verdict:
+    async def judge(self, script: Script, stills: list[Path], style: Style) -> Verdict:
         r = rng(script.title, _fingerprint(stills))
         if r.random() < self.reject:
             shot = r.randrange(len(script.shots))

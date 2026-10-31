@@ -9,14 +9,17 @@ import structlog
 import typer
 
 from reelsmith import app as build
-from reelsmith.models import Job, Metrics, Recipe, Status
+from reelsmith.models import Job, Metrics, Recipe, StageError, Status
 from reelsmith.report import Arm, Report, compare, report
+from reelsmith.services.ffmpeg import preview
 from reelsmith.settings import Settings
 from reelsmith.store import PostgresJobs
+from reelsmith.styles import Styles
 
 app = typer.Typer(no_args_is_help=True, add_completion=False)
 
 Model = Annotated[str | None, typer.Option(help="model name; the default comes from .env")]
+Style = Annotated[str | None, typer.Option(help="style template from the styles folder")]
 
 
 def _settings() -> Settings:
@@ -45,6 +48,13 @@ def _run[T](settings: Settings, work: Callable[[PostgresJobs], Awaitable[T]]) ->
 def _fail(message: str) -> NoReturn:
     typer.echo(message, err=True)
     raise typer.Exit(1)
+
+
+def _known_style(settings: Settings, name: str) -> None:
+    try:
+        Styles(settings.styles).get(name)
+    except StageError as exc:
+        _fail(str(exc))
 
 
 def _override(base: Recipe, **chosen: str | int | None) -> Recipe:
@@ -132,6 +142,7 @@ def migrate(folder: Path = Path("/app/migrations")) -> None:
 @app.command()
 def add(
     ideas: Annotated[list[str], typer.Argument(help="One or more ideas, e.g. 'зомби в метро'")],
+    style: Style = None,
     image: Model = None,
     video: Model = None,
     hook_video: Model = None,
@@ -142,8 +153,14 @@ def add(
     """Queue ideas for the conveyor."""
     settings = _settings()
     recipe = _override(
-        settings.recipe(), image=image, video=video, hook_video=hook_video, hook_shots=hook_shots
+        settings.recipe(),
+        style=style,
+        image=image,
+        video=video,
+        hook_video=hook_video,
+        hook_shots=hook_shots,
     )
+    _known_style(settings, recipe.style)
 
     async def go(jobs: PostgresJobs) -> None:
         for idea in ideas:
@@ -155,20 +172,65 @@ def add(
 
 
 @app.command()
+def queue(file: Path, style: Style = None) -> None:
+    """Queue every idea in a text file, one per line, and mark the lines as queued.
+    `[noir] idea` picks a style for one line; empty lines and lines with # are skipped."""
+    settings = _settings()
+    lines = file.read_text(encoding="utf-8").splitlines()
+    wanted = ideas(lines)
+    for _, line_style, _ in wanted:
+        _known_style(settings, line_style or style or settings.style)
+
+    async def go(jobs: PostgresJobs) -> None:
+        for number, line_style, idea in wanted:
+            recipe = _override(settings.recipe(), style=line_style or style)
+            job = Job.new(idea, recipe)
+            await jobs.add(job)
+            lines[number] = f"# {job.id.hex[:8]} {lines[number].strip()}"
+            typer.echo(f"{job.id}  {idea}")
+
+    _run(settings, go)
+    file.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def ideas(lines: Sequence[str]) -> list[tuple[int, str | None, str]]:
+    """Line number, style or None, and idea for every line that is not empty or commented."""
+    found: list[tuple[int, str | None, str]] = []
+    for number, raw in enumerate(lines):
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        style, idea = None, line
+        if line.startswith("[") and "]" in line:
+            style, idea = line[1:].split("]", 1)
+            style, idea = style.strip(), idea.strip()
+        if idea:
+            found.append((number, style, idea))
+    return found
+
+
+@app.command()
 def fork(
     job_id: UUID,
     arm: str = "B",
+    style: Style = None,
     image: Model = None,
     video: Model = None,
     hook_video: Model = None,
     hook_shots: int | None = None,
 ) -> None:
-    """Another arm on the same script, voices and frames. The parent becomes arm A."""
+    """Another arm on the same script, voices and frames. The parent becomes arm A.
+    A different style here changes only captions, motion wording and judging."""
 
     async def go(jobs: PostgresJobs) -> None:
         parent = await jobs.get(job_id)
         recipe = _override(
-            parent.recipe, image=image, video=video, hook_video=hook_video, hook_shots=hook_shots
+            parent.recipe,
+            style=style,
+            image=image,
+            video=video,
+            hook_video=hook_video,
+            hook_shots=hook_shots,
         )
         child = parent.fork(recipe, arm)
         await jobs.save(parent)
@@ -251,7 +313,7 @@ def report_all() -> None:
     """Cost per good video, flags per model, retention per hook, GPU hours."""
     settings = _settings()
     jobs = _run(settings, lambda store: store.find())
-    _print_report(report(jobs, settings.tariff()))
+    _print_report(report(jobs, settings.tariff(), qa_pass=settings.qa_pass))
 
 
 @app.command()
@@ -259,6 +321,56 @@ def status() -> None:
     """How many jobs sit at each stage."""
     for name, count in sorted(_run(_settings(), lambda jobs: jobs.summary()).items()):
         typer.echo(f"{name:<10} {count}")
+
+
+@app.command(name="jobs")
+def list_jobs(
+    status: Annotated[str | None, typer.Option(help="only this status, e.g. assembled")] = None,
+) -> None:
+    """Every job: id, status, attempts, QA score, cost, style, idea and the last error."""
+    wanted = _status(status) if status is not None else None
+    found = _run(_settings(), lambda jobs: jobs.find(status=wanted))
+    rows = [
+        (
+            str(job.id), job.status.value, job.attempts, job.qa.score if job.qa else None,
+            job.cost, job.recipe.style, _clip(job.idea, 40), _clip(job.last_error or "", 60),
+        )
+        for job in found
+    ]  # fmt: skip
+    headers = ["id", "status", "tries", "qa", "usd", "style", "idea", "last error"]
+    typer.echo(_table(headers, rows))
+
+
+def _status(name: str) -> Status:
+    try:
+        return Status(name)
+    except ValueError:
+        _fail(f"no status {name!r}; have: {', '.join(s.value for s in Status)}")
+
+
+@app.command()
+def retry(
+    job_id: UUID,
+    status: Annotated[str | None, typer.Option(help="resume from this status, e.g. framed")] = None,
+) -> None:
+    """Put a failed or stuck job back to work: attempts start over and its lease is dropped.
+    Everything it has made so far is kept, so `--status framed` redoes only missing clips."""
+    wanted = _status(status) if status is not None else None
+
+    async def go(jobs: PostgresJobs) -> None:
+        job = await jobs.get(job_id)
+        if wanted is None and job.status is Status.FAILED:
+            _fail("a failed job needs --status, e.g. --status framed")
+        job.status = wanted or job.status
+        job.attempts, job.last_error = 0, None
+        await jobs.save(job)
+        typer.echo(f"{job.id}  {job.status.value}")
+
+    _run(_settings(), go)
+
+
+def _clip(text: str, width: int) -> str:
+    return text if len(text) <= width else text[: width - 1] + "…"
 
 
 @app.command()
@@ -280,26 +392,48 @@ def work(
     asyncio.run(go())
 
 
+@app.command(name="styles")
+def list_styles() -> None:
+    """The style templates in the styles folder, with what each one is for."""
+    folder = Styles(_settings().styles)
+    for name in folder.names():
+        typer.echo(f"{name:<16} {folder.get(name).about}")
+
+
+@app.command(name="preview")
+def preview_style(name: str, out: Path = Path("preview")) -> None:
+    """Draws the captions and every overlay of a style on a dark frame. No models needed."""
+    settings = _settings()
+    _known_style(settings, name)
+    out.mkdir(parents=True, exist_ok=True)
+    typer.echo(asyncio.run(preview(Styles(settings.styles).get(name), out / f"{name}.png")))
+
+
 @app.command(name="demo")
 def run_demo(
     ideas: Annotated[int, typer.Option(min=1)] = 3,
     arm_a: str = "wan-2.2",
     arm_b: str = "wan-5b",
+    style: Style = None,
     out: Path = Path("demo"),
 ) -> None:
     """The whole conveyor on synthetic models, with an A/B fork, in memory."""
     settings = _settings()
-    recipe = settings.recipe()
+    recipe = _override(settings.recipe(), style=style)
     chosen = [build.DEMO_IDEAS[i % len(build.DEMO_IDEAS)] for i in range(ideas)]
-    result = asyncio.run(
-        build.demo(
-            chosen,
-            arm_a=recipe.model_copy(update={"video": arm_a}),
-            arm_b=recipe.model_copy(update={"video": arm_b}),
-            out=out,
-            tariff=settings.tariff(),
+    try:
+        result = asyncio.run(
+            build.demo(
+                chosen,
+                arm_a=recipe.model_copy(update={"video": arm_a}),
+                arm_b=recipe.model_copy(update={"video": arm_b}),
+                out=out,
+                styles=settings.styles,
+                tariff=settings.tariff(),
+            )
         )
-    )
+    except StageError as exc:
+        _fail(str(exc))
     for job in result.jobs:
         typer.echo(f"{job.id}  {job.arm}  {job.status.value:<9}  {job.idea}")
     typer.echo(f"ratings are synthetic; finished videos are under {out / 'outbox'}\n")
