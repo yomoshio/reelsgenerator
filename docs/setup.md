@@ -1,0 +1,136 @@
+# Установка
+
+Поставить можно на свой компьютер или на арендованный сервер. Команды одинаковые,
+разница только в том, где их набирать.
+
+## Что нужно
+
+| | Минимум | Удобно |
+| --- | --- | --- |
+| Видеокарта | NVIDIA 24 ГБ: RTX 3090, RTX 4090 | 32–48 ГБ: RTX 5090, RTX 4090 48 ГБ, RTX 6000 Ada, L40S |
+| Память | 64 ГБ | 96 ГБ |
+| Диск | 250 ГБ свободно | SSD |
+| Система | Ubuntu 22.04 или 24.04; Windows 10/11 через WSL2 | |
+
+На 24 ГБ всё работает, но ComfyUI выгружает часть Wan в оперативную память, и клипы
+считаются медленнее. RTX 3090 не умеет fp8 и тоже медленнее. Карты старше RTX 30xx
+(P40, V100, RTX 20xx) не подойдут: под них нет сборок PyTorch, на которых собраны образы.
+
+Скачивание весов около 150 ГБ вместе с образами. На канале 500 Мбит/с это полчаса,
+на 100 Мбит/с несколько часов.
+
+## Свой компьютер с Linux
+
+```
+git clone https://github.com/yomoshio/reelsgenerator reelsmith
+cd reelsmith
+sudo scripts/setup-host.sh driver     # драйвер NVIDIA, затем перезагрузка
+sudo scripts/setup-host.sh docker
+sudo scripts/setup-host.sh toolkit    # доступ Docker к видеокарте
+scripts/setup-host.sh check           # должна быть видна карта и свободный диск
+```
+
+Если драйвер и Docker уже стоят, первые две команды не нужны. `toolkit` нужен всегда:
+он ещё переключает Docker на драйвер cgroup, без которого контейнер со временем теряет
+видеокарту.
+
+Дальше:
+
+```
+make setup                # .env и папки
+nano .env                 # минимум REELSMITH_GPU_HOUR_USD, см. ниже
+make build                # 10–20 минут
+make models               # веса, около 90 ГБ
+make llm-model            # Qwen3.5 27B, 17 ГБ
+make voice DESC="A calm middle-aged man with a low warm voice, steady slow pace"
+make up
+make migrate
+```
+
+`REELSMITH_GPU_HOUR_USD` это цена часа работы карты. На арендованном сервере это цена из
+карточки аренды, на своём компьютере можно поставить стоимость электричества за час или
+0. Отчёт переводит GPU-время в деньги по этому числу. Остальные настройки описаны в
+[settings.md](settings.md), их можно не трогать.
+
+`make voice` создаёт голос диктора по описанию и кладёт три варианта в `voices/`. Первый
+сразу становится голосом канала. Как заменить его другим или своей записью, написано в
+[daily.md](daily.md#голос).
+
+## Свой компьютер с Windows
+
+Всё работает внутри WSL2, Docker Desktop берёт видеокарту из Windows.
+
+1. Поставьте свежий драйвер NVIDIA для Windows.
+2. В PowerShell от администратора: `wsl --install -d Ubuntu-24.04`, перезагрузка.
+3. Поставьте Docker Desktop, в настройках включите «Use the WSL 2 based engine» и в
+   разделе Resources → WSL integration включите Ubuntu-24.04.
+4. Откройте терминал Ubuntu и проверьте карту:
+   ```
+   docker run --rm --gpus all nvidia/cuda:12.8.1-base-ubuntu24.04 nvidia-smi
+   ```
+5. `sudo apt install -y make git python3`
+6. Клонируйте проект в домашнюю папку Ubuntu, не в `/mnt/c`: с диска Windows всё
+   работает в разы медленнее.
+7. Дальше как для Linux, начиная с `make setup`. `scripts/setup-host.sh` в WSL не нужен.
+
+ComfyUI открывается в браузере Windows по тому же адресу http://localhost:8188.
+
+## Арендованный сервер на vast.ai
+
+На vast.ai нужна именно виртуальная машина: обычный инстанс сам работает в контейнере, и
+Docker внутри него не поднимется. Нажмите Select Template и выберите «Ubuntu 22.04 VM».
+Фильтры:
+
+| Поле | Значение |
+| --- | --- |
+| GPU | одна карта от 32 ГБ из списка выше |
+| GPU Count | 1 |
+| Min CUDA Version | 12.8 |
+| Disk | 250 ГБ; после аренды диск не расширить |
+| CPU RAM | от 64 ГБ |
+| Internet Download | от 500 Мбит/с |
+| Host Reliability | от 98 % |
+
+Сервером управляют с вашего компьютера через `scripts/remote.sh`. Впишите адрес и порт
+из карточки аренды в `scripts/remote.env` (образец в `scripts/remote.env.example`), затем:
+
+```
+scripts/remote.sh push        # код на сервер
+scripts/remote.sh restore     # голос и .env с этого компьютера
+scripts/remote.sh shell       # дальше команды на сервере
+cd /root/projects/reelsgenerator
+bash scripts/setup-host.sh toolkit
+bash scripts/setup-host.sh check
+make setup
+nano .env                     # цена часа из карточки аренды
+make build models llm-model up migrate
+exit
+```
+
+На виртуальной машине vast.ai драйвер и Docker уже стоят, `driver` и `docker` не нужны.
+`restore` переносит голос диктора, поэтому `make voice` на новом сервере не нужен.
+
+## Проверка
+
+```
+make styles                   # видны стили noir и rules-serial
+docker compose exec llm ollama ps     # у модели должно быть 100% GPU
+make add IDEA="Короткая проверка: маяк зажигается сам"
+make logs                     # стадии write, voice, paint… одна за другой
+```
+
+На сервере те же проверки: `scripts/remote.sh styles`, `scripts/remote.sh gpu`,
+`scripts/remote.sh add "..."`, `scripts/remote.sh logs`.
+
+Первый ролик занимает от получаса до часа. Пока он идёт, откройте ComfyUI и посмотрите,
+как появляются кадры и клипы: [comfyui.md](comfyui.md).
+
+## Если установка не идёт
+
+| Что видно | Что делать |
+| --- | --- |
+| `could not select device driver "" with capabilities: [[gpu]]` | Не стоит NVIDIA Container Toolkit: `sudo scripts/setup-host.sh toolkit`. |
+| `Permission denied` в `hf/`, `models/`, `voices/`, `studio/` | Контейнеры работают от пользователя с uid 1000. `make setup` ещё раз или `chmod a+rwx` на эту папку. |
+| Ollama отвечает минутами, `ollama ps` показывает `100% CPU` | Контейнер потерял видеокарту. `sudo scripts/setup-host.sh toolkit`, затем `docker compose up -d --force-recreate`. |
+| Скачивание весов падает или очень медленное | В `.env` раскомментируйте `HF_ENDPOINT=https://hf-mirror.com` и повторите `make models`: уже скачанное пропустится. |
+| `make build` падает на `pip install` | Обычно сеть. Повторите `make build`, готовые слои не пересобираются. |
