@@ -22,7 +22,7 @@ from reelsmith.services.comfy import (
     ComfyPainter,
     Workflow,
 )
-from reelsmith.services.ffmpeg import FfmpegMontage
+from reelsmith.services.ffmpeg import FfmpegMontage, StillAnimator
 from reelsmith.services.ollama import OllamaLlm
 from reelsmith.services.outbox import OutboxPublisher
 from reelsmith.services.voxcpm import VoxNarrator
@@ -93,7 +93,7 @@ def local_services(
         height=settings.frame_height,
         steps=settings.frame_steps,
     )
-    animators: dict[str, Animator] = {}
+    animators: dict[str, Animator] = {"still": StillAnimator()}
     for name, (file, fps) in WAN_GRAPHS.items():
         if name == "wan-2.2" or (settings.workflows / file).exists():
             animators[name] = ComfyAnimator(
@@ -140,6 +140,7 @@ def synthetic_services(
         llm=synthetic.SyntheticLlm(flag=flag, reject=reject),
         painters={"z-image": synthetic.SyntheticPainter("z-image")},
         animators={
+            "still": StillAnimator(),
             "wan-2.2": synthetic.SyntheticAnimator("wan-2.2"),
             "wan-5b": synthetic.SyntheticAnimator("wan-5b"),
         },

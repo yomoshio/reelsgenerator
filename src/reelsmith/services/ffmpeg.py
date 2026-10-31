@@ -245,6 +245,48 @@ def _ass_time(seconds: float) -> str:
     return f"{hours}:{minutes:02d}:{secs:02d}.{centis:02d}"
 
 
+class StillAnimator:
+    """A slow camera move over the still frame, made by ffmpeg on the CPU. Nothing can
+    melt or drift, and a clip takes seconds; the price is that nothing in the frame moves."""
+
+    name = "still"
+
+    def __init__(self, *, max_seconds: float = 8.0) -> None:
+        self.max_seconds = max_seconds
+
+    def length(self, seconds: float) -> float:
+        return seconds
+
+    async def animate(
+        self, frame: Path, motion: str, *, seconds: float, seed: int, out: Path
+    ) -> Path:
+        await run(*still_args(frame, seconds, seed, out))
+        return out
+
+
+def still_args(frame: Path, seconds: float, seed: int, out: Path) -> list[str]:
+    """Push in, pull out or drift sideways, picked by the seed so neighbouring shots differ."""
+    frames = max(round(seconds * FPS), 1)
+    step = 0.08 / frames
+    moves = (
+        (f"1+{step:.6f}*on", "iw/2-(iw/zoom/2)", "ih/2-(ih/zoom/2)"),
+        (f"1.08-{step:.6f}*on", "iw/2-(iw/zoom/2)", "ih/2-(ih/zoom/2)"),
+        ("1.08", f"(iw-iw/zoom)*on/{frames}", "ih/2-(ih/zoom/2)"),
+    )
+    zoom, x, y = moves[seed % len(moves)]
+    # zoompan jitters on a frame its own size; working on a doubled frame keeps the move smooth.
+    graph = (
+        f"scale={2 * WIDTH}:{2 * HEIGHT}:force_original_aspect_ratio=increase,"
+        f"crop={2 * WIDTH}:{2 * HEIGHT},"
+        f"zoompan=z='{zoom}':x='{x}':y='{y}':d={frames}:s={WIDTH}x{HEIGHT}:fps={FPS}"
+    )
+    return [
+        "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+        "-i", str(frame), "-vf", graph, "-frames:v", str(frames),
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "18", "-pix_fmt", "yuv420p", str(out),
+    ]  # fmt: skip
+
+
 async def preview(style: Style, out: Path) -> Path:
     """One frame with sample captions and every overlay of the style, for tuning a template."""
     words = [

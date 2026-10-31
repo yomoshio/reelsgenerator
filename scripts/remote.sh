@@ -2,7 +2,7 @@
 # Управление GPU-сервером с этого компьютера. Адрес сервера в scripts/remote.env.
 #
 #   scripts/remote.sh add "идея" [--style rules-serial]   поставить идею
-#   scripts/remote.sh ideas                              поставить все новые строки studio/ideas.txt
+#   scripts/remote.sh ideas [studio/series/flood.txt]   поставить новые строки файла идей
 #   scripts/remote.sh jobs [--status assembled]          все задачи с id и статусом
 #   scripts/remote.sh status | report | styles           счётчики, деньги, стили
 #   scripts/remote.sh review ID                          скачать собранный ролик в review/ID.mp4
@@ -14,7 +14,7 @@
 #   scripts/remote.sh gpu                                кто сейчас занимает карту
 #   scripts/remote.sh push | deploy                      залить код; deploy ещё пересобирает и перезапускает
 #   scripts/remote.sh restart                            перезапустить воркер, например после правки стиля
-#   scripts/remote.sh pull                               забрать готовые ролики, голоса и .env
+#   scripts/remote.sh pull                               забрать готовые ролики и голоса
 #   scripts/remote.sh restore                            отправить голоса и .env на новый сервер
 #   scripts/remote.sh backup                             снять копию базы задач в backups/
 #   scripts/remote.sh check                              какие файлы кода отличаются здесь и там
@@ -39,7 +39,8 @@ CODE_ONLY=(--exclude .venv --exclude __pycache__ --exclude .mypy_cache --exclude
            --exclude logs --exclude models --exclude hf --exclude outbox --exclude voices --exclude studio
            --exclude .env --exclude scripts/remote.env --exclude backups)
 
-on_server() { "${SSH[@]}" "$REMOTE_HOST" "cd $REMOTE_DIR && $*"; }
+# -n: without it ssh swallows the rest of stdin, which breaks `while read ...; do remote.sh add`.
+on_server() { "${SSH[@]}" -n "$REMOTE_HOST" "cd $REMOTE_DIR && $*"; }
 worker() { on_server "docker compose run --rm --no-deps -T worker $(printf '%q ' "$@")"; }
 
 command=${1:-help}
@@ -53,9 +54,11 @@ case $command in
         on_server "docker compose exec -T worker cat /data/media/$id/final.mp4" > "review/$id.mp4"
         echo "review/$id.mp4" ;;
     ideas)
-        "${RSYNC[@]}" studio/ideas.txt "$REMOTE_HOST:$REMOTE_DIR/studio/ideas.txt"
-        on_server "chmod a+rw studio/ideas.txt && docker compose run --rm --no-deps -T worker queue /data/studio/ideas.txt"
-        "${RSYNC[@]}" "$REMOTE_HOST:$REMOTE_DIR/studio/ideas.txt" studio/ideas.txt ;;
+        file=${1:-studio/ideas.txt}
+        "${SSH[@]}" "$REMOTE_HOST" "mkdir -p $REMOTE_DIR/$(dirname "$file")"
+        "${RSYNC[@]}" "$file" "$REMOTE_HOST:$REMOTE_DIR/$file"
+        on_server "chmod -R a+rwX studio && docker compose run --rm --no-deps -T worker queue /data/$file"
+        "${RSYNC[@]}" "$REMOTE_HOST:$REMOTE_DIR/$file" "$file" ;;
     logs) on_server "docker compose logs -f --tail 50 worker" ;;
     pause) on_server "docker compose stop worker" ;;
     resume) on_server "docker compose start worker" ;;
@@ -72,8 +75,7 @@ case $command in
         on_server "docker compose build worker tts && docker compose up -d" ;;
     pull)
         "${RSYNC[@]}" "$REMOTE_HOST:$REMOTE_DIR/outbox/" outbox/
-        "${RSYNC[@]}" "$REMOTE_HOST:$REMOTE_DIR/voices/" voices/
-        "${RSYNC[@]}" "$REMOTE_HOST:$REMOTE_DIR/.env" .env ;;
+        "${RSYNC[@]}" "$REMOTE_HOST:$REMOTE_DIR/voices/" voices/ ;;
     restore)
         "${SSH[@]}" "$REMOTE_HOST" "mkdir -p $REMOTE_DIR/voices"
         "${RSYNC[@]}" voices/ "$REMOTE_HOST:$REMOTE_DIR/voices/"

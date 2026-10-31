@@ -50,8 +50,8 @@ graphs:                      ## пересобрать workflows/*.json из scr
 add:                         ## IDEA="..." [STYLE=noir] поставить одну идею
 	$(RUN) add "$(IDEA)" $(if $(STYLE),--style $(STYLE))
 
-ideas:                       ## поставить все новые строки из studio/ideas.txt
-	$(RUN) queue /data/studio/ideas.txt
+ideas:                       ## поставить новые строки из studio/ideas.txt; FILE=studio/series/flood.txt другой файл
+	$(RUN) queue /data/$(or $(FILE),studio/ideas.txt)
 
 jobs:                        ## все задачи с id; STATUS=assembled только собранные
 	$(RUN) jobs $(if $(STATUS),--status $(STATUS))

@@ -23,6 +23,7 @@ from reelsmith.pipeline import (
     Gates,
     _cards,
     animate,
+    as_written,
     assemble,
     check,
     measure,
@@ -33,6 +34,7 @@ from reelsmith.pipeline import (
     voice,
     write,
 )
+from reelsmith.services.ffmpeg import Word
 from reelsmith.services.outbox import OutboxPublisher
 from tests.fakes import (
     FakeAnalytics,
@@ -242,6 +244,17 @@ async def test_check_does_not_judge_a_clip_twice(tmp_path: Path) -> None:
     assert set(made.assets.clips) == {0, 1, 2}
 
 
+async def test_check_skips_clips_that_are_a_camera_move_over_the_chosen_frame(
+    tmp_path: Path,
+) -> None:
+    made = _animated(3)
+    made.recipe = recipe(video="still", hook_video="fast", hook_shots=1)
+
+    await check(made, services(tmp_path, llm=FakeLlm(flag={1, 2})))
+
+    assert [c.shot for c in made.calls if c.stage == "inspect"] == [0]
+
+
 async def test_check_keeps_a_clip_after_its_tries(tmp_path: Path) -> None:
     llm = FakeLlm(flag={0})
     made = _animated(3, tries={0: 3})
@@ -311,6 +324,27 @@ async def test_assemble_puts_overlays_and_stressed_words_on_the_timeline(tmp_pat
     assert ass.count("&H001FD2FF&") == 1
 
 
+def test_captions_take_the_text_from_the_script_and_the_timing_from_the_voice() -> None:
+    heard = [Word("Считай", 0.0, 0.5), Word("20", 0.6, 1.0), Word("шагов", 1.1, 1.5)]
+
+    assert [w.text for w in as_written(heard, "Считай двадцать шагов.")] == [
+        "Считай",
+        "двадцать",
+        "шагов.",
+    ]
+    assert as_written(heard, "Считай двадцать шагов.")[1].start == 0.6
+
+
+def test_when_the_word_counts_differ_the_written_words_share_the_span() -> None:
+    heard = [Word("сорок", 1.0, 1.4), Word("два", 1.5, 2.0)]
+
+    written = as_written(heard, "Сорок два этажа")
+
+    assert [w.text for w in written] == ["Сорок", "два", "этажа"]
+    assert (written[0].start, written[-1].end) == (1.0, pytest.approx(2.0))
+    assert written[0].end == pytest.approx(written[1].start)
+
+
 def test_a_new_overlay_of_the_same_kind_ends_the_previous_one() -> None:
     made = script(5)
     shots = made.shots
@@ -324,6 +358,20 @@ def test_a_new_overlay_of_the_same_kind_ends_the_previous_one() -> None:
 
     spans = {(c.text, c.start, c.end) for c in cards}
     assert spans == {("1. A", 0.0, 12.0), ("t", 0.0, 20.0), ("2. B", 12.0, 20.0)}
+
+
+def test_the_same_plate_on_neighbouring_shots_stays_up() -> None:
+    made = script(4)
+    for shot in made.shots[:3]:
+        shot.overlays = [Overlay(kind="tag", text="ЭТАЖ 3")]
+    made.shots[3].overlays = [Overlay(kind="tag", text="ЭТАЖ 4")]
+
+    cards = _cards(made, style(), [0.0, 4.0, 8.0, 12.0])
+
+    assert [(c.text, c.start, c.end) for c in cards] == [
+        ("ЭТАЖ 3", 0.0, 12.0),
+        ("ЭТАЖ 4", 12.0, 16.0),
+    ]
 
 
 async def test_write_rejects_a_script_outside_the_styles_shot_range(tmp_path: Path) -> None:

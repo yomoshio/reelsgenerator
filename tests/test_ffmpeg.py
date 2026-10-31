@@ -1,17 +1,26 @@
+import shutil
 from pathlib import Path
+
+import pytest
 
 from reelsmith.services.ffmpeg import (
     Card,
     Cut,
+    FfmpegMontage,
     Segment,
+    StillAnimator,
     Word,
     captions,
     ffmpeg_args,
+    run,
     shift,
+    still_args,
     stills_args,
     to_ass,
 )
 from tests.fakes import style
+
+needs_ffmpeg = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg")
 
 
 def test_captions_group_up_to_three_words_and_break_on_pauses() -> None:
@@ -108,6 +117,43 @@ def test_ffmpeg_graph_trims_every_shot_to_its_voice_length() -> None:
     assert "[4:a]aresample=48000,volume=" in graph
     assert "subtitles=filename='/data/media/x/subtitles.ass'" in graph
     assert args[-1] == "out.mp4"
+
+
+def test_neighbouring_seeds_move_the_camera_differently() -> None:
+    graphs = {
+        stills_graph(still_args(Path("f.png"), 4.0, seed, Path("o.mp4"))) for seed in range(3)
+    }
+
+    assert len(graphs) == 3
+    assert all("zoompan" in g and "s=1080x1920" in g for g in graphs)
+
+
+@needs_ffmpeg
+async def test_still_animator_makes_a_clip_of_the_asked_length(tmp_path: Path) -> None:
+    frame = tmp_path / "f.png"
+    await run(
+        "ffmpeg",
+        "-y",
+        "-loglevel",
+        "error",
+        "-f",
+        "lavfi",
+        "-i",
+        "color=c=navy:s=720x1280",
+        "-frames:v",
+        "1",
+        str(frame),
+    )
+
+    clip = await StillAnimator().animate(
+        frame, "ignored", seconds=2.0, seed=4, out=tmp_path / "c.mp4"
+    )
+
+    assert await FfmpegMontage().seconds(clip) == pytest.approx(2.0, abs=0.1)
+
+
+def stills_graph(args: list[str]) -> str:
+    return args[args.index("-vf") + 1]
 
 
 def test_music_level_is_a_parameter() -> None:

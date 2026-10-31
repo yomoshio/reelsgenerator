@@ -8,12 +8,12 @@
 
 | Переменная | По умолчанию | Что меняет |
 | --- | --- | --- |
-| `REELSMITH_STYLE` | noir; в `.env.example` стоит rules-serial | стиль новых задач, см. [styles.md](styles.md) |
+| `REELSMITH_STYLE` | noir; в `.env.example` стоит serial | стиль новых задач, см. [styles.md](styles.md) |
 | `REELSMITH_LANGUAGE` | ru | язык реплик и субтитров |
 | `REELSMITH_VOICE` | narrator | голос диктора: `voices/<имя>.wav` и `.txt` |
 | `REELSMITH_IMAGE_MODEL` | z-image | чем рисовать кадры |
-| `REELSMITH_VIDEO_MODEL` | wan-2.2 | чем оживлять; `wan-5b`, если есть `workflows/animate-draft.json` |
-| `REELSMITH_HOOK_VIDEO_MODEL` | пусто | другая модель для первых шотов-хука; пусто значит та же |
+| `REELSMITH_VIDEO_MODEL` | wan-2.2; в `.env.example` стоит still | чем оживлять: `still` это медленный наезд камеры без нейросети, не плывёт и считается за секунды; `wan-2.2` настоящая анимация, около минуты на клип; `wan-5b`, если есть `workflows/animate-draft.json` |
+| `REELSMITH_HOOK_VIDEO_MODEL` | пусто; в `.env.example` стоит wan-2.2 | другая модель для первых шотов-хука; пусто значит та же |
 | `REELSMITH_HOOK_SHOTS` | 2 | сколько первых шотов считать хуком |
 | `REELSMITH_GPU_HOUR_USD` | 0.99 | цена часа карты; отчёт переводит GPU-время в деньги |
 

@@ -312,7 +312,9 @@ async def check(job: Job, s: Services) -> None:
     style = s.styles.get(job.recipe.style)
     redo: list[int] = []
     for i, shot in enumerate(script.shots):
-        if _judged(job, i):
+        # A camera move over the frame `pick` already chose shows nothing new to judge, and
+        # animating it again would show the same frame.
+        if _judged(job, i) or job.recipe.video_for(i) == "still":
             continue
         stills = await s.montage.stills(files.resolve(job.assets.clips[i]), STILLS, files.stills(i))
         with metered(job, s.tariff, stage="inspect", provider=s.llm.name, shot=i):
@@ -373,8 +375,8 @@ async def assemble(job: Job, s: Services) -> None:
     start = 0.0
     for i, shot in enumerate(script.shots):
         voice = files.resolve(job.assets.voices[i])
-        spoken = shift(await s.transcriber.words(voice), start)
-        words += _accented(spoken, shot)
+        heard = shift(await s.transcriber.words(voice), start)
+        words += _accented(as_written(heard, shot.line), shot)
         segments.append(Segment(files.resolve(job.assets.clips[i]), voice, shot.seconds))
         starts.append(start)
         start += shot.seconds
@@ -401,6 +403,26 @@ async def assemble(job: Job, s: Services) -> None:
         raise Rewind(Status.FRAMED, verdict.notes or "the cut did not pass QA")
 
 
+def as_written(heard: list[Word], line: str) -> list[Word]:
+    """Captions show the line as the writer wrote it, numbers in words and names spelled
+    right; the transcript only says when the words are spoken. When the counts differ, the
+    written words share the spoken span by length."""
+    written = line.split()
+    if not heard or not written:
+        return heard
+    if len(heard) == len(written):
+        return [replace(w, text=text) for w, text in zip(heard, written, strict=True)]
+    start, span = heard[0].start, heard[-1].end - heard[0].start
+    total = sum(len(text) for text in written)
+    out: list[Word] = []
+    at = start
+    for text in written:
+        length = span * len(text) / total
+        out.append(Word(text, at, at + length))
+        at += length
+    return out
+
+
 def _accented(words: list[Word], shot: Shot) -> list[Word]:
     """Marks the words the writer asked to stress; the style decides how they look."""
     wanted = {_bare(w) for phrase in shot.stress for w in phrase.split()}
@@ -413,7 +435,8 @@ def _bare(word: str) -> str:
 
 def _cards(script: Script, style: Style, starts: list[float]) -> list[Card]:
     """Overlays on the timeline: each lasts from its shot through `hold` shots, or until
-    the next overlay of its kind comes up, so two rule banners never share a frame."""
+    the next overlay of its kind comes up, so two rule banners never share a frame. The
+    same plate repeated on the next shot stays up instead of popping in again."""
     cards: list[Card] = []
     for i, shot in enumerate(script.shots):
         for overlay in shot.overlays:
@@ -421,6 +444,10 @@ def _cards(script: Script, style: Style, starts: list[float]) -> list[Card]:
                 continue
             last = min(i + overlay.hold, len(script.shots)) - 1
             end = starts[last] + script.shots[last].seconds
+            same = [n for n, c in enumerate(cards) if c.kind == overlay.kind]
+            if same and cards[same[-1]].text == overlay.text and cards[same[-1]].end >= starts[i]:
+                cards[same[-1]] = replace(cards[same[-1]], end=max(end, cards[same[-1]].end))
+                continue
             cards.append(Card(overlay.kind, overlay.text, starts[i], end))
     following: dict[str, float] = {}
     for n in reversed(range(len(cards))):

@@ -1,7 +1,8 @@
 """What a call costs: GPU seconds per unit, and dollars at the hourly rent.
 
 The seconds were measured on an RTX 4090 48 GB with the graphs in workflows/ and the
-defaults in settings.py, model loading excluded. `wan-5b` is not measured yet. A different
+defaults in settings.py, model loading excluded. `wan-5b` is not measured yet; `still`
+runs on the CPU and costs no GPU time. A different
 card or bigger clips change them; the time of each prompt is in ComfyUI's queue panel."""
 
 import time
@@ -34,6 +35,7 @@ RATES: Mapping[str, Rate] = {
     "wan-2.2": Rate(Unit.SECOND, 14),
     "wan-5b": Rate(Unit.SECOND, 6),
     "voxcpm": Rate(Unit.CHAR, 0.07),
+    "still": Rate(Unit.SECOND, 0),
     "ace-step": Rate(Unit.SECOND, 2),
 }
 

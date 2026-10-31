@@ -50,7 +50,8 @@ question for the next one? Are numbers written as words in `line`?
 frame = """
 flat vector illustration, simple geometric characters with plain featureless faces and a
 thin warm gold rim light, dark navy and near-black background, minimal props, one
-practical light source, vertical 9:16, no text, no letters, no numbers, no signs
+practical light source, vertical 9:16, blank surfaces, nothing written anywhere, no text,
+no letters, no numbers, no signs
 """
 motion = "flat 2D animation, shapes and colours stay exactly as drawn, slow push-in, soft flicker of the light"
 judge = """

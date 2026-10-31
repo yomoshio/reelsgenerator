@@ -1,0 +1,132 @@
+about = "Serial survival story on flat vector graphics, 60 to 90 seconds: a goal, obstacles on the way, a new character, the goal reached, then a second problem and a revelation planted earlier."
+
+[story]
+shots = [14, 18]
+seconds = [60, 90]
+words = 14
+brief = """
+You write one episode of a serial survival story. It must make sense with eyes closed:
+every sentence follows from the one before it, and nothing happens without a cause the
+viewer has already heard.
+
+The episode has five beats, in this order:
+
+1. Problem, two shots. The hero wakes up or arrives and sees the danger at once. Name the
+   hero, the place and the danger in plain words. Then name the goal: one concrete place
+   or thing that would save them, such as "the highest room", "the roof", "the radio".
+   Put the goal on a `goal` plate and hold it until the goal is reached.
+2. Plan, one or two shots. Why that goal saves them and what stands in the way.
+3. The way, five to seven shots. Two or three small obstacles, each one solved by a
+   concrete action the viewer sees: a stuck door forced with a chair, a gap crossed on a
+   plank. Join the shots with "so", "but", "then". On the way the hero meets a new
+   character, described once in `characters` and shown with a `card` plate the first
+   time. The new character helps, wants something, or knows something, and one small
+   detail about them is shown and named here: wet boots, a key on a string, a torn sleeve.
+4. The goal, two shots. The hero gets there. One shot of relief.
+5. Problem two and the hidden news, two or three shots. The goal turns out to be a dead
+   end or a trap, and a second threat arrives: the light goes out, the water climbs
+   again. The last shot brings back the small detail from beat three and shows what it
+   really meant. End on that line, as a statement, not a question.
+
+Keep one count running where it fits, such as floors left or minutes of light. Say it
+aloud, show it on a `count` plate, and change it only for a reason the viewer saw.
+
+The state of the world only changes for a reason the viewer saw: water that is at the
+knees does not reach the shoulders a shot later unless the narrator says it rose, and a
+dry room stays dry until something lets the water in.
+
+Holding the viewer matters more than anything else:
+- The first line shows the danger in at most eight words, before any name or context.
+- Every two or three shots something changes: a new obstacle, a new sound, the count moves.
+- No shot only describes the scenery or repeats what the viewer already knows.
+- When the idea gives an outline, follow it beat by beat and do not invent other events.
+
+Voice: present tense, third person, plain words, two short sentences per shot, nine to
+fourteen words in all. No fear adjectives; the dread comes from facts. Never speak to the
+viewer.
+
+The music is a low tense drone with a slow pulse, no melody.
+"""
+critic = """
+Are the five beats there, in order: problem and goal, plan, the way with a new character,
+the goal reached, problem two? Does the last line bring back a detail shown earlier and
+change its meaning? Is there any event without a cause in an earlier shot? Does the goal
+stay the same from the second shot to the goal shot?
+"""
+
+[look]
+frame = """
+flat vector illustration, simple geometric characters with plain featureless faces and a
+thin warm gold rim light, dark navy and near-black background, minimal props, one
+practical light source, vertical 9:16, blank surfaces, nothing written anywhere, no text,
+no letters, no numbers, no signs
+"""
+motion = "flat 2D animation, shapes and colours stay exactly as drawn, still camera or a very slow push-in"
+judge = """
+The pictures are flat vector illustrations on dark backgrounds with featureless characters.
+Plain faces and flat shapes are intended. Text and plates are added later, so any lettering
+or numerals inside a picture are a defect, and so is anything that looks like a photograph.
+"""
+
+[captions]
+font = "Montserrat ExtraBold"
+size = 96
+margin_v = 560
+words = 3
+spoken = "FFFFFF"
+upcoming = "8E8E93"
+accent = "FFD21F"
+outline = "000000"
+outline_px = 7
+karaoke = true
+
+[overlays.goal]
+about = "the goal at the top, 'ЦЕЛЬ: самая высокая комната'. Once, on the shot that names it, with `hold` until the goal is reached."
+align = 7
+margin_l = 30
+margin_v = 60
+size = 56
+ink = "1A1A1A"
+fill = "E9DFC4"
+pad = 20
+
+[overlays.count]
+about = "the running count under the goal, at most four words, such as 'ЭТАЖ 2 ИЗ 5'. The number is the one spoken in this shot."
+align = 7
+margin_l = 60
+margin_v = 180
+size = 44
+ink = "FFFFFF"
+fill = "2E9E5B"
+pad = 14
+
+[overlays.card]
+about = "white name card, 'Имя | одна деталь', the first time a person appears."
+align = 7
+margin_l = 50
+margin_v = 320
+size = 54
+ink = "1A1A1A"
+fill = "F4F4F4"
+pad = 18
+upper = false
+
+[overlays.label]
+about = "yellow callout on an object the narrator names in this shot, at most four words."
+align = 7
+margin_l = 70
+margin_v = 980
+size = 46
+ink = "1A1A1A"
+fill = "F2B632"
+pad = 14
+
+[overlays.alert]
+about = "red stamp for a new threat the narrator names in this shot, at most four words."
+align = 9
+margin_r = 50
+margin_v = 420
+size = 46
+ink = "FFFFFF"
+fill = "C0392B"
+pad = 14

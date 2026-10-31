@@ -12,9 +12,11 @@ Judge, in this order:
 
 {criteria}
 
-Then: are the lines spoken language of at most {words} words; can the pictures be drawn from
-the text alone, with each character's look repeated wherever they appear; do the `overlays`
-use only these kinds: {kinds}.
+Then: does every shot follow from the one before, so the story makes sense to someone who
+only listens; does every `picture` show exactly what its `line` says, with no object that
+carries writing or numbers; is every `motion` small and slow; do the `overlays` repeat what
+is spoken in their shot and use only these kinds: {kinds}; are the lines spoken language of
+at most {words} words.
 
 `notes` are instructions to the writer for the rewrite: what to cut and what to change,
 in at most three sentences. Do not praise. Leave `bad_shots` empty.
