@@ -43,9 +43,12 @@ services:
     image: reelsmith/comfy:${COMFYUI_REF:-v0.43.1}
     volumes:
       - ./models:/opt/comfy/models
-      - comfy-output:/opt/comfy/output
+      - ./studio/output:/opt/comfy/output
+      - ./studio/input:/opt/comfy/input
+      - ./studio/user:/opt/comfy/user
+      - ./workflows:/opt/comfy/user/default/workflows/conveyor:ro
     ports:
-      - "127.0.0.1:8188:8188"   # editor for exporting workflows; not exposed beyond the host
+      - "127.0.0.1:8188:8188"   # ComfyUI has no password, so only this machine may reach it
     shm_size: 8gb
     restart: unless-stopped
 
@@ -57,7 +60,7 @@ services:
     image: reelsmith/tts:local
     volumes:
       - ./hf:/hf
-      - ./voices:/voices:ro
+      - ./voices:/voices
     restart: unless-stopped
 
   worker:
@@ -72,6 +75,8 @@ services:
       - media:/data/media
       - ./outbox:/data/outbox
       - ./hf:/hf
+      - ./styles:/app/styles:ro
+      - ./studio:/data/studio
     depends_on:
       db:
         condition: service_healthy
@@ -86,5 +91,4 @@ services:
 volumes:
   pgdata:
   ollama:
-  comfy-output:
   media:

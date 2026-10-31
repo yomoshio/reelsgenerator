@@ -20,7 +20,7 @@ RUN pip install torch==${TORCH} torchaudio==${TORCHAUDIO} --index-url https://do
     && pip install "voxcpm${VOXCPM:+==${VOXCPM}}" "fastapi>=0.115,<1" "uvicorn[standard]>=0.30" "soundfile>=0.12"
 
 WORKDIR /srv
-COPY services/tts/app.py .
+COPY services/tts/app.py services/tts/design_voice.py ./
 
 # Ubuntu 24.04 images already ship user `ubuntu` with uid 1000; reuse it instead of useradd.
 USER ubuntu

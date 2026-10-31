@@ -1,5 +1,4 @@
-# The orchestrator. No GPU: it talks to the model services over HTTP and runs ffmpeg and
-# whisper on the CPU.
+# No GPU here: the models run in their own containers; ffmpeg and whisper run on the CPU.
 FROM ubuntu:24.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -20,7 +19,8 @@ RUN pip install ".[subtitles]" "huggingface-hub[hf_transfer]>=0.25"
 
 COPY migrations ./migrations
 COPY workflows ./workflows
-COPY tools ./tools
+COPY styles ./styles
+COPY scripts ./scripts
 COPY models.toml ./
 
 # Ubuntu 24.04 images already ship user `ubuntu` with uid 1000; reuse it instead of useradd.

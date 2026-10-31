@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Prepare a fresh Ubuntu 24.04 host for the GPU containers.
 #
-#   sudo ./setup-ubuntu-24.04.sh driver    # then reboot
-#   sudo ./setup-ubuntu-24.04.sh docker
-#   sudo ./setup-ubuntu-24.04.sh toolkit
-#   ./setup-ubuntu-24.04.sh check
+#   sudo scripts/setup-host.sh driver    # then reboot
+#   sudo scripts/setup-host.sh docker
+#   sudo scripts/setup-host.sh toolkit
+#   scripts/setup-host.sh check
 #
 # RTX 50xx (Blackwell) cards only work with the open kernel modules, hence the -open driver.
 set -euo pipefail
@@ -50,6 +50,16 @@ toolkit() {
     apt-get update
     apt-get install -y nvidia-container-toolkit
     nvidia-ctk runtime configure --runtime=docker
+    # With the systemd cgroup driver a container loses the GPU ("Failed to initialize NVML")
+    # after the host reloads systemd; cgroupfs does not have that problem.
+    python3 - <<'PY'
+import json
+
+path = "/etc/docker/daemon.json"
+config = json.load(open(path))
+config["exec-opts"] = ["native.cgroupdriver=cgroupfs"]
+json.dump(config, open(path, "w"), indent=4)
+PY
     systemctl restart docker
 }
 

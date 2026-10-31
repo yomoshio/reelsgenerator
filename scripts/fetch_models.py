@@ -1,7 +1,7 @@
 """Download the weights listed in models.toml.
 
-python tools/fetch_models.py --models /models --hf-home /hf
-python tools/fetch_models.py --only video,music --with-optional
+python scripts/fetch_models.py --models /models --hf-home /hf
+python scripts/fetch_models.py --only video,music --with-optional
 """
 
 import argparse
