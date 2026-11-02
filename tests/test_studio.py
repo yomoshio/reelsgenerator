@@ -67,6 +67,16 @@ async def test_a_video_request_becomes_a_job_with_the_chosen_style_and_animation
     assert (tmp_path / "inbox" / "done" / "a.txt").read_text(encoding="utf-8").startswith("queued")
 
 
+async def test_same_faces_turns_on_the_portrait_painter(tmp_path: Path) -> None:
+    store = MemoryJobs()
+    _drop(tmp_path, "a", {"kind": "video", "story": "маяк", "same_faces": True})
+
+    await _studio(tmp_path, store, []).sync()
+
+    (job,) = await store.find()
+    assert job.recipe.cast_image == "qwen-edit"
+
+
 async def test_approve_finds_the_job_by_its_short_id(tmp_path: Path) -> None:
     store = MemoryJobs()
     ready, busy = Job.new("маяк"), Job.new("лифт")

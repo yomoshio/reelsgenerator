@@ -218,6 +218,48 @@ async def test_gates_set_how_many_frames_are_painted(tmp_path: Path) -> None:
     assert [len(c) for c in made.assets.candidates.values()] == [1, 1, 1]
 
 
+async def test_characters_get_one_portrait_and_their_shots_are_drawn_from_it(
+    tmp_path: Path,
+) -> None:
+    plain, editor = FakePainter("fake"), FakePainter("slow")
+    s = replace(services(tmp_path, painter=plain), painters={"fake": plain, "slow": editor})
+    made = job(status=Status.VOICED, script=script(3), recipe=recipe(cast_image="slow"))
+    made.require_script().shots[1].cast = []
+
+    await paint(made, s)
+
+    portrait = made.assets.cast["Vera"]
+    assert portrait.startswith("cast/")
+    assert _stages(made).count("cast") == 1
+    assert editor.references == [tmp_path / portrait] * 4
+    assert plain.references == [None, None, None]
+    assert editor.log[0][0].startswith("The same person as in the reference image, Vera.")
+
+
+async def test_the_same_look_reuses_the_portrait_in_the_next_episode(tmp_path: Path) -> None:
+    plain, editor = FakePainter("fake"), FakePainter("slow")
+    s = replace(services(tmp_path, painter=plain), painters={"fake": plain, "slow": editor})
+    first = job(status=Status.VOICED, script=script(3), recipe=recipe(cast_image="slow"))
+    await paint(first, s)
+    (tmp_path / first.assets.cast["Vera"]).write_bytes(b"png")
+    second = job(status=Status.VOICED, script=script(3), recipe=recipe(cast_image="slow"))
+
+    await paint(second, s)
+
+    assert second.assets.cast == first.assets.cast
+    assert "cast" not in _stages(second)
+
+
+async def test_without_a_cast_model_frames_are_drawn_as_before(tmp_path: Path) -> None:
+    painter = FakePainter()
+    made = job(status=Status.VOICED, script=script(3))
+
+    await paint(made, services(tmp_path, painter=painter))
+
+    assert made.assets.cast == {}
+    assert painter.references == [None] * 6
+
+
 async def test_pick_chooses_among_the_candidates(tmp_path: Path) -> None:
     llm = FakeLlm(picks=1)
     made = job(status=Status.PAINTED, script=script(3))

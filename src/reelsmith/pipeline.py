@@ -4,6 +4,7 @@ Every stage talks to one GPU service, so the conveyor can hold the card for it. 
 why the judge has stages of its own, `pick` and `check`, between the ComfyUI ones."""
 
 import asyncio
+import hashlib
 import re
 import shutil
 from collections.abc import Awaitable, Callable, Mapping
@@ -70,7 +71,9 @@ class Llm(Protocol):
 class Painter(Protocol):
     name: str
 
-    async def paint(self, prompt: str, *, seed: int, out: Path) -> Path: ...
+    async def paint(
+        self, prompt: str, *, seed: int, out: Path, reference: Path | None = None
+    ) -> Path: ...
 
 
 class Animator(Protocol):
@@ -150,6 +153,8 @@ class Services:
     def check(self, recipe: Recipe) -> None:
         self.styles.get(recipe.style)
         self.painter(recipe.image)
+        if recipe.cast_image:
+            self.painter(recipe.cast_image)
         for shot in (0, recipe.hook_shots):
             self.animator(recipe.video_for(shot))
         self.animator(recipe.video_for(recipe.hook_shots, moves=False))
@@ -261,21 +266,53 @@ async def voice(job: Job, s: Services) -> None:
 
 
 async def paint(job: Job, s: Services) -> None:
-    """Candidate frames for every shot; `pick` chooses among them in the next stage."""
+    """Candidate frames for every shot; `pick` chooses among them in the next stage. With a
+    `cast_image` model, every character first gets a portrait, and shots with a character
+    are drawn from the portrait of the first one in frame, so faces and clothes hold."""
     script, files = job.require_script(), Files(s.media, job.id)
     style = s.styles.get(job.recipe.style)
     painter = s.painter(job.recipe.image)
+    portraits = await _portraits(job, s, style) if job.recipe.cast_image else {}
     for i, shot in enumerate(script.shots):
         if i in job.assets.candidates:
             continue
-        looks = script.looks_of(present(shot, script))
-        prompt = ". ".join(p for p in (looks, shot.picture, style.look.frame) if p)
+        cast = present(shot, script)
+        prompt = ". ".join(p for p in (script.looks_of(cast), shot.picture, style.look.frame) if p)
+        lead = next((name for name in cast if name in portraits), None)
+        artist, reference = painter, None
+        if lead is not None and job.recipe.cast_image:
+            artist, reference = s.painter(job.recipe.cast_image), files.resolve(portraits[lead])
+            prompt = f"The same person as in the reference image, {lead}. {prompt}"
         made: list[Path] = []
         for k in range(s.gates.candidates):
             seed = seed_for(job.id, 1000 + i * 10 + k)
-            with metered(job, s.tariff, stage="frame", provider=painter.name, shot=i):
-                made.append(await painter.paint(prompt, seed=seed, out=files.frame(i, k)))
+            with metered(job, s.tariff, stage="frame", provider=artist.name, shot=i):
+                out = files.frame(i, k)
+                made.append(await artist.paint(prompt, seed=seed, out=out, reference=reference))
         job.assets.candidates[i] = [files.relative(p) for p in made]
+
+
+async def _portraits(job: Job, s: Services, style: Style) -> dict[str, str]:
+    """One full-figure portrait per character. The file is named after the look and the
+    style, so the same character described the same way gets the same portrait in every
+    episode of a serial, and is painted only once."""
+    script, files = job.require_script(), Files(s.media, job.id)
+    painter = s.painter(job.recipe.image)
+    for character in script.characters:
+        if character.name in job.assets.cast:
+            continue
+        key = hashlib.sha1(f"{style.name}|{character.look}".encode()).hexdigest()[:12]
+        portrait = s.media / "cast" / f"{key}.png"
+        if not portrait.exists():
+            portrait.parent.mkdir(parents=True, exist_ok=True)
+            prompt = (
+                f"{character.look}. Full figure, standing, facing the viewer, plain background, "
+                f"character reference. {style.look.frame}"
+            )
+            with metered(job, s.tariff, stage="cast", provider=painter.name):
+                await painter.paint(prompt, seed=int(key, 16) % 2**31, out=portrait)
+        job.assets.cast[character.name] = files.relative(portrait)
+    return job.assets.cast
 
 
 async def pick(job: Job, s: Services) -> None:

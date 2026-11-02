@@ -209,8 +209,14 @@ class ComfyPainter:
         self._workflow = workflow.require("prompt", "seed")
         self._knobs = workflow.supported(width=width, height=height, steps=steps)
 
-    async def paint(self, prompt: str, *, seed: int, out: Path) -> Path:
-        graph = self._workflow.bind(prompt=prompt, seed=seed, **self._knobs)
+    async def paint(
+        self, prompt: str, *, seed: int, out: Path, reference: Path | None = None
+    ) -> Path:
+        """A graph with an `image` slot draws from `reference`; others ignore it."""
+        extra: dict[str, object] = {}
+        if reference is not None and "image" in self._workflow.slots:
+            extra["image"] = await self._client.upload(reference)
+        graph = self._workflow.bind(prompt=prompt, seed=seed, **self._knobs, **extra)
         outputs = await self._client.run(graph, limit=180)
         return await self._client.download(_first(outputs, (".png",), self._workflow.name), out)
 

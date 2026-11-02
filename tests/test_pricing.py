@@ -27,7 +27,16 @@ def test_tariff_rejects_unknown_provider() -> None:
 
 
 def test_default_tariff_covers_the_local_stack() -> None:
-    assert set(RATES) == {"ollama", "z-image", "wan-2.2", "wan-5b", "still", "voxcpm", "ace-step"}
+    assert set(RATES) == {
+        "ollama",
+        "z-image",
+        "qwen-edit",
+        "wan-2.2",
+        "wan-5b",
+        "still",
+        "voxcpm",
+        "ace-step",
+    }
     assert DEFAULT.gpu_seconds("wan-2.2", 5) == 70
 
 

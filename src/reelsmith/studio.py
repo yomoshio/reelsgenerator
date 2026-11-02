@@ -124,6 +124,8 @@ class Studio:
     def _recipe_for(self, request: dict[str, Any]) -> Recipe:
         update: dict[str, Any] = {"style": request.get("style") or self._recipe.style}
         update |= ANIMATION.get(str(request.get("animation", "hybrid")), {})
+        if request.get("same_faces"):
+            update["cast_image"] = "qwen-edit"
         self._styles.get(update["style"])
         return self._recipe.model_copy(update=update)
 

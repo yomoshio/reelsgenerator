@@ -11,7 +11,7 @@ from psycopg_pool import AsyncConnectionPool
 
 from reelsmith.conveyor import Conveyor, Gpu, GpuTenant
 from reelsmith.models import Job, Outline, Recipe, Status
-from reelsmith.pipeline import STAGES, Animator, Services, Stage
+from reelsmith.pipeline import STAGES, Animator, Painter, Services, Stage
 from reelsmith.pricing import DEFAULT, Tariff
 from reelsmith.report import Arm, Report, compare, report
 from reelsmith.series import Planner, Serial, make_serial
@@ -130,6 +130,16 @@ def local_services(
         height=settings.frame_height,
         steps=settings.frame_steps,
     )
+    painters: dict[str, Painter] = {"z-image": painter}
+    if (settings.workflows / "keyframe-edit.json").exists():
+        painters["qwen-edit"] = ComfyPainter(
+            client,
+            graph("keyframe-edit.json"),
+            name="qwen-edit",
+            width=settings.frame_width,
+            height=settings.frame_height,
+            steps=settings.edit_steps,
+        )
     animators: dict[str, Animator] = {"still": StillAnimator()}
     for name, (file, fps) in WAN_GRAPHS.items():
         if name == "wan-2.2" or (settings.workflows / file).exists():
@@ -146,7 +156,7 @@ def local_services(
 
     services = Services(
         llm=llm,
-        painters={"z-image": painter},
+        painters=painters,
         animators=animators,
         narrator=narrator,
         composer=ComfyComposer(client, graph("score.json"), steps=settings.music_steps),
@@ -178,7 +188,10 @@ def synthetic_services(
     montage = FfmpegMontage()
     return Services(
         llm=synthetic.SyntheticLlm(flag=flag, reject=reject),
-        painters={"z-image": synthetic.SyntheticPainter("z-image")},
+        painters={
+            "z-image": synthetic.SyntheticPainter("z-image"),
+            "qwen-edit": synthetic.SyntheticPainter("qwen-edit"),
+        },
         animators={
             "still": StillAnimator(),
             "wan-2.2": synthetic.SyntheticAnimator("wan-2.2"),
