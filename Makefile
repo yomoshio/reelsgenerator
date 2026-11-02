@@ -3,7 +3,7 @@ RUN := $(COMPOSE) run --rm --no-deps worker
 WRITER_MODEL ?= $(shell grep -s '^REELSMITH_WRITER_MODEL=' .env | cut -d= -f2)
 
 .PHONY: help setup build models llm-model voice up down migrate graphs \
-	add ideas series jobs status report styles review approve reject retry logs pause resume \
+	add ideas series jobs status report styles review approve reject retry logs pause resume smoke \
 	test lint demo preview pin
 
 help:                        ## этот список
@@ -42,6 +42,9 @@ down:                        ## остановить всё
 
 migrate:                     ## создать таблицу задач
 	$(COMPOSE) run --rm worker migrate
+
+smoke:                       ## по одному вызову каждой модели с временем: проверка новой машины
+	$(RUN) smoke
 
 graphs:                      ## пересобрать workflows/*.json из scripts/make_graphs.py
 	python3 scripts/make_graphs.py

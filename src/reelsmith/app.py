@@ -1,6 +1,7 @@
 """Builds the services from settings and wires the conveyor. The demo lives here too."""
 
-from collections.abc import AsyncIterator, Collection
+import time
+from collections.abc import AsyncIterator, Awaitable, Callable, Collection
 from contextlib import AsyncExitStack, asynccontextmanager
 from dataclasses import dataclass, replace
 from datetime import timedelta
@@ -200,20 +201,7 @@ async def application(
 ) -> AsyncIterator[App]:
     async with AsyncExitStack() as stack:
         jobs = await stack.enter_async_context(database(settings))
-        tenants: dict[str, GpuTenant] = {}
-        if settings.services == "synthetic":
-            services = synthetic_services(
-                media=settings.media_root,
-                outbox=settings.outbox,
-                styles=settings.styles,
-                tariff=settings.tariff(),
-            )
-        else:
-            http = [
-                await stack.enter_async_context(httpx.AsyncClient(base_url=url))
-                for url in (settings.ollama_url, settings.comfy_url, settings.tts_url)
-            ]
-            services, tenants = local_services(settings, ollama=http[0], comfy=http[1], tts=http[2])
+        services, tenants = await services_for(settings, stack)
         if stage_names is None:
             services.check(settings.recipe())
         gpu = Gpu(tenants)
@@ -226,6 +214,97 @@ async def application(
             max_attempts=settings.max_attempts,
         )
         yield App(jobs, conveyor, studio_for(settings, jobs, services, gpu))
+
+
+async def services_for(
+    settings: Settings, stack: AsyncExitStack
+) -> tuple[Services, dict[str, GpuTenant]]:
+    """The local services, whose HTTP clients live as long as `stack`, or the stand-ins."""
+    if settings.services == "synthetic":
+        services = synthetic_services(
+            media=settings.media_root,
+            outbox=settings.outbox,
+            styles=settings.styles,
+            tariff=settings.tariff(),
+        )
+        return services, {}
+    http = [
+        await stack.enter_async_context(httpx.AsyncClient(base_url=url))
+        for url in (settings.ollama_url, settings.comfy_url, settings.tts_url)
+    ]
+    return local_services(settings, ollama=http[0], comfy=http[1], tts=http[2])
+
+
+@dataclass(frozen=True)
+class Check:
+    name: str
+    ok: bool
+    seconds: float
+    result: str
+
+
+SMOKE_IDEA = "Утром Артём просыпается, а квартира затоплена"  # noqa: RUF001
+SMOKE_LINE = "Артём открывает дверь. Вода уже на лестнице."
+
+
+async def smoke(settings: Settings, out: Path) -> list[Check]:
+    """One call to every model, in the order the conveyor uses them and with the card
+    handed over between services the same way, so a fresh machine shows what works. The
+    files land in `out`, which must exist."""
+    async with AsyncExitStack() as stack:
+        services, tenants = await services_for(settings, stack)
+        gpu = Gpu(tenants)
+        recipe = settings.recipe()
+        style = services.styles.get(recipe.style)
+        checks: list[Check] = []
+
+        async def step(name: str, tenant: str | None, work: Callable[[], Awaitable[str]]) -> bool:
+            await gpu.use(tenant)
+            started = time.monotonic()
+            try:
+                result, ok = await work(), True
+            except Exception as exc:  # any failure is a finding on a fresh machine
+                result, ok = f"{type(exc).__name__}: {exc}", False
+            checks.append(Check(name, ok, time.monotonic() - started, result))
+            return ok
+
+        async def plan() -> str:
+            outline = await services.llm.plan(SMOKE_IDEA, style)
+            return f"{len(outline.beats)} beats, «{outline.title}»"
+
+        voice = out / f"voice{services.narrator.suffix}"
+        frame, clip = out / "frame.png", out / "clip.mp4"
+
+        async def speak() -> str:
+            await services.narrator.speak(SMOKE_LINE, voice)
+            return f"{voice.name}, {await services.montage.seconds(voice):.1f} s"
+
+        async def hear() -> str:
+            return " ".join(w.text for w in await services.transcriber.words(voice))
+
+        async def paint() -> str:
+            prompt = f"a man in a blue raincoat on a flooded staircase. {style.look.frame}"
+            await services.painter(recipe.image).paint(prompt, seed=1, out=frame)
+            return frame.name
+
+        async def animate() -> str:
+            animator = services.animator(recipe.video)
+            await animator.animate(frame, "slow push-in", seconds=2.0, seed=1, out=clip)
+            return f"{clip.name}, {await services.montage.seconds(clip):.1f} s by {animator.name}"
+
+        async def compose() -> str:
+            track = out / f"music{services.composer.suffix}"
+            await services.composer.compose("low tense drone", seconds=5.0, seed=1, out=track)
+            return f"{track.name}, {await services.montage.seconds(track):.1f} s"
+
+        await step("plan", "llm", plan)
+        if await step("voice", "tts", speak):
+            await step("subtitles", None, hear)
+        if await step("frame", "comfy", paint):
+            await step("clip", "comfy", animate)
+        await step("music", "comfy", compose)
+        await gpu.release_all()
+        return checks
 
 
 def studio_for(settings: Settings, jobs: Store, services: Services, gpu: Gpu) -> Studio | None:

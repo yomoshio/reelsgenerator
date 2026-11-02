@@ -397,6 +397,23 @@ def work(
     asyncio.run(go())
 
 
+@app.command()
+def smoke(out: Path = Path("/data/studio/smoke")) -> None:
+    """One call to every model on this machine, with timings: run it on a fresh GPU box."""
+    settings = _settings()
+    out.mkdir(parents=True, exist_ok=True)
+    checks = asyncio.run(build.smoke(settings, out))
+    typer.echo(
+        _table(
+            ["step", "ok", "seconds", "result"],
+            [(c.name, "yes" if c.ok else "NO", c.seconds, c.result[:90]) for c in checks],
+        )
+    )
+    typer.echo(f"files: {out}")
+    if not all(c.ok for c in checks):
+        raise typer.Exit(1)
+
+
 @app.command(name="styles")
 def list_styles() -> None:
     """The style templates in the styles folder, with what each one is for."""
