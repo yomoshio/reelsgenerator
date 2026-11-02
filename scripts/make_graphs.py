@@ -1,11 +1,14 @@
-"""Writes the three ComfyUI graphs the worker needs into workflows/.
+"""Writes the ComfyUI graphs the worker needs into workflows/.
 
 python scripts/make_graphs.py [--out workflows]
 
 The graphs follow ComfyUI's own templates (Z-Image Turbo, Wan 2.2 14B image to video with
-the lightx2v 4-step LoRAs, ACE-Step 1.5) in API format. A node whose title starts with `@`
-is a slot the worker fills: `@prompt:text` means "put the prompt into this node's `text`".
-Regenerate after changing a size or a step count; open the file in the editor to look at it.
+the lightx2v 4-step LoRAs, ACE-Step 1.5) in API format. `animate-hd.json` is the same clip
+upscaled to 1080x1920 by Real-ESRGAN before the frame interpolation.
+
+A node whose title starts with `@` is a slot the worker fills: `@prompt:text` means "put
+the prompt into this node's `text`". Regenerate after changing the structure of a graph;
+sizes and steps come from .env at run time.
 """
 
 import argparse
@@ -66,7 +69,7 @@ def keyframe() -> Graph:
     return g
 
 
-def animate(width: int = 480, height: int = 848) -> Graph:
+def animate(width: int = 480, height: int = 848, *, sharp: bool = False) -> Graph:
     g = Graph()
     loras = "wan2.2_i2v_lightx2v_4steps_lora_v1_{}_noise.safetensors"
     models = "wan2.2_i2v_{}_noise_14B_fp8_scaled.safetensors"
@@ -110,6 +113,14 @@ def animate(width: int = 480, height: int = 848) -> Graph:
         start_at_step=2, end_at_step=4, return_with_leftover_noise="disable", **shared,
     )  # fmt: skip
     frames = g.add("VAEDecode", samples=out(second), vae=out(vae))
+    if sharp:
+        # Four times up, then down to the final size: crisper than stretching 480 px in ffmpeg.
+        upscaler = g.add("UpscaleModelLoader", model_name="RealESRGAN_x4plus_anime_6B.pth")
+        big = g.add("ImageUpscaleWithModel", upscale_model=out(upscaler), image=out(frames))
+        frames = g.add(
+            "ImageScale",
+            image=out(big), upscale_method="lanczos", width=1080, height=1920, crop="center",
+        )  # fmt: skip
     smooth = g.add(
         "RIFE VFI",
         ckpt_name="rife49.pth", frames=out(frames), clear_cache_after_n_frames=10, multiplier=2,
@@ -154,7 +165,13 @@ def main() -> None:
     parser.add_argument("--out", type=Path, default=Path("workflows"))
     args = parser.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
-    for name, graph in {"keyframe": keyframe(), "animate": animate(), "score": score()}.items():
+    graphs = {
+        "keyframe": keyframe(),
+        "animate": animate(),
+        "animate-hd": animate(sharp=True),
+        "score": score(),
+    }
+    for name, graph in graphs.items():
         graph.save(args.out / f"{name}.json")
         print(f"wrote {args.out / name}.json ({len(graph.nodes)} nodes)")
 

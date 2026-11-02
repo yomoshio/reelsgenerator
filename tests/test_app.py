@@ -37,6 +37,9 @@ def _export(folder: Path, *names: str) -> None:
         "animate-draft.json": _graph(
             ("image", "image"), ("prompt", "text"), ("length", "length"), ("seed", "seed")
         ),
+        "animate-hd.json": _graph(
+            ("image", "image"), ("prompt", "text"), ("length", "length"), ("seed", "seed")
+        ),
         "score.json": _graph(("tags", "tags"), ("seconds", "seconds"), ("seed", "seed")),
     }
     for name in names:
@@ -60,9 +63,9 @@ async def test_local_services_need_the_three_graphs_and_offer_the_draft_when_exp
         with pytest.raises(StageError, match="wan-5b"):
             built.check(Recipe(video="wan-5b"))
 
-        _export(tmp_path, "animate-draft.json")
+        _export(tmp_path, "animate-draft.json", "animate-hd.json")
         built, _ = app.local_services(settings, ollama=http, comfy=http, tts=http)
-        assert set(built.animators) == {"still", "wan-2.2", "wan-5b"}
+        assert set(built.animators) == {"still", "wan-2.2", "wan-2.2-hd", "wan-5b"}
         built.check(Recipe(video="wan-5b", hook_video="wan-2.2"))
 
 

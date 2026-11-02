@@ -33,7 +33,11 @@ from reelsmith.store import MemoryJobs, PostgresJobs, Store
 from reelsmith.studio import Studio
 from reelsmith.styles import Style, Styles
 
-WAN_GRAPHS = {"wan-2.2": ("animate.json", 16), "wan-5b": ("animate-draft.json", 24)}
+WAN_GRAPHS = {
+    "wan-2.2": ("animate.json", 16),
+    "wan-2.2-hd": ("animate-hd.json", 16),
+    "wan-5b": ("animate-draft.json", 24),
+}
 DEMO_IDEAS = (
     "зомби в ночном метро",
     "пациент, который не спит",

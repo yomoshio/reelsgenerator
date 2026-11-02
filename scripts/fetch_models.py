@@ -2,12 +2,16 @@
 
 python scripts/fetch_models.py --models /models --hf-home /hf
 python scripts/fetch_models.py --only video,music --with-optional
+
+Entries come from Hugging Face (`file`, `snapshot`) or from a plain address (`url`), for
+weights that only live in a GitHub release.
 """
 
 import argparse
 import os
 import shutil
 import tomllib
+import urllib.request
 from pathlib import Path
 
 from huggingface_hub import hf_hub_download, snapshot_download
@@ -36,6 +40,17 @@ def main() -> None:
     for entry in filter(selected, manifest.get("snapshot", [])):
         print(f"fetch {entry['repo']}  [{entry['license']}]")
         snapshot_download(entry["repo"], cache_dir=args.hf_home / "hub")
+
+    for entry in filter(selected, manifest.get("url", [])):
+        target = args.models / entry["into"] / entry["url"].rsplit("/", 1)[-1]
+        if target.exists():
+            print(f"have  {target}")
+            continue
+        print(f"fetch {entry['url']}  [{entry['license']}]")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        partial = target.with_name(target.name + ".part")
+        urllib.request.urlretrieve(entry["url"], partial)
+        partial.rename(target)
 
 
 def _place(cached: Path, target: Path) -> None:
