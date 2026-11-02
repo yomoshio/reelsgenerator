@@ -77,6 +77,16 @@ async def test_same_faces_turns_on_the_portrait_painter(tmp_path: Path) -> None:
     assert job.recipe.cast_image == "qwen-edit"
 
 
+async def test_the_hd_animation_sends_every_shot_to_the_upscaled_model(tmp_path: Path) -> None:
+    store = MemoryJobs()
+    _drop(tmp_path, "a", {"kind": "video", "story": "маяк", "animation": "wan-hd"})
+
+    await _studio(tmp_path, store, []).sync()
+
+    (job,) = await store.find()
+    assert (job.recipe.video, job.recipe.calm_video) == ("wan-2.2-hd", None)
+
+
 async def test_approve_finds_the_job_by_its_short_id(tmp_path: Path) -> None:
     store = MemoryJobs()
     ready, busy = Job.new("маяк"), Job.new("лифт")

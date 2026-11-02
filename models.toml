@@ -113,6 +113,15 @@ into = "vae"
 license = "Apache-2.0"
 optional = true
 
+# An anime-tuned Real-ESRGAN for the `wan-2.2-hd` clips: sharp edges on flat graphics.
+# It is published only as a GitHub release, hence a plain address.
+[[url]]
+stage = "upscale"
+url = "https://github.com/xinntao/Real-ESRGAN/releases/download/v0.2.2.4/RealESRGAN_x4plus_anime_6B.pth"
+into = "upscale_models"
+license = "BSD-3-Clause"
+optional = true
+
 # Whole repos go to the Hugging Face cache shared with the service that loads them.
 [[snapshot]]
 stage = "voice"

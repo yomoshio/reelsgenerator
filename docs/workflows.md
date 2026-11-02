@@ -14,6 +14,7 @@ make graphs        # то же, что python3 scripts/make_graphs.py
 | `keyframe.json` | Z-Image Turbo, кадр по тексту |
 | `keyframe-edit.json` | Qwen-Image-Edit 2509, кадр по тексту и портрету героя; модель `qwen-edit`, нужны веса `make models ONLY=character OPTIONAL=1` |
 | `animate.json` | Wan 2.2 14B, клип из кадра; две ускоряющие LoRA lightx2v на 4 шага, затем RIFE удваивает частоту до 32 кадров в секунду |
+| `animate-hd.json` | то же, но перед RIFE Real-ESRGAN увеличивает кадры в четыре раза, и они ужимаются до 1080 × 1920; модель `wan-2.2-hd`, нужны веса `make models ONLY=upscale OPTIONAL=1` |
 | `score.json` | ACE-Step 1.5 AIO, инструментальная музыка в flac |
 
 Размеры, шаги и длина клипа приходят из `.env` при каждом запуске, поэтому для них
@@ -39,6 +40,7 @@ make graphs        # то же, что python3 scripts/make_graphs.py
 | animate | `@length:length @width:width @height:height` | WanImageToVideo |
 | animate | `@seed:noise_seed @steps:steps @split:end_at_step` | первый KSamplerAdvanced |
 | animate | `@seed:noise_seed @steps:steps @split:start_at_step @steps:end_at_step` | второй KSamplerAdvanced |
+| animate-hd | те же слоты, что у animate | |
 | score | `@tags:tags` | текстовый энкодер ACE-Step |
 | score | `@seconds:value` | число, связанное с длиной латента и энкодера |
 | score | `@seed:value` | число, связанное с семплером и энкодером |

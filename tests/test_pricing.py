@@ -32,6 +32,7 @@ def test_default_tariff_covers_the_local_stack() -> None:
         "z-image",
         "qwen-edit",
         "wan-2.2",
+        "wan-2.2-hd",
         "wan-5b",
         "still",
         "voxcpm",
