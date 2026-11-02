@@ -5,7 +5,18 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from reelsmith.models import Character, Job, Metrics, Post, Recipe, Script, Shot, Status, Verdict
+from reelsmith.models import (
+    Character,
+    Job,
+    Metrics,
+    Outline,
+    Post,
+    Recipe,
+    Script,
+    Shot,
+    Status,
+    Verdict,
+)
 from reelsmith.pipeline import Services
 from reelsmith.pricing import Rate, Tariff, Unit
 from reelsmith.services.ffmpeg import Cut, Word
@@ -36,6 +47,16 @@ def script(shots: int = 3, *, hook_kind: str = "question", title: str = "t") -> 
             for i in range(shots)
         ],
         music="slow drone",
+    )
+
+
+def outline(title: str = "zombies") -> Outline:
+    return Outline(
+        title=title,
+        characters=[Character(name="Vera", look="nurse, 30s, grey cardigan")],
+        beats=[f"beat {i}" for i in range(6)],
+        planted="the logbook",
+        ending="the logbook was hers",
     )
 
 
@@ -83,15 +104,23 @@ class FakeLlm:
     flag: set[int] = field(default_factory=set)
     reject: Verdict | None = None
     written: list[tuple[str, str | None]] = field(default_factory=list)
+    planned: list[str] = field(default_factory=list)
+    reviewed_against: list[str] = field(default_factory=list)
     inspected: int = 0
     log: list[tuple[str, list[Path]]] = field(default_factory=list)
+
+    async def plan(self, idea: str, style: Style) -> Outline:
+        self.planned.append(idea)
+        return outline(idea)
 
     async def write(self, idea: str, style: Style, notes: str | None = None) -> Script:
         self.written.append((idea, notes))
         count = self.shots.pop(0) if len(self.shots) > 1 else self.shots[0]
-        return script(count, hook_kind=self.hook_kind, title=f"{idea} draft {len(self.written)}")
+        title = f"{idea.split('.', maxsplit=1)[0]} draft {len(self.written)}"
+        return script(count, hook_kind=self.hook_kind, title=title)
 
-    async def review(self, script: Script, style: Style) -> Verdict:
+    async def review(self, script: Script, style: Style, outline: str = "") -> Verdict:
+        self.reviewed_against.append(outline)
         score = self.scores.pop(0) if len(self.scores) > 1 else self.scores[0]
         return Verdict(score=score, notes="tighten the hook")
 

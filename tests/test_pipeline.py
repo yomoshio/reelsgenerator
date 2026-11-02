@@ -31,6 +31,7 @@ from reelsmith.pipeline import (
     pick,
     publish,
     score,
+    showcase_name,
     voice,
     write,
 )
@@ -46,6 +47,7 @@ from tests.fakes import (
     FakePainter,
     FakePublisher,
     job,
+    outline,
     recipe,
     script,
     services,
@@ -97,11 +99,36 @@ async def test_write_rewrites_with_the_critics_notes_until_it_passes(tmp_path: P
 
     await write(made, services(tmp_path, llm=llm))
 
-    assert llm.written == [("zombies", None), ("zombies", "tighten the hook")]
+    brief = outline("zombies").as_brief()
+    assert llm.written == [(brief, None), (brief, "tighten the hook")]
     assert made.require_script().title == "zombies draft 2"
     assert made.critique is not None
     assert made.critique.score == 8.0
-    assert _stages(made) == ["script", "critic", "script", "critic"]
+    assert _stages(made) == ["plan", "script", "critic", "script", "critic"]
+
+
+async def test_write_plans_the_idea_once_and_the_critic_checks_against_the_plan(
+    tmp_path: Path,
+) -> None:
+    llm = FakeLlm(scores=[5.0, 8.0])
+    made = job("Утром Артём просыпается, а квартира затоплена")
+
+    await write(made, services(tmp_path, llm=llm))
+
+    assert llm.planned == ["Утром Артём просыпается, а квартира затоплена"]
+    assert made.outline is not None
+    assert llm.reviewed_against == [made.outline.as_brief()] * 2
+
+
+async def test_an_outline_already_on_the_job_is_not_planned_again(tmp_path: Path) -> None:
+    llm = FakeLlm()
+    made = job()
+    made.outline = outline("Потоп")
+
+    await write(made, services(tmp_path, llm=llm))
+
+    assert llm.planned == []
+    assert llm.written[0][0].startswith("Потоп. Characters: Vera")
 
 
 async def test_best_draft_is_kept_after_the_last_rewrite(tmp_path: Path) -> None:
@@ -255,6 +282,16 @@ async def test_check_skips_clips_that_are_a_camera_move_over_the_chosen_frame(
     assert [c.shot for c in made.calls if c.stage == "inspect"] == [0]
 
 
+async def test_animate_sends_still_shots_to_the_calm_model(tmp_path: Path) -> None:
+    made = job(status=Status.FRAMED, script=script(3), recipe=recipe(calm_video="slow"))
+    made.require_script().shots[1].moves = False
+    made.assets.frames = {i: f"x/frames/{i:02d}-0.png" for i in range(3)}
+
+    await animate(made, services(tmp_path))
+
+    assert [c.provider for c in made.calls if c.stage == "animate"] == ["fast", "slow", "fast"]
+
+
 async def test_check_keeps_a_clip_after_its_tries(tmp_path: Path) -> None:
     llm = FakeLlm(flag={0})
     made = _animated(3, tries={0: 3})
@@ -385,6 +422,14 @@ async def test_write_rejects_a_script_outside_the_styles_shot_range(tmp_path: Pa
         "The script has 12 shots; this channel needs 3 to 10. tighten the hook",
         "The script has 11 shots; this channel needs 3 to 10. tighten the hook",
     ]
+
+
+async def test_assemble_leaves_a_copy_of_the_cut_in_the_showcase(tmp_path: Path) -> None:
+    made = _scored()
+
+    await assemble(made, replace(services(tmp_path), showcase=tmp_path / "show"))
+
+    assert [p.name for p in (tmp_path / "show").iterdir()] == [showcase_name(made)]
 
 
 async def test_qa_ignores_shot_numbers_the_script_does_not_have(tmp_path: Path) -> None:

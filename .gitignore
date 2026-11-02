@@ -20,3 +20,5 @@ backups/
 studio/output/
 studio/input/
 studio/user/
+studio/inbox/
+studio/status.txt

@@ -3,7 +3,9 @@
 Every stage talks to one GPU service, so the conveyor can hold the card for it. That is
 why the judge has stages of its own, `pick` and `check`, between the ComfyUI ones."""
 
+import asyncio
 import re
+import shutil
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, replace
 from datetime import timedelta
@@ -16,6 +18,7 @@ from reelsmith.models import (
     Job,
     Metrics,
     Outcome,
+    Outline,
     Post,
     Recipe,
     Rewind,
@@ -49,9 +52,11 @@ class Gates:
 class Llm(Protocol):
     name: str
 
+    async def plan(self, idea: str, style: Style) -> Outline: ...
+
     async def write(self, idea: str, style: Style, notes: str | None = None) -> Script: ...
 
-    async def review(self, script: Script, style: Style) -> Verdict: ...
+    async def review(self, script: Script, style: Style, outline: str = "") -> Verdict: ...
 
     async def pick(self, brief: str, images: list[Path], style: Style) -> int: ...
 
@@ -132,6 +137,7 @@ class Services:
     styles: Styles
     analytics: Analytics | None = None
     gates: Gates = Gates()
+    showcase: Path | None = None  # a copy of every cut lands here, e.g. ComfyUI's output
 
     def painter(self, name: str) -> Painter:
         return _named(self.painters, name, "image")
@@ -144,6 +150,7 @@ class Services:
         self.painter(recipe.image)
         for shot in (0, recipe.hook_shots):
             self.animator(recipe.video_for(shot))
+        self.animator(recipe.video_for(recipe.hook_shots, moves=False))
 
 
 def _named[T](table: Mapping[str, T], name: str, role: str) -> T:
@@ -207,16 +214,22 @@ def seed_for(job_id: UUID, salt: int = 0) -> int:
 
 
 async def write(job: Job, s: Services) -> None:
-    """Writer and critic go round until the script passes or the rewrites are spent. A
-    script outside the style's shot count cannot pass. The best draft is kept either way."""
+    """The idea, a sentence or a whole story, first becomes a beat-by-beat outline; the
+    model follows an outline far better than it invents a plot while writing shots. Then
+    writer and critic go round until the script passes or the rewrites are spent. A script
+    outside the style's shot count cannot pass. The best draft is kept either way."""
     style = s.styles.get(job.recipe.style)
+    if job.outline is None:
+        with metered(job, s.tariff, stage="plan", provider=s.llm.name):
+            job.outline = await s.llm.plan(job.idea, style)
+    brief = job.outline.as_brief()
     best: tuple[Script, Verdict] | None = None
     notes: str | None = None
     for _ in range(s.gates.rewrites + 1):
         with metered(job, s.tariff, stage="script", provider=s.llm.name):
-            script = await s.llm.write(job.idea, style, notes)
+            script = await s.llm.write(brief, style, notes)
         with metered(job, s.tariff, stage="critic", provider=s.llm.name):
-            verdict = await s.llm.review(script, style)
+            verdict = await s.llm.review(script, style, brief)
         if problem := style.misfit(script):
             verdict = Verdict(
                 score=min(verdict.score, s.gates.script_pass - 1),
@@ -282,7 +295,7 @@ async def animate(job: Job, s: Services) -> None:
         if i in job.assets.clips:
             continue
         motion = ". ".join(m for m in (shot.motion, style.look.motion) if m)
-        animator = s.animator(job.recipe.video_for(i))
+        animator = s.animator(job.recipe.video_for(i, shot.moves))
         seconds = min(shot.seconds, animator.max_seconds)
         seed = seed_for(job.id, 2000 + i * 10 + job.attempts)
         with metered(
@@ -314,7 +327,7 @@ async def check(job: Job, s: Services) -> None:
     for i, shot in enumerate(script.shots):
         # A camera move over the frame `pick` already chose shows nothing new to judge, and
         # animating it again would show the same frame.
-        if _judged(job, i) or job.recipe.video_for(i) == "still":
+        if _judged(job, i) or job.recipe.video_for(i, shot.moves) == "still":
             continue
         stills = await s.montage.stills(files.resolve(job.assets.clips[i]), STILLS, files.stills(i))
         with metered(job, s.tariff, stage="inspect", provider=s.llm.name, shot=i):
@@ -389,6 +402,9 @@ async def assemble(job: Job, s: Services) -> None:
     cut = Cut(tuple(segments), files.resolve(job.assets.music), subtitles)
     final = await s.montage.render(cut, files.final())
     job.assets.final = files.relative(final)
+    if s.showcase is not None:
+        s.showcase.mkdir(parents=True, exist_ok=True)
+        await asyncio.to_thread(shutil.copyfile, final, s.showcase / showcase_name(job))
 
     middles = [start + shot.seconds / 2 for start, shot in zip(starts, script.shots, strict=True)]
     stills = await s.montage.stills_at(final, middles, files.stills(None))
@@ -401,6 +417,13 @@ async def assemble(job: Job, s: Services) -> None:
             job.assets.clips.pop(i, None)
         job.assets.final = None
         raise Rewind(Status.FRAMED, verdict.notes or "the cut did not pass QA")
+
+
+def showcase_name(job: Job) -> str:
+    """A file name a person recognises: the short id, then the title."""
+    title = job.script.title if job.script else job.idea
+    slug = re.sub(r"[^\w]+", "-", title.lower()).strip("-")[:40].rstrip("-")
+    return f"{job.id.hex[:8]}-{slug or 'video'}.mp4"
 
 
 def as_written(heard: list[Word], line: str) -> list[Word]:

@@ -11,6 +11,7 @@ import typer
 from reelsmith import app as build
 from reelsmith.models import Job, Metrics, Recipe, StageError, Status
 from reelsmith.report import Arm, Report, compare, report
+from reelsmith.series import ideas, write_serial
 from reelsmith.services.ffmpeg import preview
 from reelsmith.settings import Settings
 from reelsmith.store import PostgresJobs
@@ -193,20 +194,27 @@ def queue(file: Path, style: Style = None) -> None:
     file.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
-def ideas(lines: Sequence[str]) -> list[tuple[int, str | None, str]]:
-    """Line number, style or None, and idea for every line that is not empty or commented."""
-    found: list[tuple[int, str | None, str]] = []
-    for number, raw in enumerate(lines):
-        line = raw.strip()
-        if not line or line.startswith("#"):
-            continue
-        style, idea = None, line
-        if line.startswith("[") and "]" in line:
-            style, idea = line[1:].split("]", 1)
-            style, idea = style.strip(), idea.strip()
-        if idea:
-            found.append((number, style, idea))
-    return found
+@app.command()
+def series(
+    story: Path,
+    episodes: Annotated[int, typer.Option(min=1, max=30)] = 10,
+    name: str | None = None,
+    style: Style = None,
+    out: Path = Path("/data/studio/series"),
+) -> None:
+    """Turn a synopsis, a few sentences or a few hundred words, into a serial: the bible in
+    NAME.md and one beat-by-beat episode outline per line in NAME.txt, ready for `queue`."""
+    settings = _settings()
+    chosen = style or settings.style
+    _known_style(settings, chosen)
+    synopsis = story.read_text(encoding="utf-8").strip()
+    template = Styles(settings.styles).get(chosen)
+    try:
+        made = asyncio.run(build.serial(settings, synopsis, template, episodes))
+    except StageError as exc:
+        _fail(str(exc))
+    for path in write_serial(made, chosen, out, name or story.stem):
+        typer.echo(path)
 
 
 @app.command()
@@ -384,10 +392,7 @@ def work(
 
     async def go() -> None:
         async with build.application(settings, stage_names=chosen) as built:
-            if once:
-                await built.conveyor.turn()
-            else:
-                await built.conveyor.run_forever(settings.idle_seconds)
+            await built.run(settings.idle_seconds, once=once)
 
     asyncio.run(go())
 

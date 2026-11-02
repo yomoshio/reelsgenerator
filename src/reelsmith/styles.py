@@ -19,12 +19,13 @@ class Story(BaseModel):
     brief: str = Field(description="Prose for the writer: structure, voice, what to avoid.")
     critic: str = Field(default="", description="Extra criteria for the script critic.")
     shots: tuple[int, int] = (6, 9)
+    beats: tuple[int, int] = Field(default=(8, 12), description="Beats in the episode outline.")
     seconds: tuple[int, int] = (30, 50)
     words: int = Field(default=18, ge=4, description="Most words the narrator says in a shot.")
 
     @model_validator(mode="after")
     def _ordered(self) -> Self:
-        if self.shots[0] > self.shots[1] or self.seconds[0] > self.seconds[1]:
+        if any(low > high for low, high in (self.shots, self.beats, self.seconds)):
             raise ValueError("ranges are written low first")
         return self
 

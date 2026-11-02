@@ -40,17 +40,21 @@ GOOD = frozenset({Status.APPROVED, Status.PUBLISHED, Status.MEASURED})
 
 class Recipe(BaseModel):
     """Which models draw and animate this job and which style template shapes it. The first
-    `hook_shots` shots go to `hook_video`, the rest to `video`."""
+    `hook_shots` shots go to `hook_video`; after that, shots where nothing moves go to
+    `calm_video` and the rest to `video`."""
 
     style: str = "noir"
     image: str = "z-image"
     video: str = "wan-2.2"
     hook_video: str | None = None
     hook_shots: int = 2
+    calm_video: str | None = None
 
-    def video_for(self, shot: int) -> str:
+    def video_for(self, shot: int, moves: bool = True) -> str:
         if shot < self.hook_shots and self.hook_video:
             return self.hook_video
+        if not moves and self.calm_video:
+            return self.calm_video
         return self.video
 
 
@@ -76,6 +80,9 @@ class Shot(BaseModel):
         min_length=1, description="One or two words of `line`, copied exactly, to highlight."
     )
     overlays: list[Overlay] = Field(default_factory=list)
+    moves: bool = Field(
+        default=True, description="Whether a person or a thing visibly moves in this shot."
+    )
     seconds: float = Field(default=4.0, ge=2.0, le=8.0)
 
 
@@ -84,7 +91,7 @@ class Script(BaseModel):
     hook: str = Field(description="What the viewer sees and hears in the first two seconds.")
     hook_kind: str = Field(description="One word: question, threat, promise, secret, countdown.")
     characters: list[Character]
-    shots: list[Shot] = Field(min_length=3, max_length=24)
+    shots: list[Shot] = Field(min_length=3, max_length=40)
     music: str = Field(description="Genre, tempo and mood for the background track.")
 
     def looks_of(self, shot: Shot) -> str:
@@ -94,6 +101,41 @@ class Script(BaseModel):
     @property
     def seconds(self) -> float:
         return sum(s.seconds for s in self.shots)
+
+
+class Outline(BaseModel):
+    """The episode before it becomes shots: who is in it and what happens, beat by beat."""
+
+    title: str
+    characters: list[Character] = Field(min_length=1, max_length=4)
+    beats: list[str] = Field(
+        min_length=4, max_length=16, description="One concrete event each, in order."
+    )
+    planted: str = Field(description="The small detail shown early that the ending brings back.")
+    ending: str = Field(description="The last line of the episode, a statement.")
+
+    def as_brief(self) -> str:
+        """The outline as the writer and the critic read it."""
+        people = "; ".join(f"{c.name}: {c.look}" for c in self.characters)
+        beats = " ".join(f"{n}) {beat}" for n, beat in enumerate(self.beats, 1))
+        return (
+            f"{self.title}. Characters: {people}. Beats: {beats} "
+            f"Planted detail: {self.planted} Last line: {self.ending}"
+        )
+
+
+class EpisodeIdea(BaseModel):
+    title: str
+    logline: str = Field(description="Goal, obstacle, who is new, the hook in the last line.")
+
+
+class Season(BaseModel):
+    """A serial before its episodes are outlined: the world, the people and the arc."""
+
+    title: str
+    world: str
+    characters: list[Character] = Field(min_length=1, max_length=6)
+    episodes: list[EpisodeIdea] = Field(min_length=1, max_length=30)
 
 
 class Verdict(BaseModel):
@@ -153,6 +195,7 @@ class Job:
     recipe: Recipe
     attempts: int = 0
     last_error: str | None = None
+    outline: Outline | None = None
     script: Script | None = None
     critique: Verdict | None = None
     qa: Verdict | None = None

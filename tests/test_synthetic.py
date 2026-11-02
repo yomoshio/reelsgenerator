@@ -68,7 +68,7 @@ async def test_end_to_end_synthetic_run_produces_a_final_cut(tmp_path: Path) -> 
     )
     assert job.assets.voices[0].endswith(".wav")
     assert {c.stage for c in job.calls} == {
-        "script", "critic", "voice", "frame", "pick", "animate", "inspect", "music", "qa"
+        "plan", "script", "critic", "voice", "frame", "pick", "animate", "inspect", "music", "qa"
     }  # fmt: skip
     assert job.cost > 0
 

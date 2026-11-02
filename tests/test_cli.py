@@ -248,3 +248,22 @@ def test_demo_stops_early_on_an_unknown_style(tmp_path: Path, store: MemoryJobs)
 
     assert result.exit_code == 1
     assert "no style named 'nope'" in result.output
+
+
+def test_series_writes_a_bible_and_an_ideas_file(
+    store: MemoryJobs, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("REELSMITH_SERVICES", "synthetic")
+    story = tmp_path / "flood.txt"
+    story.write_text("Ночью прорвало дамбу, вода поднимается по этажу в час.", encoding="utf-8")
+
+    result = runner.invoke(
+        cli.app, ["series", str(story), "--episodes", "3", "--out", str(tmp_path / "out")]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert (tmp_path / "out" / "flood.md").exists()
+    assert (
+        len(cli.ideas((tmp_path / "out" / "flood.txt").read_text(encoding="utf-8").splitlines()))
+        == 3
+    )

@@ -41,12 +41,18 @@ services:
       context: .
       dockerfile: docker/comfy.Dockerfile
     image: reelsmith/comfy:${COMFYUI_REF:-v0.43.1}
+    environment:
+      REELSMITH_STUDIO: /opt/comfy/reelsmith-studio
+      REELSMITH_STYLES: /opt/comfy/reelsmith-styles
     volumes:
       - ./models:/opt/comfy/models
       - ./studio/output:/opt/comfy/output
       - ./studio/input:/opt/comfy/input
       - ./studio/user:/opt/comfy/user
-      - ./workflows:/opt/comfy/user/default/workflows/conveyor:ro
+      - ./workflows:/opt/comfy/user/default/workflows/reelsmith:ro
+      - ./comfy_nodes/reelsmith:/opt/comfy/custom_nodes/reelsmith:ro
+      - ./studio:/opt/comfy/reelsmith-studio
+      - ./styles:/opt/comfy/reelsmith-styles:ro
     ports:
       - "127.0.0.1:8188:8188"   # ComfyUI has no password, so only this machine may reach it
     shm_size: 8gb

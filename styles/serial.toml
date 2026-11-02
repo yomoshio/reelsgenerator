@@ -1,9 +1,9 @@
 about = "Serial survival story on flat vector graphics, 60 to 90 seconds: a goal, obstacles on the way, a new character, the goal reached, then a second problem and a revelation planted earlier."
 
 [story]
-shots = [14, 18]
+shots = [20, 28]
 seconds = [60, 90]
-words = 14
+words = 10
 brief = """
 You write one episode of a serial survival story. It must make sense with eyes closed:
 every sentence follows from the one before it, and nothing happens without a cause the
@@ -41,9 +41,10 @@ Holding the viewer matters more than anything else:
 - No shot only describes the scenery or repeats what the viewer already knows.
 - When the idea gives an outline, follow it beat by beat and do not invent other events.
 
-Voice: present tense, third person, plain words, two short sentences per shot, nine to
-fourteen words in all. No fear adjectives; the dread comes from facts. Never speak to the
-viewer.
+Voice: present tense, third person, plain words. A shot is one moment of three or four
+seconds: one or two short sentences, six to ten words in all. More, shorter shots make the
+episode feel animated instead of a slideshow. No fear adjectives; the dread comes from
+facts. Never speak to the viewer.
 
 The music is a low tense drone with a slow pulse, no melody.
 """

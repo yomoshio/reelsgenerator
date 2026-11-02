@@ -6,9 +6,9 @@ from typing import Any
 import httpx
 import pytest
 
-from reelsmith.models import Script, StageError, Verdict
+from reelsmith.models import Outline, Script, StageError, Verdict
 from reelsmith.services.ollama import OllamaLlm
-from tests.fakes import script, style
+from tests.fakes import outline, script, style
 
 LOADED = [{"name": "qwen3.5:27b"}, {"name": "qwen3-vl:8b"}]
 
@@ -46,6 +46,28 @@ async def test_writer_sends_the_brief_and_parses_the_script() -> None:
     assert call["messages"][0]["role"] == "system"
     assert "in ru" in call["messages"][0]["content"]
     assert call["messages"][1] == {"role": "user", "content": "зомби в метро"}
+
+
+async def test_planner_turns_an_idea_into_an_outline_inside_the_style(tmp_path: Path) -> None:
+    seen: list[dict[str, Any]] = []
+    answer = outline("Потоп").model_dump(mode="json")
+
+    made = await _llm([answer], seen).plan("Утром Артём просыпается, а квартира затоплена", style())
+
+    assert made.title == "Потоп"
+    system = seen[0]["messages"][0]["content"]
+    assert "Be brief." in system
+    assert "8 to 12 beats" in system
+    assert "keep its people, places, events" in system
+    assert seen[0]["messages"][1]["content"] == "Утром Артём просыпается, а квартира затоплена"
+    assert seen[0]["format"] == Outline.model_json_schema()
+
+
+def test_an_outline_reads_as_one_brief() -> None:
+    brief = outline("Потоп").as_brief()
+
+    assert brief.startswith("Потоп. Characters: Vera: nurse, 30s, grey cardigan. Beats: 1) beat 0")
+    assert brief.endswith("Planted detail: the logbook Last line: the logbook was hers")
 
 
 async def test_writer_passes_the_critics_notes_on_a_rewrite() -> None:
@@ -167,5 +189,6 @@ async def test_critic_and_judge_prompts_take_their_lines_from_the_style(tmp_path
 
     assert "Is it brief?" in seen[0]["messages"][0]["content"]
     assert "written in ru on purpose" in seen[0]["messages"][0]["content"]
+    assert "judge the script on its own" in seen[0]["messages"][0]["content"]
     assert "rule, tag" in seen[0]["messages"][0]["content"]
     assert "JUDGE" in seen[1]["messages"][0]["content"]

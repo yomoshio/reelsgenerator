@@ -14,7 +14,7 @@ from typing import Any
 import httpx
 from pydantic import BaseModel, ValidationError
 
-from reelsmith.models import Script, StageError, Verdict
+from reelsmith.models import Outline, Script, Season, StageError, Verdict
 from reelsmith.styles import Style
 
 
@@ -64,17 +64,40 @@ class OllamaLlm:
         self._heat = (writer_temperature, critic_temperature, judge_temperature)
         self._context = context
 
+    async def plan(self, idea: str, style: Style) -> Outline:
+        story = style.story
+        system = fill(
+            _prompt("planner"),
+            brief=story.brief.strip(),
+            seconds=f"{story.seconds[0]} to {story.seconds[1]}",
+            beats=f"{story.beats[0]} to {story.beats[1]}",
+            language=self._language,
+        )
+        return await self._chat(self._writer, system, idea, Outline, temperature=self._heat[0])
+
+    async def season(self, synopsis: str, style: Style, episodes: int) -> Season:
+        story = style.story
+        system = fill(
+            _prompt("season"),
+            brief=story.brief.strip(),
+            seconds=f"{story.seconds[0]} to {story.seconds[1]}",
+            episodes=episodes,
+            language=self._language,
+        )
+        return await self._chat(self._writer, system, synopsis, Season, temperature=self._heat[0])
+
     async def write(self, idea: str, style: Style, notes: str | None = None) -> Script:
         ask = idea if notes is None else f"{idea}\n\nRewrite the script. The critic said: {notes}"
         return await self._chat(
             self._writer, self._writer_prompt(style), ask, Script, temperature=self._heat[0]
         )
 
-    async def review(self, script: Script, style: Style) -> Verdict:
+    async def review(self, script: Script, style: Style, outline: str = "") -> Verdict:
         draft = script.model_dump_json(indent=2)
         system = fill(
             _prompt("critic"),
             brief=style.story.brief.strip(),
+            outline=outline or "none: judge the script on its own",
             criteria=style.story.critic.strip(),
             words=style.story.words,
             language=self._language,

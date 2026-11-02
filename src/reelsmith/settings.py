@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     image_model: str = "z-image"
     video_model: str = "wan-2.2"
     hook_video_model: str | None = None
+    calm_video_model: str | None = None
     hook_shots: int = 2
     gpu_hour_usd: float = 0.99
 
@@ -61,6 +62,7 @@ class Settings(BaseSettings):
     outbox: Path = Path("/data/outbox")
     workflows: Path = Path("/app/workflows")
     styles: Path = Path("/app/styles")
+    studio: Path = Path("/data/studio")
 
     batch_size: int = 6
     max_attempts: int = 5
@@ -74,6 +76,7 @@ class Settings(BaseSettings):
             video=self.video_model,
             hook_video=self.hook_video_model,
             hook_shots=self.hook_shots,
+            calm_video=self.calm_video_model,
         )
 
     def gates(self) -> Gates:

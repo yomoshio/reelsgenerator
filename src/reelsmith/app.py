@@ -14,6 +14,7 @@ from reelsmith.models import Job, Recipe, Status
 from reelsmith.pipeline import STAGES, Animator, Services, Stage
 from reelsmith.pricing import DEFAULT, Tariff
 from reelsmith.report import Arm, Report, compare, report
+from reelsmith.series import Serial, make_serial
 from reelsmith.services import synthetic
 from reelsmith.services.comfy import (
     ComfyAnimator,
@@ -29,7 +30,8 @@ from reelsmith.services.voxcpm import VoxNarrator
 from reelsmith.services.whisper import WhisperTranscriber
 from reelsmith.settings import Settings
 from reelsmith.store import MemoryJobs, PostgresJobs, Store
-from reelsmith.styles import Styles
+from reelsmith.studio import Studio
+from reelsmith.styles import Style, Styles
 
 WAN_GRAPHS = {"wan-2.2": ("animate.json", 16), "wan-5b": ("animate-draft.json", 24)}
 DEMO_IDEAS = (
@@ -46,6 +48,15 @@ DEMO_FLAG, DEMO_REJECT = 0.2, 0.15
 class App:
     jobs: Store
     conveyor: Conveyor
+    studio: Studio | None = None
+
+    async def run(self, idle_seconds: float, *, once: bool = False) -> None:
+        between = self.studio.sync if self.studio else None
+        if not once:
+            await self.conveyor.run_forever(idle_seconds, before_turn=between)
+            return
+        if between is None or await between():
+            await self.conveyor.turn()
 
 
 @asynccontextmanager
@@ -54,6 +65,27 @@ async def database(settings: Settings) -> AsyncIterator[PostgresJobs]:
         settings.database_url, min_size=1, max_size=4, open=False
     ) as pool:
         yield PostgresJobs(pool, lease_minutes=settings.lease_minutes)
+
+
+def ollama_llm(settings: Settings, http: httpx.AsyncClient) -> OllamaLlm:
+    return OllamaLlm(
+        http,
+        writer_model=settings.writer_model,
+        judge_model=settings.judge_model,
+        language=settings.language,
+        writer_temperature=settings.writer_temperature,
+        critic_temperature=settings.critic_temperature,
+        judge_temperature=settings.judge_temperature,
+        context=settings.llm_context,
+    )
+
+
+async def serial(settings: Settings, synopsis: str, style: Style, episodes: int) -> Serial:
+    """A season from a synopsis, on the real writer model or on the stand-in."""
+    if settings.services == "synthetic":
+        return await make_serial(synthetic.SyntheticLlm(), synopsis, style, episodes)
+    async with httpx.AsyncClient(base_url=settings.ollama_url) as http:
+        return await make_serial(ollama_llm(settings, http), synopsis, style, episodes)
 
 
 def local_services(
@@ -65,16 +97,7 @@ def local_services(
 ) -> tuple[Services, dict[str, GpuTenant]]:
     """The three graphs in workflows/ are required; `animate-draft.json` is optional and
     adds the `wan-5b` model when present."""
-    llm = OllamaLlm(
-        ollama,
-        writer_model=settings.writer_model,
-        judge_model=settings.judge_model,
-        language=settings.language,
-        writer_temperature=settings.writer_temperature,
-        critic_temperature=settings.critic_temperature,
-        judge_temperature=settings.judge_temperature,
-        context=settings.llm_context,
-    )
+    llm = ollama_llm(settings, ollama)
     client = ComfyClient(comfy)
     narrator = VoxNarrator(tts, settings.voice, cfg=settings.voice_cfg, steps=settings.voice_steps)
 
@@ -120,6 +143,9 @@ def local_services(
         media=settings.media_root,
         styles=Styles(settings.styles),
         gates=settings.gates(),
+        showcase=settings.studio / "output" / "reelsmith" / "videos"
+        if settings.studio.is_dir()
+        else None,
     )
     return services, {"llm": llm, "comfy": client, "tts": narrator}
 
@@ -190,15 +216,34 @@ async def application(
             services, tenants = local_services(settings, ollama=http[0], comfy=http[1], tts=http[2])
         if stage_names is None:
             services.check(settings.recipe())
+        gpu = Gpu(tenants)
         conveyor = Conveyor(
             stages_for(services, stage_names),
             jobs,
             services,
-            Gpu(tenants),
+            gpu,
             batch_size=settings.batch_size,
             max_attempts=settings.max_attempts,
         )
-        yield App(jobs, conveyor)
+        yield App(jobs, conveyor, studio_for(settings, jobs, services, gpu))
+
+
+def studio_for(settings: Settings, jobs: Store, services: Services, gpu: Gpu) -> Studio | None:
+    """Only where the studio folder is mounted, as it is in compose."""
+    if not settings.studio.is_dir():
+        return None
+
+    async def series(synopsis: str, style: Style, episodes: int) -> Serial:
+        return await serial(settings, synopsis, style, episodes)
+
+    return Studio(
+        settings.studio,
+        jobs,
+        recipe=settings.recipe(),
+        styles=services.styles,
+        make_serial=series,
+        before_llm=lambda: gpu.use("llm"),
+    )
 
 
 @dataclass(frozen=True)

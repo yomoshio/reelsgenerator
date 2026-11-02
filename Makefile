@@ -3,7 +3,7 @@ RUN := $(COMPOSE) run --rm --no-deps worker
 WRITER_MODEL ?= $(shell grep -s '^REELSMITH_WRITER_MODEL=' .env | cut -d= -f2)
 
 .PHONY: help setup build models llm-model voice up down migrate graphs \
-	add ideas jobs status report styles review approve reject retry logs pause resume \
+	add ideas series jobs status report styles review approve reject retry logs pause resume \
 	test lint demo preview pin
 
 help:                        ## этот список
@@ -13,7 +13,8 @@ help:                        ## этот список
 
 setup:                       ## .env из примера и папки для данных
 	cp -n .env.example .env || true
-	mkdir -p models hf voices outbox studio/output studio/input studio/user/default/workflows/conveyor
+	mkdir -p models hf voices outbox studio/output studio/input studio/inbox studio/series \
+		studio/user/default/workflows/reelsmith
 	touch studio/ideas.txt
 	chmod a+rwx models hf voices outbox
 	chmod -R a+rwX studio
@@ -52,6 +53,9 @@ add:                         ## IDEA="..." [STYLE=noir] поставить од�
 
 ideas:                       ## поставить новые строки из studio/ideas.txt; FILE=studio/series/flood.txt другой файл
 	$(RUN) queue /data/$(or $(FILE),studio/ideas.txt)
+
+series:                      ## STORY=studio/stories/x.txt [EPISODES=10] сезон из синопсиса в studio/series/x.*
+	$(RUN) series /data/$(STORY) $(if $(EPISODES),--episodes $(EPISODES))
 
 jobs:                        ## все задачи с id; STATUS=assembled только собранные
 	$(RUN) jobs $(if $(STATUS),--status $(STATUS))

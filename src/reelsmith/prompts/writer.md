@@ -21,6 +21,10 @@ Rules for the fields:
 - `motion` describes, in English and in one sentence, one small movement in the frame and
   a still or slowly pushing camera. No running, no fast zoom, no shaking camera: fast
   motion melts faces.
+- `moves` is true when a person or a thing visibly moves in the shot: someone walks,
+  climbs, turns, water rushes in, a door swings. It is false for a still view, a close-up
+  of an object or a pause. Moving shots are animated, still ones get a slow camera move,
+  so mark as moving every shot where the line describes an action.
 - `cast` lists the names of characters visible in the frame.
 - `overlays` are graphics drawn over the picture, text in {language}, at most two per shot
   and of different kinds. Their text repeats or names what the narrator says in the same

@@ -8,7 +8,17 @@ import json
 import random
 from pathlib import Path
 
-from reelsmith.models import Character, Metrics, Overlay, Script, Shot, Verdict
+from reelsmith.models import (
+    Character,
+    EpisodeIdea,
+    Metrics,
+    Outline,
+    Overlay,
+    Script,
+    Season,
+    Shot,
+    Verdict,
+)
 from reelsmith.services.ffmpeg import FfmpegMontage, Word, run
 from reelsmith.styles import Style
 
@@ -64,6 +74,26 @@ class SyntheticLlm:
         self.flag = flag
         self.reject = reject
 
+    async def season(self, synopsis: str, style: Style, episodes: int) -> Season:
+        return Season(
+            title=" ".join(synopsis.split()[:3]),
+            world=synopsis,
+            characters=[Character(name="Vera", look="nurse, 30s, tired eyes, grey cardigan")],
+            episodes=[
+                EpisodeIdea(title=f"Night {n}", logline=LINES[n % len(LINES)])
+                for n in range(1, episodes + 1)
+            ],
+        )
+
+    async def plan(self, idea: str, style: Style) -> Outline:
+        return Outline(
+            title=idea.split(".", maxsplit=1)[0][:60],
+            characters=[Character(name="Vera", look="nurse, 30s, tired eyes, grey cardigan")],
+            beats=list(LINES),
+            planted="the logbook on the desk",
+            ending=LINES[-1],
+        )
+
     async def write(self, idea: str, style: Style, notes: str | None = None) -> Script:
         order = list(range(len(LINES)))
         rng(idea, notes or "").shuffle(order)
@@ -81,7 +111,7 @@ class SyntheticLlm:
         for kind, number in zip(style.overlays, range(1, len(shots), 3), strict=False):
             shots[number].overlays.append(Overlay(kind=kind, text=f"{number}. {kind}", hold=2))
         return Script(
-            title=idea,
+            title=idea.split(".", maxsplit=1)[0][:60],
             hook=shots[0].line,
             hook_kind=HOOK_KINDS[rng(idea).randrange(len(HOOK_KINDS))],
             characters=[Character(name="Vera", look="nurse, 30s, tired eyes, grey cardigan")],
@@ -89,7 +119,7 @@ class SyntheticLlm:
             music="slow drone, sparse piano, unsettling",
         )
 
-    async def review(self, script: Script, style: Style) -> Verdict:
+    async def review(self, script: Script, style: Style, outline: str = "") -> Verdict:
         score = round(5 + 4.9 * rng(script.model_dump_json()).random(), 1)
         return Verdict(score=score, notes="tighten the hook, cut the last line")
 

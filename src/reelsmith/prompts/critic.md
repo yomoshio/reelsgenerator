@@ -8,11 +8,16 @@ This channel's brief for the writer was:
 
 {brief}
 
+The outline the writer had to follow, beat by beat:
+
+{outline}
+
 Judge, in this order:
 
 {criteria}
 
-Then: does every shot follow from the one before, so the story makes sense to someone who
+Then: does the script tell the outline's beats in order, without events the outline does
+not have; does every shot follow from the one before, so the story makes sense to someone who
 only listens; does every `picture` show exactly what its `line` says, with no object that
 carries writing or numbers; is every `motion` small and slow; do the `overlays` repeat what
 is spoken in their shot and use only these kinds: {kinds}; are the lines spoken language of
