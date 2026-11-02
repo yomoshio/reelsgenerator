@@ -49,6 +49,7 @@ class Recipe(BaseModel):
     hook_video: str | None = None
     hook_shots: int = 2
     calm_video: str | None = None
+    cast_image: str | None = None  # draws shots with a character from that character's portrait
 
     def video_for(self, shot: int, moves: bool = True) -> str:
         if shot < self.hook_shots and self.hook_video:
@@ -179,6 +180,7 @@ class Assets(BaseModel):
     """Paths relative to the media root, keyed by shot index where it applies."""
 
     voices: dict[int, str] = Field(default_factory=dict)
+    cast: dict[str, str] = Field(default_factory=dict)
     candidates: dict[int, list[str]] = Field(default_factory=dict)
     frames: dict[int, str] = Field(default_factory=dict)
     clips: dict[int, str] = Field(default_factory=dict)

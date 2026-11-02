@@ -127,6 +127,35 @@ async def test_painter_fills_size_and_steps_when_the_graph_has_those_slots(tmp_p
     assert graph["3"]["inputs"] == {"seed": 9, "steps": 6}
 
 
+async def test_a_painter_with_an_image_slot_draws_from_the_reference(tmp_path: Path) -> None:
+    graph = _knob_graph() | {
+        "9": {"inputs": {"image": "x.png"}, "_meta": {"title": "@image:image"}}
+    }
+    client: Any = RecordingClient()
+    painter = ComfyPainter(client, Workflow("keyframe-edit", graph), name="qwen-edit")
+
+    await painter.paint("a man", seed=1, out=tmp_path / "f.png", reference=tmp_path / "vera.png")
+
+    assert client.graphs[0]["9"]["inputs"]["image"] == "vera.png"
+
+
+async def test_a_painter_without_an_image_slot_ignores_the_reference(tmp_path: Path) -> None:
+    client: Any = RecordingClient()
+    painter = ComfyPainter(client, Workflow("keyframe", _knob_graph()))
+
+    await painter.paint("a man", seed=1, out=tmp_path / "f.png", reference=tmp_path / "vera.png")
+
+    assert "image" not in str(client.graphs[0])
+
+
+def test_the_edit_graph_in_the_repository_has_its_slots() -> None:
+    graphs = Path(__file__).parent.parent / "workflows"
+
+    Workflow.load(graphs / "keyframe-edit.json").require(
+        "prompt", "image", "seed", "width", "height", "steps"
+    )
+
+
 async def test_animator_splits_the_steps_between_the_two_experts(tmp_path: Path) -> None:
     wan = _wan_graph()
     wan["57"]["inputs"] |= {"steps": 4, "end_at_step": 2}

@@ -1,11 +1,14 @@
-"""Writes the three ComfyUI graphs the worker needs into workflows/.
+"""Writes the ComfyUI graphs the worker needs into workflows/.
 
 python scripts/make_graphs.py [--out workflows]
 
 The graphs follow ComfyUI's own templates (Z-Image Turbo, Wan 2.2 14B image to video with
-the lightx2v 4-step LoRAs, ACE-Step 1.5) in API format. A node whose title starts with `@`
-is a slot the worker fills: `@prompt:text` means "put the prompt into this node's `text`".
-Regenerate after changing a size or a step count; open the file in the editor to look at it.
+the lightx2v 4-step LoRAs, ACE-Step 1.5) in API format. `keyframe-edit.json` draws a frame
+from a character's portrait with Qwen-Image-Edit 2509.
+
+A node whose title starts with `@` is a slot the worker fills: `@prompt:text` means "put
+the prompt into this node's `text`". Regenerate after changing the structure of a graph;
+sizes and steps come from .env at run time.
 """
 
 import argparse
@@ -124,6 +127,43 @@ def animate(width: int = 480, height: int = 848) -> Graph:
     return g
 
 
+def keyframe_edit() -> Graph:
+    """Qwen-Image-Edit 2509: a new frame drawn from a reference portrait, so the character
+    keeps their face and clothes. The encoder scales the reference itself."""
+    g = Graph()
+    unet = g.add(
+        "UNETLoader",
+        unet_name="qwen_image_edit_2509_fp8_e4m3fn.safetensors",
+        weight_dtype="default",
+    )
+    clip = g.add(
+        "CLIPLoader", clip_name="qwen_2.5_vl_7b_fp8_scaled.safetensors", type="qwen_image",
+        device="default",
+    )  # fmt: skip
+    vae = g.add("VAELoader", vae_name="qwen_image_vae.safetensors")
+    model = g.add("ModelSamplingAuraFlow", model=out(unet), shift=3)
+    reference = g.add("LoadImage", "@image:image", image="example.png")
+    positive = g.add(
+        "TextEncodeQwenImageEditPlus", "@prompt:prompt",
+        clip=out(clip), prompt="", vae=out(vae), image1=out(reference),
+    )  # fmt: skip
+    negative = g.add(
+        "TextEncodeQwenImageEditPlus",
+        clip=out(clip), prompt="", vae=out(vae), image1=out(reference),
+    )  # fmt: skip
+    latent = g.add(
+        "EmptySD3LatentImage", "@width:width @height:height", width=720, height=1280, batch_size=1
+    )
+    sampled = g.add(
+        "KSampler", "@seed:seed @steps:steps",
+        model=out(model), seed=0, steps=20, cfg=2.5, sampler_name="euler", scheduler="simple",
+        positive=out(positive), negative=out(negative), latent_image=out(latent), denoise=1,
+    )  # fmt: skip
+    image = g.add("VAEDecode", samples=out(sampled), vae=out(vae))
+    g.add("SaveImage", images=out(image), filename_prefix="reelsmith/frame-edit")
+    return g
+
+
 def score() -> Graph:
     g = Graph()
     checkpoint = g.add("CheckpointLoaderSimple", ckpt_name="ace_step_1.5_turbo_aio.safetensors")
@@ -154,7 +194,13 @@ def main() -> None:
     parser.add_argument("--out", type=Path, default=Path("workflows"))
     args = parser.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
-    for name, graph in {"keyframe": keyframe(), "animate": animate(), "score": score()}.items():
+    graphs = {
+        "keyframe": keyframe(),
+        "keyframe-edit": keyframe_edit(),
+        "animate": animate(),
+        "score": score(),
+    }
+    for name, graph in graphs.items():
         graph.save(args.out / f"{name}.json")
         print(f"wrote {args.out / name}.json ({len(graph.nodes)} nodes)")
 

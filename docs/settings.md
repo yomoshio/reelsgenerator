@@ -15,6 +15,7 @@
 | `REELSMITH_VIDEO_MODEL` | wan-2.2; в `.env.example` стоит still | чем оживлять: `still` это медленный наезд камеры без нейросети, не плывёт и считается за секунды; `wan-2.2` настоящая анимация, около минуты на клип; `wan-5b`, если есть `workflows/animate-draft.json` |
 | `REELSMITH_CALM_VIDEO_MODEL` | пусто; в `.env.example` стоит still | модель для шотов, где писатель отметил, что ничего не движется; пусто значит та же, что `VIDEO_MODEL` |
 | `REELSMITH_HOOK_VIDEO_MODEL` | пусто | модель для первых шотов-хука, кто бы в них ни двигался; пусто значит по общему правилу |
+| `REELSMITH_CAST_IMAGE_MODEL` | пусто | `qwen-edit` включает одинаковых героев: для каждого рисуется портрет, кадры с ним рисуются по портрету; нужны веса `make models ONLY=character OPTIONAL=1` |
 | `REELSMITH_HOOK_SHOTS` | 2 | сколько первых шотов считать хуком |
 | `REELSMITH_GPU_HOUR_USD` | 0.99 | цена часа карты; отчёт переводит GPU-время в деньги |
 
@@ -40,6 +41,7 @@
 | --- | --- | --- |
 | `REELSMITH_FRAME_WIDTH`, `_HEIGHT` | 720, 1280 | размер кадра, кратный 16; кадр около 4 с |
 | `REELSMITH_FRAME_STEPS` | 8 | шаги Z-Image Turbo; модель рассчитана на 8 |
+| `REELSMITH_EDIT_STEPS` | 20 | шаги Qwen-Image-Edit для кадров по портрету; оценка около 20 секунд на кадр |
 | `REELSMITH_CLIP_WIDTH`, `_HEIGHT` | 480, 848 | размер клипа, кратный 16; 720 × 1280 чётче и примерно в 2,5 раза дольше |
 | `REELSMITH_CLIP_STEPS` | 4 | шаги Wan, делятся пополам между двумя его моделями; 6 или 8 дают меньше артефактов и в 1,5–2 раза дольше |
 | `REELSMITH_CLIP_SECONDS` | 5 | самый длинный клип; если реплика длиннее, последний кадр держится |
@@ -63,6 +65,7 @@
 | `REELSMITH_FRAME_WIDTH`, `_HEIGHT` | 720, 1280 | 720, 1280 | 1088, 1920 |
 | `REELSMITH_CLIP_WIDTH`, `_HEIGHT` | 480, 848 | 480, 848 | 720, 1280 |
 | `REELSMITH_CLIP_STEPS` | 4 | 4 | 8 |
+| `REELSMITH_CAST_IMAGE_MODEL` | пусто | пусто | qwen-edit |
 | `REELSMITH_CANDIDATES` | 1 | 2 | 3 |
 | `REELSMITH_JUDGE_WIDTH` | 540 | 540 | 720 |
 | `REELSMITH_LLM_CONTEXT` | 12288 | 12288 | 16384 |

@@ -72,17 +72,29 @@ class ReelsmithVideo:
                 ),
                 "style": (styles(),),
                 "animation": (list(ANIMATION),),
-            }
+            },
+            "optional": {
+                "same_faces": (
+                    "BOOLEAN",
+                    {"default": False, "label_on": "одинаковые герои", "label_off": "как есть"},
+                )
+            },
         }
 
     @classmethod
     def IS_CHANGED(cls, **_: object) -> float:
         return float("nan")
 
-    def start(self, story: str, style: str, animation: str) -> tuple[str]:
+    def start(self, story: str, style: str, animation: str, same_faces: bool = False) -> tuple[str]:
         text = _text(story, "идею или рассказ")
         name = drop(
-            {"kind": "video", "story": text, "style": style, "animation": ANIMATION[animation]}
+            {
+                "kind": "video",
+                "story": text,
+                "style": style,
+                "animation": ANIMATION[animation],
+                "same_faces": same_faces,
+            }
         )
         return (
             f"Заявка {name} отправлена. Воркер возьмёт её в течение минуты. Кадры и клипы "
