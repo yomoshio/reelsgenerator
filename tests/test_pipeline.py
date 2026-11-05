@@ -154,6 +154,16 @@ async def test_voice_sets_shot_seconds_from_the_recording(tmp_path: Path) -> Non
     assert [(c.stage, c.units, c.shot) for c in made.calls] == [("voice", 6, i) for i in range(3)]
 
 
+async def test_voice_passes_each_lines_delivery_to_the_narrator(tmp_path: Path) -> None:
+    narrator = FakeNarrator()
+    made = job(status=Status.SCRIPTED, script=script(3))
+    made.require_script().shots[1].delivery = "a tense whisper"
+
+    await voice(made, services(tmp_path, narrator=narrator))
+
+    assert narrator.deliveries == ["", "a tense whisper", ""]
+
+
 async def test_paint_makes_two_candidates_per_shot_and_skips_done_shots(tmp_path: Path) -> None:
     painter = FakePainter()
     made = job(status=Status.VOICED, script=script(3))

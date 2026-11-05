@@ -80,6 +80,9 @@ class Shot(BaseModel):
         min_length=1, description="One or two words of `line`, copied exactly, to highlight."
     )
     overlays: list[Overlay] = Field(default_factory=list)
+    delivery: str = Field(
+        default="", description="How the narrator says the line, a few English words."
+    )
     moves: bool = Field(
         default=True, description="Whether a person or a thing visibly moves in this shot."
     )
