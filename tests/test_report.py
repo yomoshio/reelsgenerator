@@ -52,8 +52,8 @@ def test_provider_rows_carry_flag_rate_and_gpu_hours() -> None:
 
     assert (rows["wan-2.2"].calls, rows["wan-2.2"].flagged) == (5, 1)
     assert rows["wan-2.2"].flag_rate == pytest.approx(0.2)
-    assert rows["wan-2.2"].gpu_hours == pytest.approx(5 * 240 / 3600)
-    assert rows["z-image"].gpu_hours == pytest.approx(20 / 3600)
+    assert rows["wan-2.2"].gpu_hours == pytest.approx(5 * DEFAULT.gpu_seconds("wan-2.2", 5) / 3600)
+    assert rows["z-image"].gpu_hours == pytest.approx(2 * DEFAULT.gpu_seconds("z-image", 1) / 3600)
     assert [r.provider for r in report([made], DEFAULT).providers] == ["wan-2.2", "z-image"]
 
 
@@ -64,7 +64,9 @@ def test_gpu_hours_skip_calls_that_produced_nothing() -> None:
         Call(stage="animate", provider="wan-2.2", units=10, usd=0.13, outcome=Outcome.FAILED)
     )
 
-    assert report([made], DEFAULT).gpu_hours == pytest.approx(960 / 3600)
+    assert report([made], DEFAULT).gpu_hours == pytest.approx(
+        2 * DEFAULT.gpu_seconds("wan-2.2", 10) / 3600
+    )
 
 
 def test_qa_pass_rate_counts_judged_jobs_only() -> None:

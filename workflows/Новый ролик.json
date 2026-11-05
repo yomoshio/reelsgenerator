@@ -1,0 +1,104 @@
+{
+ "last_node_id": 3,
+ "last_link_id": 1,
+ "nodes": [
+  {
+   "id": 1,
+   "type": "Note",
+   "pos": [
+    40,
+    40
+   ],
+   "size": [
+    440,
+    220
+   ],
+   "flags": {},
+   "order": 0,
+   "mode": 0,
+   "inputs": [],
+   "outputs": [],
+   "properties": {
+    "Node name for S&R": "Note"
+   },
+   "widgets_values": [
+    "Новый ролик\n\n1. Впишите в блок ниже одну фразу или рассказ на 200 слов.\n2. Выберите стиль и анимацию.\n3. Нажмите «Запустить» один раз: каждое нажатие ставит ещё один ролик.\n\nКадры и клипы появятся в очереди справа, готовый ролик в Ассетах, папка reelsmith/videos. Как идут дела, показывает схема reelsmith/Статус."
+   ]
+  },
+  {
+   "id": 2,
+   "type": "ReelsmithVideo",
+   "pos": [
+    40,
+    280
+   ],
+   "size": [
+    440,
+    360
+   ],
+   "flags": {},
+   "order": 1,
+   "mode": 0,
+   "inputs": [],
+   "outputs": [
+    {
+     "name": "ответ",
+     "type": "STRING",
+     "links": [
+      1
+     ],
+     "slot_index": 0
+    }
+   ],
+   "properties": {
+    "Node name for S&R": "ReelsmithVideo"
+   },
+   "widgets_values": [
+    "Утром Артём просыпается на третьем этаже, а в квартире вода по колено. Ему нужно добраться до самой высокой комнаты дома.",
+    "serial",
+    "Wan на движении, наезд на остальном"
+   ]
+  },
+  {
+   "id": 3,
+   "type": "PreviewAny",
+   "pos": [
+    520,
+    280
+   ],
+   "size": [
+    420,
+    200
+   ],
+   "flags": {},
+   "order": 2,
+   "mode": 0,
+   "inputs": [
+    {
+     "name": "source",
+     "type": "*",
+     "link": 1
+    }
+   ],
+   "outputs": [],
+   "properties": {
+    "Node name for S&R": "PreviewAny"
+   },
+   "widgets_values": []
+  }
+ ],
+ "links": [
+  [
+   1,
+   2,
+   0,
+   3,
+   0,
+   "*"
+  ]
+ ],
+ "groups": [],
+ "config": {},
+ "extra": {},
+ "version": 0.4
+}

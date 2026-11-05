@@ -7,7 +7,7 @@ from psycopg.types.json import Jsonb
 
 from reelsmith.models import Call, Metrics, Outcome, Status, Verdict
 from reelsmith.store import MemoryJobs, _job, _row
-from tests.fakes import job, script
+from tests.fakes import job, outline, script
 
 
 class Clock:
@@ -98,6 +98,7 @@ def test_job_round_trips_through_the_postgres_row() -> None:
     original.calls.append(
         Call(stage="animate", provider="wan-2.2", units=5, usd=0.5, outcome=Outcome.FLAGGED, shot=0)
     )
+    original.outline = outline("Потоп")
     original.critique = Verdict(score=7.5, notes="ok")
     original.qa = Verdict(score=8.0, bad_shots=[])
     original.metrics = Metrics(views=10, retention_3s=0.5, completion=0.3)

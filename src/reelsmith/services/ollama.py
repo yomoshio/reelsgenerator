@@ -14,11 +14,19 @@ from typing import Any
 import httpx
 from pydantic import BaseModel, ValidationError
 
-from reelsmith.models import Script, StageError, Verdict
+from reelsmith.models import Outline, Script, Season, StageError, Verdict
+from reelsmith.styles import Style
 
 
 def _prompt(name: str) -> str:
     return resources.files("reelsmith.prompts").joinpath(f"{name}.md").read_text(encoding="utf-8")
+
+
+def fill(template: str, **values: object) -> str:
+    """Plain substitution of `{name}` placeholders; the prompts contain other braces."""
+    for key, value in values.items():
+        template = template.replace("{" + key + "}", str(value))
+    return template
 
 
 def _encoded(images: Sequence[Path]) -> list[str]:
@@ -43,42 +51,99 @@ class OllamaLlm:
         judge_model: str,
         language: str,
         keep_alive: str = "15m",
+        writer_temperature: float = 0.8,
+        critic_temperature: float = 0.2,
+        judge_temperature: float = 0.1,
+        context: int = 12288,
     ) -> None:
         self._http = http
         self._writer = writer_model
         self._judge = judge_model
         self._keep_alive = keep_alive
-        self._brief = _prompt("writer").replace("{language}", language)
-        self._critic = _prompt("critic")
-        self._eye = _prompt("judge")
+        self._language = language
+        self._heat = (writer_temperature, critic_temperature, judge_temperature)
+        self._context = context
 
-    async def write(self, idea: str, notes: str | None = None) -> Script:
+    async def plan(self, idea: str, style: Style) -> Outline:
+        story = style.story
+        system = fill(
+            _prompt("planner"),
+            brief=story.brief.strip(),
+            seconds=f"{story.seconds[0]} to {story.seconds[1]}",
+            beats=f"{story.beats[0]} to {story.beats[1]}",
+            language=self._language,
+        )
+        return await self._chat(self._writer, system, idea, Outline, temperature=self._heat[0])
+
+    async def season(self, synopsis: str, style: Style, episodes: int) -> Season:
+        story = style.story
+        system = fill(
+            _prompt("season"),
+            brief=story.brief.strip(),
+            seconds=f"{story.seconds[0]} to {story.seconds[1]}",
+            episodes=episodes,
+            language=self._language,
+        )
+        return await self._chat(self._writer, system, synopsis, Season, temperature=self._heat[0])
+
+    async def write(self, idea: str, style: Style, notes: str | None = None) -> Script:
         ask = idea if notes is None else f"{idea}\n\nRewrite the script. The critic said: {notes}"
-        return await self._chat(self._writer, self._brief, ask, Script)
+        return await self._chat(
+            self._writer, self._writer_prompt(style), ask, Script, temperature=self._heat[0]
+        )
 
-    async def review(self, script: Script) -> Verdict:
+    async def review(self, script: Script, style: Style, outline: str = "") -> Verdict:
         draft = script.model_dump_json(indent=2)
-        return await self._chat(self._writer, self._critic, draft, Verdict, temperature=0.2)
+        system = fill(
+            _prompt("critic"),
+            brief=style.story.brief.strip(),
+            outline=outline or "none: judge the script on its own",
+            criteria=style.story.critic.strip(),
+            words=style.story.words,
+            language=self._language,
+            kinds=", ".join(style.overlays) or "none",
+        )
+        return await self._chat(self._writer, system, draft, Verdict, temperature=self._heat[1])
 
-    async def pick(self, brief: str, images: list[Path]) -> int:
+    async def pick(self, brief: str, images: list[Path], style: Style) -> int:
         ask = (
             f"Pick the frame that best shows: {brief}. "
             f"Answer with its index, counting from 0 to {len(images) - 1}."
         )
-        chosen = await self._chat(self._judge, self._eye, ask, Pick, images=images, temperature=0.1)
+        system = self._eye(style)
+        chosen = await self._chat(
+            self._judge, system, ask, Pick, images=images, temperature=self._heat[2]
+        )
         return min(max(chosen.index, 0), len(images) - 1)
 
-    async def inspect(self, motion: str, stills: list[Path]) -> Verdict:
+    async def inspect(self, motion: str, stills: list[Path], style: Style) -> Verdict:
         ask = f"Inspect this clip. It should show: {motion}."
         return await self._chat(
-            self._judge, self._eye, ask, Verdict, images=stills, temperature=0.1
+            self._judge, self._eye(style), ask, Verdict, images=stills, temperature=self._heat[2]
         )
 
-    async def judge(self, script: Script, stills: list[Path]) -> Verdict:
-        ask = f"Review the finished cut against its script:\n{script.model_dump_json(indent=2)}"
+    async def judge(self, script: Script, stills: list[Path], style: Style) -> Verdict:
+        looks = "\n".join(f"- {c.name}: {c.look}" for c in script.characters)
+        shots = "\n".join(f"Image {i} is shot {i}: {s.picture}" for i, s in enumerate(script.shots))
+        ask = f"Review the finished cut. The characters:\n{looks}\n\nThe images:\n{shots}"
         return await self._chat(
-            self._judge, self._eye, ask, Verdict, images=stills, temperature=0.1
+            self._judge, self._eye(style), ask, Verdict, images=stills, temperature=self._heat[2]
         )
+
+    def _writer_prompt(self, style: Style) -> str:
+        story = style.story
+        return fill(
+            _prompt("writer"),
+            brief=story.brief.strip(),
+            language=self._language,
+            seconds=f"{story.seconds[0]} to {story.seconds[1]}",
+            shots=f"{story.shots[0]} to {story.shots[1]}",
+            words=story.words,
+            overlays=style.menu(),
+        )
+
+    def _eye(self, style: Style) -> str:
+        return fill(_prompt("judge"), look=style.look.judge.strip())
 
     async def release(self) -> None:
         """Unloads whatever the server holds: the card must be free for the next stage."""
@@ -96,7 +161,7 @@ class OllamaLlm:
         shape: type[T],
         *,
         images: Sequence[Path] = (),
-        temperature: float = 0.8,
+        temperature: float,
     ) -> T:
         message: dict[str, Any] = {"role": "user", "content": user}
         if images:
@@ -105,16 +170,17 @@ class OllamaLlm:
             "model": model,
             "messages": [{"role": "system", "content": system}, message],
             "format": shape.model_json_schema(),
+            "think": False,
             "stream": False,
             "keep_alive": self._keep_alive,
-            "options": {"temperature": temperature, "num_ctx": 8192},
+            "options": {"temperature": temperature, "num_ctx": self._context},
         }
         try:
             reply = await self._http.post("/api/chat", json=body, timeout=300)
             reply.raise_for_status()
             return shape.model_validate_json(reply.json()["message"]["content"])
         except httpx.HTTPError as exc:
-            raise StageError(f"ollama: {exc}") from exc
+            raise StageError(f"ollama: {type(exc).__name__} {exc}".strip()) from exc
         except ValidationError as exc:
             raise StageError(
                 f"ollama: {shape.__name__} does not match schema: {exc.error_count()} errors"

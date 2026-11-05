@@ -9,3 +9,10 @@ voices
 .mypy_cache
 .ruff_cache
 .pytest_cache
+studio
+review
+backups
+preview
+demo
+logs
+scripts/remote.env

@@ -1,0 +1,26 @@
+about = "A style for tests."
+
+[story]
+brief = "Be brief."
+critic = "Is it brief?"
+shots = [3, 10]
+seconds = [10, 60]
+words = 18
+
+[look]
+frame = "FRAME"
+motion = "MOTION"
+judge = "JUDGE"
+
+[captions]
+karaoke = true
+words = 3
+accent = "FFD21F"
+
+[overlays.rule]
+about = "numbered banner"
+number = "B3261E"
+
+[overlays.tag]
+about = "strip under the banner"
+margin_v = 190

@@ -15,7 +15,17 @@ from psycopg.rows import dict_row
 from psycopg.types.json import Jsonb
 from psycopg_pool import AsyncConnectionPool
 
-from reelsmith.models import Assets, Call, Job, Metrics, Recipe, Script, Status, Verdict
+from reelsmith.models import (
+    Assets,
+    Call,
+    Job,
+    Metrics,
+    Outline,
+    Recipe,
+    Script,
+    Status,
+    Verdict,
+)
 
 
 class Store(Protocol):
@@ -36,14 +46,14 @@ class Store(Protocol):
     async def summary(self) -> dict[str, int]: ...
 
 
-_COLUMNS = """id, idea, status, recipe, attempts, last_error, script, critique, qa, assets,
-    calls, experiment, arm, parent, rating, metrics"""
+_COLUMNS = """id, idea, status, recipe, attempts, last_error, outline, script, critique, qa,
+    assets, calls, experiment, arm, parent, rating, metrics"""
 
 _INSERT = f"""
 insert into jobs ({_COLUMNS})
-values (%(id)s, %(idea)s, %(status)s, %(recipe)s, %(attempts)s, %(last_error)s, %(script)s,
-    %(critique)s, %(qa)s, %(assets)s, %(calls)s, %(experiment)s, %(arm)s, %(parent)s,
-    %(rating)s, %(metrics)s)
+values (%(id)s, %(idea)s, %(status)s, %(recipe)s, %(attempts)s, %(last_error)s, %(outline)s,
+    %(script)s, %(critique)s, %(qa)s, %(assets)s, %(calls)s, %(experiment)s, %(arm)s,
+    %(parent)s, %(rating)s, %(metrics)s)
 """
 
 _CLAIM = f"""
@@ -63,9 +73,9 @@ returning {_COLUMNS}
 _SAVE = """
 update jobs
 set status = %(status)s, attempts = %(attempts)s, last_error = %(last_error)s,
-    script = %(script)s, critique = %(critique)s, qa = %(qa)s, assets = %(assets)s,
-    calls = %(calls)s, experiment = %(experiment)s, arm = %(arm)s, rating = %(rating)s,
-    metrics = %(metrics)s, lease_until = null, updated_at = now()
+    outline = %(outline)s, script = %(script)s, critique = %(critique)s, qa = %(qa)s,
+    assets = %(assets)s, calls = %(calls)s, experiment = %(experiment)s, arm = %(arm)s,
+    rating = %(rating)s, metrics = %(metrics)s, lease_until = null, updated_at = now()
 where id = %(id)s
 """
 
@@ -136,6 +146,7 @@ def _row(job: Job) -> dict[str, Any]:
         "recipe": json(job.recipe),
         "attempts": job.attempts,
         "last_error": job.last_error,
+        "outline": json(job.outline),
         "script": json(job.script),
         "critique": json(job.critique),
         "qa": json(job.qa),
@@ -157,6 +168,7 @@ def _job(row: dict[str, Any]) -> Job:
         recipe=Recipe.model_validate(row["recipe"]),
         attempts=row["attempts"],
         last_error=row["last_error"],
+        outline=Outline.model_validate(row["outline"]) if row["outline"] else None,
         script=Script.model_validate(row["script"]) if row["script"] else None,
         critique=Verdict.model_validate(row["critique"]) if row["critique"] else None,
         qa=Verdict.model_validate(row["qa"]) if row["qa"] else None,

@@ -12,18 +12,20 @@ class VoxNarrator:
     name = "voxcpm"
     suffix = ".wav"
 
-    def __init__(self, http: httpx.AsyncClient, voice: str) -> None:
+    def __init__(
+        self, http: httpx.AsyncClient, voice: str, *, cfg: float = 2.0, steps: int = 10
+    ) -> None:
         self._http = http
-        self._voice = voice
+        self._request = {"voice": voice, "cfg": cfg, "steps": steps}
 
     async def speak(self, text: str, out: Path) -> Path:
         try:
             reply = await self._http.post(
-                "/speak", json={"text": text, "voice": self._voice}, timeout=120
+                "/speak", json={"text": text, **self._request}, timeout=300
             )
             reply.raise_for_status()
         except httpx.HTTPError as exc:
-            raise StageError(f"tts: {exc}") from exc
+            raise StageError(f"tts: {type(exc).__name__} {exc}".strip()) from exc
         await asyncio.to_thread(out.write_bytes, reply.content)
         return out
 

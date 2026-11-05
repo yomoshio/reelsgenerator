@@ -2,7 +2,7 @@
 the card at a time."""
 
 import asyncio
-from collections.abc import Mapping, Sequence
+from collections.abc import Awaitable, Callable, Mapping, Sequence
 from typing import Protocol
 
 import structlog
@@ -85,8 +85,16 @@ class Conveyor:
                 worked += 1
         return worked
 
-    async def run_forever(self, idle_seconds: float) -> None:
+    async def run_forever(
+        self, idle_seconds: float, before_turn: Callable[[], Awaitable[bool]] | None = None
+    ) -> None:
+        """`before_turn` runs ahead of every turn; when it returns False the turn is skipped
+        and the card is released, which is how a pause from the ComfyUI blocks works."""
         while True:
+            if before_turn is not None and not await before_turn():
+                await self._gpu.release_all()
+                await asyncio.sleep(idle_seconds)
+                continue
             if await self.turn() == 0:
                 await self._gpu.release_all()
                 await asyncio.sleep(idle_seconds)

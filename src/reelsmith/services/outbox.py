@@ -7,11 +7,9 @@ from reelsmith.models import Post
 
 
 class OutboxPublisher:
-    """Drops the cut and its caption into a folder.
-
-    TikTok keeps API posts private until the app passes its audit, so the first version
-    stops here and a person uploads from the outbox. A TikTok or Instagram publisher
-    implements the same `publish` and replaces this one in `app.py`."""
+    """Drops the cut and its caption into a folder for a person to upload. TikTok keeps API
+    posts private until the app passes its audit; a real publisher would implement the
+    same `publish` and replace this one in `app.py`."""
 
     def __init__(self, folder: Path) -> None:
         self._folder = folder

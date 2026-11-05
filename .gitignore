@@ -12,3 +12,13 @@ __pycache__/
 .ruff_cache/
 .pytest_cache/
 demo/
+preview/
+logs/
+scripts/remote.env
+review/
+backups/
+studio/output/
+studio/input/
+studio/user/
+studio/inbox/
+studio/status.txt

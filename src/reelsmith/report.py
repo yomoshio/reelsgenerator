@@ -1,4 +1,4 @@
-"""The numbers the research says to decide by. Pure functions over jobs."""
+"""Cost, quality and retention over a set of jobs. Pure functions, no I/O."""
 
 from collections import defaultdict
 from collections.abc import Iterable
@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from statistics import fmean
 
 from reelsmith.models import Call, Job, Outcome, Status
-from reelsmith.pipeline import QA_PASS
+from reelsmith.pipeline import Gates
 from reelsmith.pricing import Tariff
 
 _COUNTED = {Outcome.OK, Outcome.FLAGGED}
@@ -61,13 +61,13 @@ class Arm:
     retention_3s: float | None
 
 
-def report(jobs: Iterable[Job], tariff: Tariff) -> Report:
+def report(jobs: Iterable[Job], tariff: Tariff, *, qa_pass: float = Gates.qa_pass) -> Report:
     jobs = list(jobs)
     own = [c for j in jobs for c in j.calls if not c.shared]
     good = sum(j.good for j in jobs)
     failed = sum(j.status is Status.FAILED for j in jobs)
     usd = sum(c.usd for c in own)
-    judged = [j.qa.score >= QA_PASS for j in jobs if j.qa]
+    judged = [j.qa.score >= qa_pass for j in jobs if j.qa]
     return Report(
         videos=len(jobs),
         good=good,

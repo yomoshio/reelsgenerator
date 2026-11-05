@@ -3,12 +3,12 @@ from uuid import uuid4
 import pytest
 from pydantic import ValidationError
 
-from reelsmith.models import Call, Character, Job, Script, Shot, Status
+from reelsmith.models import Call, Character, Job, Recipe, Script, Shot, Status
 from tests.fakes import recipe
 
 
 def _shot(line: str, cast: list[str] | None = None) -> Shot:
-    return Shot(line=line, picture="corridor", motion="slow push in", cast=cast or [])
+    return Shot(line=line, picture="corridor", motion="slow push in", cast=cast or [], stress=["x"])
 
 
 def _script() -> Script:
@@ -41,6 +41,15 @@ def test_video_for_routes_the_hook_shots() -> None:
 
     assert [routed.video_for(i) for i in range(3)] == ["wan-2.2", "wan-2.2", "wan-5b"]
     assert recipe().video_for(0) == "fast"
+
+
+def test_still_shots_go_to_the_calm_model_after_the_hook() -> None:
+    routed = Recipe(video="wan-2.2", hook_video="wan-5b", hook_shots=1, calm_video="still")
+
+    assert routed.video_for(0, moves=False) == "wan-5b"
+    assert routed.video_for(1, moves=False) == "still"
+    assert routed.video_for(1, moves=True) == "wan-2.2"
+    assert Recipe(video="wan-2.2").video_for(3, moves=False) == "wan-2.2"
 
 
 def test_looks_only_include_characters_in_frame() -> None:

@@ -1,15 +1,26 @@
+import shutil
 from pathlib import Path
 
+import pytest
+
 from reelsmith.services.ffmpeg import (
+    Card,
     Cut,
+    FfmpegMontage,
     Segment,
+    StillAnimator,
     Word,
     captions,
     ffmpeg_args,
+    run,
     shift,
+    still_args,
     stills_args,
     to_ass,
 )
+from tests.fakes import style
+
+needs_ffmpeg = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg")
 
 
 def test_captions_group_up_to_three_words_and_break_on_pauses() -> None:
@@ -23,16 +34,68 @@ def test_captions_group_up_to_three_words_and_break_on_pauses() -> None:
     ]
 
     assert [c.text for c in captions(words)] == ["Никто не вышел", "из палаты", "ночью"]
+    assert [len(c.words) for c in captions(words, max_words=2)] == [2, 2, 1, 1]
 
 
 def test_shift_moves_words_to_the_shot_start() -> None:
-    assert shift([Word("a", 0.1, 0.3)], 4.0) == [Word("a", 4.1, 4.3)]
+    assert shift([Word("a", 0.1, 0.3, accent=True)], 4.0) == [Word("a", 4.1, 4.3, accent=True)]
 
 
 def test_ass_uses_centisecond_timestamps() -> None:
-    ass = to_ass([Word("тихо", 61.234, 62.0)])
+    ass = to_ass(captions([Word("тихо", 61.234, 62.0)]), style())
 
-    assert "Dialogue: 0,0:01:01.23,0:01:02.00,Caption,ТИХО" in ass
+    assert "Dialogue: 0,0:01:01.23,0:01:02.00,Caption," in ass
+    assert "ТИХО" in ass
+
+
+def test_karaoke_sweeps_each_word_and_colours_the_stressed_one() -> None:
+    words = [
+        Word("теперь", 0.0, 0.5),
+        Word("выведу", 0.6, 1.2, accent=True),
+        Word("тебя", 1.3, 1.8),
+    ]
+
+    ass = to_ass(captions(words), style())
+
+    assert (
+        r"Caption,{\1c&H00FFFFFF&\k60}ТЕПЕРЬ "
+        r"{\1c&H001FD2FF&\k70}ВЫВЕДУ "
+        r"{\1c&H00FFFFFF&\k50}ТЕБЯ"
+    ) in ass
+
+
+def test_captions_without_karaoke_carry_no_sweep() -> None:
+    plain = style().model_copy(
+        update={"captions": style().captions.model_copy(update={"karaoke": False})}
+    )
+
+    assert r"\k" not in to_ass(captions([Word("тихо", 0.0, 1.0)]), plain)
+
+
+def test_plates_become_boxed_styles_and_timed_events() -> None:
+    cards = [
+        Card("rule", "1. Уходи, когда не ждут", 2.0, 9.5),
+        Card("tag", "ночью | с фонарём", 2.0, 4.0),
+        Card("unknown", "ignored", 0.0, 1.0),
+    ]
+
+    ass = to_ass([], style(), cards)
+
+    assert "Style: Plate-rule," in ass
+    assert ",&H001A1A1A,&H001A1A1A,&H00FFFFFF,&H00000000,-1,3,16,0,7," in ass
+    assert "Dialogue: 1,0:00:02.00,0:00:09.50,Plate-rule," in ass
+    assert r"{\1c&H001E26B3&}1.{\1c&H001A1A1A&} УХОДИ, КОГДА НЕ ЖДУТ" in ass
+    assert r"НОЧЬЮ\N{\fs29\b0}С ФОНАРЁМ" in ass
+    assert "ignored" not in ass.lower()
+
+
+def test_text_cannot_inject_ass_override_tags() -> None:
+    ass = to_ass(
+        captions([Word(r"{\fs1}ой", 0.0, 1.0)]), style(), [Card("tag", r"a{\b1}b", 0.0, 1.0)]
+    )
+
+    assert r"{\fs1}" not in ass
+    assert r"{\b1}" not in ass
 
 
 def test_ffmpeg_graph_trims_every_shot_to_its_voice_length() -> None:
@@ -56,9 +119,54 @@ def test_ffmpeg_graph_trims_every_shot_to_its_voice_length() -> None:
     assert args[-1] == "out.mp4"
 
 
+def test_neighbouring_seeds_move_the_camera_differently() -> None:
+    graphs = {
+        stills_graph(still_args(Path("f.png"), 4.0, seed, Path("o.mp4"))) for seed in range(3)
+    }
+
+    assert len(graphs) == 3
+    assert all("zoompan" in g and "s=1080x1920" in g for g in graphs)
+
+
+@needs_ffmpeg
+async def test_still_animator_makes_a_clip_of_the_asked_length(tmp_path: Path) -> None:
+    frame = tmp_path / "f.png"
+    await run(
+        "ffmpeg",
+        "-y",
+        "-loglevel",
+        "error",
+        "-f",
+        "lavfi",
+        "-i",
+        "color=c=navy:s=720x1280",
+        "-frames:v",
+        "1",
+        str(frame),
+    )
+
+    clip = await StillAnimator().animate(
+        frame, "ignored", seconds=2.0, seed=4, out=tmp_path / "c.mp4"
+    )
+
+    assert await FfmpegMontage().seconds(clip) == pytest.approx(2.0, abs=0.1)
+
+
+def stills_graph(args: list[str]) -> str:
+    return args[args.index("-vf") + 1]
+
+
+def test_music_level_is_a_parameter() -> None:
+    cut = Cut((Segment(Path("c.mp4"), Path("v.wav"), 3.0),), Path("m.flac"), Path("/s.ass"))
+
+    assert "volume=0.4[bed]" in " ".join(ffmpeg_args(cut, Path("o.mp4"), music_level=0.4))
+
+
 def test_stills_args_spaces_frames_over_the_clip() -> None:
     args = stills_args(Path("c.mp4"), 4, 5.0, Path("/out"))
 
-    assert args[args.index("-vf") + 1] == "fps=1/1.250"
+    assert args[args.index("-vf") + 1] == "fps=1/1.250,scale=540:-2"
     assert args[args.index("-frames:v") + 1] == "4"
     assert args[-1] == "/out/%02d.png"
+    wide = stills_args(Path("c.mp4"), 4, 5.0, Path("/out"), width=1080)
+    assert wide[wide.index("-vf") + 1] == "fps=1/1.250,scale=1080:-2"

@@ -12,7 +12,7 @@ from reelsmith import cli
 from reelsmith.models import Status
 from reelsmith.settings import Settings
 from reelsmith.store import MemoryJobs
-from tests.fakes import script
+from tests.fakes import REPO_STYLES, script
 
 needs_ffmpeg = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg")
 runner = CliRunner()
@@ -27,6 +27,7 @@ def store(monkeypatch: pytest.MonkeyPatch) -> MemoryJobs:
         yield jobs
 
     monkeypatch.setattr(build, "database", fake_database)
+    monkeypatch.setenv("REELSMITH_STYLES", str(REPO_STYLES))
     return jobs
 
 
@@ -103,7 +104,7 @@ def test_unknown_job_is_reported_not_raised(store: MemoryJobs) -> None:
 
 
 @needs_ffmpeg
-def test_demo_prints_both_arms_and_the_report(tmp_path: Path) -> None:
+def test_demo_prints_both_arms_and_the_report(tmp_path: Path, store: MemoryJobs) -> None:
     result = runner.invoke(cli.app, ["demo", "--ideas", "1", "--out", str(tmp_path)])
 
     assert result.exit_code == 0, result.output
@@ -112,3 +113,157 @@ def test_demo_prints_both_arms_and_the_report(tmp_path: Path) -> None:
     assert any(line.startswith("B ") for line in lines)
     assert "cost per good" in result.output
     assert (tmp_path / "outbox").is_dir()
+
+
+def test_add_takes_a_style_and_refuses_an_unknown_one(store: MemoryJobs) -> None:
+    ok = runner.invoke(cli.app, ["add", "маяк", "--style", "rules-serial"])
+    bad = runner.invoke(cli.app, ["add", "маяк", "--style", "nope"])
+
+    assert ok.exit_code == 0, ok.output
+    assert bad.exit_code == 1
+    assert "no style named 'nope'" in bad.output
+    (job,) = asyncio.run(store.find())
+    assert job.recipe.style == "rules-serial"
+
+
+def test_fork_with_another_style_keeps_the_script(store: MemoryJobs) -> None:
+    runner.invoke(cli.app, ["add", "маяк"])
+    (parent,) = asyncio.run(store.find())
+    parent.script = script()
+    runner.invoke(cli.app, ["fork", str(parent.id), "--style", "rules-serial"])
+
+    parent, child = asyncio.run(store.find())
+    assert (parent.recipe.style, child.recipe.style) == ("noir", "rules-serial")
+
+
+def test_jobs_lists_ids_and_filters_by_status(store: MemoryJobs) -> None:
+    runner.invoke(
+        cli.app, ["add", "маяк", "лифт без кнопки первого этажа и без выхода наружу совсем"]
+    )
+    first, second = asyncio.run(store.find())
+    second.status = Status.FAILED
+    second.last_error = "comfy: prompt did not finish"
+    asyncio.run(store.save(second))
+
+    everything = runner.invoke(cli.app, ["jobs"])
+    failed = runner.invoke(cli.app, ["jobs", "--status", "failed"])
+    wrong = runner.invoke(cli.app, ["jobs", "--status", "nope"])
+
+    assert everything.exit_code == 0, everything.output
+    assert str(first.id) in everything.output
+    assert "лифт без кнопки первого этажа и без вых…" in everything.output
+    assert str(first.id) not in failed.output
+    assert "comfy: prompt did not finish" in failed.output
+    assert wrong.exit_code == 1
+    assert "no status 'nope'" in wrong.output
+
+
+def test_ideas_skips_comments_and_reads_a_style_prefix() -> None:
+    lines = [
+        "# мои идеи",
+        "",
+        "маяк, который зажигается сам",
+        "  [noir] лифт без кнопки  ",
+        "[rules-serial]",
+    ]
+
+    assert cli.ideas(lines) == [
+        (2, None, "маяк, который зажигается сам"),
+        (3, "noir", "лифт без кнопки"),
+    ]
+
+
+def test_queue_adds_each_idea_and_marks_its_line(store: MemoryJobs, tmp_path: Path) -> None:
+    file = tmp_path / "ideas.txt"
+    file.write_text("# идеи\nмаяк\n[rules-serial] Часть 1. Метро\n", encoding="utf-8")
+
+    result = runner.invoke(cli.app, ["queue", str(file)])
+
+    assert result.exit_code == 0, result.output
+    jobs = {j.idea: j for j in asyncio.run(store.find())}
+    assert (jobs["маяк"].recipe.style, jobs["Часть 1. Метро"].recipe.style) == (
+        "noir",
+        "rules-serial",
+    )
+    marked = file.read_text(encoding="utf-8").splitlines()
+    assert marked[0] == "# идеи"
+    assert marked[1] == f"# {jobs['маяк'].id.hex[:8]} маяк"
+    assert cli.ideas(marked) == []
+
+
+def test_queue_refuses_an_unknown_style_before_adding_anything(
+    store: MemoryJobs, tmp_path: Path
+) -> None:
+    file = tmp_path / "ideas.txt"
+    file.write_text("маяк\n[nope] лифт\n", encoding="utf-8")
+
+    result = runner.invoke(cli.app, ["queue", str(file)])
+
+    assert result.exit_code == 1
+    assert asyncio.run(store.find()) == []
+    assert file.read_text(encoding="utf-8") == "маяк\n[nope] лифт\n"
+
+
+def test_retry_resumes_a_failed_job_from_a_chosen_status(store: MemoryJobs) -> None:
+    runner.invoke(cli.app, ["add", "маяк"])
+    (job,) = asyncio.run(store.find())
+    job.status, job.attempts, job.last_error = Status.FAILED, 5, "clips flagged"
+    asyncio.run(store.save(job))
+
+    refused = runner.invoke(cli.app, ["retry", str(job.id)])
+    resumed = runner.invoke(cli.app, ["retry", str(job.id), "--status", "framed"])
+
+    assert refused.exit_code == 1
+    assert "needs --status" in refused.output
+    assert resumed.exit_code == 0, resumed.output
+    (job,) = asyncio.run(store.find())
+    assert (job.status, job.attempts, job.last_error) == (Status.FRAMED, 0, None)
+
+
+def test_styles_lists_what_each_is_for(store: MemoryJobs) -> None:
+    result = runner.invoke(cli.app, ["styles"])
+
+    assert result.exit_code == 0, result.output
+    assert "noir" in result.output
+    assert "rules-serial" in result.output
+    assert "numbered rules" in result.output
+
+
+@needs_ffmpeg
+def test_preview_draws_one_frame_with_every_overlay(tmp_path: Path, store: MemoryJobs) -> None:
+    result = runner.invoke(cli.app, ["preview", "rules-serial", "--out", str(tmp_path)])
+
+    assert result.exit_code == 0, result.output
+    frame = tmp_path / "rules-serial.png"
+    assert frame.stat().st_size > 5_000
+    ass = (tmp_path / "rules-serial.ass").read_text(encoding="utf-8")
+    assert ass.count("Dialogue: 1,") == 5
+
+
+@needs_ffmpeg
+def test_demo_stops_early_on_an_unknown_style(tmp_path: Path, store: MemoryJobs) -> None:
+    result = runner.invoke(
+        cli.app, ["demo", "--ideas", "1", "--style", "nope", "--out", str(tmp_path)]
+    )
+
+    assert result.exit_code == 1
+    assert "no style named 'nope'" in result.output
+
+
+def test_series_writes_a_bible_and_an_ideas_file(
+    store: MemoryJobs, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("REELSMITH_SERVICES", "synthetic")
+    story = tmp_path / "flood.txt"
+    story.write_text("Ночью прорвало дамбу, вода поднимается по этажу в час.", encoding="utf-8")
+
+    result = runner.invoke(
+        cli.app, ["series", str(story), "--episodes", "3", "--out", str(tmp_path / "out")]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert (tmp_path / "out" / "flood.md").exists()
+    assert (
+        len(cli.ideas((tmp_path / "out" / "flood.txt").read_text(encoding="utf-8").splitlines()))
+        == 3
+    )
