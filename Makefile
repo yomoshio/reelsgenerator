@@ -3,7 +3,7 @@ RUN := $(COMPOSE) run --rm --no-deps worker
 WRITER_MODEL ?= $(shell grep -s '^REELSMITH_WRITER_MODEL=' .env | cut -d= -f2)
 
 .PHONY: help setup build models llm-model voice up down migrate graphs \
-	add ideas series jobs status report styles review approve reject retry logs pause resume \
+	add ideas series remix outline jobs status report styles review approve reject retry logs pause resume \
 	test lint demo preview pin
 
 help:                        ## этот список
@@ -56,6 +56,12 @@ ideas:                       ## поставить новые строки из 
 
 series:                      ## STORY=studio/stories/x.txt [EPISODES=10] сезон из синопсиса в studio/series/x.*
 	$(RUN) series /data/$(STORY) $(if $(EPISODES),--episodes $(EPISODES))
+
+remix:                       ## [COUNT=12] [THEME=space] [SEED=7] короткие идеи из библиотеки структур в studio/ideas/
+	$(RUN) remix $(if $(COUNT),--count $(COUNT)) $(if $(THEME),--theme $(THEME)) $(if $(SEED),--seed $(SEED))
+
+outline:                     ## FILE=studio/ideas/x.txt планы модели для каждой идеи, без рендера, в x.outlines.md
+	$(RUN) outline /data/$(FILE)
 
 jobs:                        ## все задачи с id; STATUS=assembled только собранные
 	$(RUN) jobs $(if $(STATUS),--status $(STATUS))

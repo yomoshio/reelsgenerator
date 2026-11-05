@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import random
 from collections.abc import Awaitable, Callable, Iterable, Sequence
 from pathlib import Path
 from typing import Annotated, NoReturn
@@ -10,8 +11,11 @@ import typer
 
 from reelsmith import app as build
 from reelsmith.models import Job, Metrics, Recipe, StageError, Status
+from reelsmith.remix import ideas_file as remix_file
+from reelsmith.remix import load as load_library
+from reelsmith.remix import remix as make_remix
 from reelsmith.report import Arm, Report, compare, report
-from reelsmith.series import ideas, write_serial
+from reelsmith.series import ideas, outline_markdown, write_serial
 from reelsmith.services.ffmpeg import preview
 from reelsmith.settings import Settings
 from reelsmith.store import PostgresJobs
@@ -215,6 +219,58 @@ def series(
         _fail(str(exc))
     for path in write_serial(made, chosen, out, name or story.stem):
         typer.echo(path)
+
+
+@app.command()
+def remix(
+    count: Annotated[int, typer.Option(min=1, max=200)] = 12,
+    theme: Annotated[list[str] | None, typer.Option(help="e.g. space; repeat for more")] = None,
+    seed: int | None = None,
+    style: Style = None,
+    library: Path | None = None,
+    out: Path | None = None,
+) -> None:
+    """Short ideas recombined from the structure library: a world, a hero, a goal, two
+    obstacles with their tricks, an ally, a reversal, a hook. Same seed, same ideas."""
+    settings = _settings()
+    chosen = style or settings.style
+    _known_style(settings, chosen)
+    parts = load_library(library or settings.studio / "structures.toml")
+    used = seed if seed is not None else random.randrange(1_000_000)
+    try:
+        made = make_remix(parts, count, seed=used, themes=theme)
+    except ValueError as exc:
+        _fail(str(exc))
+    target = out or settings.studio / "ideas" / f"remix-{used}.txt"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(remix_file(made, parts, chosen, used), encoding="utf-8")
+    typer.echo(f"{target}  ({len(made)} ideas, seed {used})")
+
+
+@app.command()
+def outline(file: Path, style: Style = None, out: Path | None = None) -> None:
+    """The model's outline for every idea in a file, without rendering: to read the plots
+    before spending GPU time on them, or to compare with outlines written by hand."""
+    settings = _settings()
+    chosen = style or settings.style
+    _known_style(settings, chosen)
+    found = ideas(file.read_text(encoding="utf-8").splitlines())
+    if not found:
+        _fail(f"no ideas in {file}")
+    template = Styles(settings.styles).get(found[0][1] or chosen)
+    try:
+        planned = asyncio.run(build.outlines(settings, [idea for _, _, idea in found], template))
+    except StageError as exc:
+        _fail(str(exc))
+    sections = [
+        f"## {n}. {idea}\n\n{outline_markdown(made)}"
+        for n, ((_, _, idea), made) in enumerate(zip(found, planned, strict=True), 1)
+    ]
+    target = out or file.with_suffix(".outlines.md")
+    target.write_text(
+        f"# Outlines by the model for {file.name}\n\n" + "\n".join(sections), encoding="utf-8"
+    )
+    typer.echo(target)
 
 
 @app.command()
