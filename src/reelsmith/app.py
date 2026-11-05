@@ -10,11 +10,11 @@ import httpx
 from psycopg_pool import AsyncConnectionPool
 
 from reelsmith.conveyor import Conveyor, Gpu, GpuTenant
-from reelsmith.models import Job, Recipe, Status
+from reelsmith.models import Job, Outline, Recipe, Status
 from reelsmith.pipeline import STAGES, Animator, Services, Stage
 from reelsmith.pricing import DEFAULT, Tariff
 from reelsmith.report import Arm, Report, compare, report
-from reelsmith.series import Serial, make_serial
+from reelsmith.series import Planner, Serial, make_serial
 from reelsmith.services import synthetic
 from reelsmith.services.comfy import (
     ComfyAnimator,
@@ -80,12 +80,26 @@ def ollama_llm(settings: Settings, http: httpx.AsyncClient) -> OllamaLlm:
     )
 
 
+@asynccontextmanager
+async def planner(settings: Settings) -> AsyncIterator[Planner]:
+    """The writer model for work outside the conveyor, or its stand-in."""
+    if settings.services == "synthetic":
+        yield synthetic.SyntheticLlm()
+        return
+    async with httpx.AsyncClient(base_url=settings.ollama_url) as http:
+        yield ollama_llm(settings, http)
+
+
 async def serial(settings: Settings, synopsis: str, style: Style, episodes: int) -> Serial:
     """A season from a synopsis, on the real writer model or on the stand-in."""
-    if settings.services == "synthetic":
-        return await make_serial(synthetic.SyntheticLlm(), synopsis, style, episodes)
-    async with httpx.AsyncClient(base_url=settings.ollama_url) as http:
-        return await make_serial(ollama_llm(settings, http), synopsis, style, episodes)
+    async with planner(settings) as llm:
+        return await make_serial(llm, synopsis, style, episodes)
+
+
+async def outlines(settings: Settings, ideas: list[str], style: Style) -> list[Outline]:
+    """The writer model's outline for each idea, without rendering anything."""
+    async with planner(settings) as llm:
+        return [await llm.plan(idea, style) for idea in ideas]
 
 
 def local_services(

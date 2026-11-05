@@ -267,3 +267,35 @@ def test_series_writes_a_bible_and_an_ideas_file(
         len(cli.ideas((tmp_path / "out" / "flood.txt").read_text(encoding="utf-8").splitlines()))
         == 3
     )
+
+
+def test_remix_writes_ideas_for_a_theme(
+    store: MemoryJobs, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("REELSMITH_STUDIO", str(Path(__file__).parent.parent / "studio"))
+    out = tmp_path / "remix.txt"
+
+    result = runner.invoke(
+        cli.app, ["remix", "--count", "3", "--theme", "zombie", "--seed", "4", "--out", str(out)]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert len(cli.ideas(out.read_text(encoding="utf-8").splitlines())) == 3
+
+
+def test_outline_writes_the_models_plan_for_every_idea(
+    store: MemoryJobs, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("REELSMITH_SERVICES", "synthetic")
+    file = tmp_path / "batch.txt"
+    file.write_text(
+        "# идеи\nстанция теряет воздух\n[noir] ночная смена в архиве\n", encoding="utf-8"
+    )
+
+    result = runner.invoke(cli.app, ["outline", str(file)])
+
+    assert result.exit_code == 0, result.output
+    text = (tmp_path / "batch.outlines.md").read_text(encoding="utf-8")
+    assert "## 1. станция теряет воздух" in text
+    assert "## 2. ночная смена в архиве" in text
+    assert "Detail planted early:" in text

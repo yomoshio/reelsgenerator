@@ -83,6 +83,15 @@ def bible(serial: Serial) -> str:
     )
 
 
+def outline_markdown(outline: Outline) -> str:
+    people = "\n".join(f"- {c.name}: {c.look}" for c in outline.characters)
+    beats = "\n".join(f"{n}. {beat}" for n, beat in enumerate(outline.beats, 1))
+    return (
+        f"**{outline.title}**\n\n{people}\n\n{beats}\n\n"
+        f"Detail planted early: {outline.planted}\n\nLast line: {outline.ending}\n"
+    )
+
+
 def write_serial(serial: Serial, style: str, folder: Path, name: str) -> tuple[Path, Path]:
     folder.mkdir(parents=True, exist_ok=True)
     notes, queue = folder / f"{name}.md", folder / f"{name}.txt"
