@@ -170,8 +170,10 @@ class FakeNarrator:
     suffix: str = ".wav"
     name: str = "fake"
     log: list[str] = field(default_factory=list)
+    deliveries: list[str] = field(default_factory=list)
 
-    async def speak(self, text: str, out: Path) -> Path:
+    async def speak(self, text: str, out: Path, delivery: str = "") -> Path:
+        self.deliveries.append(delivery)
         self.log.append(text)
         return _touch(out)
 

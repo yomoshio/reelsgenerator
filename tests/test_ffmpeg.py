@@ -116,6 +116,8 @@ def test_ffmpeg_graph_trims_every_shot_to_its_voice_length() -> None:
     assert "[3:a]aresample=48000,apad=whole_dur=4.750,atrim=duration=4.750[a1]" in graph
     assert "[4:a]aresample=48000,volume=" in graph
     assert "subtitles=filename='/data/media/x/subtitles.ass'" in graph
+    assert "concat=n=2:v=0:a=1,highpass=f=70,acompressor=" in graph
+    assert "amix=inputs=2:duration=first:normalize=0,loudnorm=I=-14:TP=-1.5:LRA=11[audio]" in graph
     assert args[-1] == "out.mp4"
 
 

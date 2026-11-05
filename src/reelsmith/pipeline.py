@@ -88,7 +88,7 @@ class Narrator(Protocol):
     name: str
     suffix: str
 
-    async def speak(self, text: str, out: Path) -> Path: ...
+    async def speak(self, text: str, out: Path, delivery: str = "") -> Path: ...
 
 
 class Composer(Protocol):
@@ -251,7 +251,8 @@ async def voice(job: Job, s: Services) -> None:
         with metered(
             job, s.tariff, stage="voice", provider=s.narrator.name, units=len(shot.line), shot=i
         ):
-            audio = await s.narrator.speak(shot.line, files.voice(i, s.narrator.suffix))
+            out = files.voice(i, s.narrator.suffix)
+            audio = await s.narrator.speak(shot.line, out, delivery=shot.delivery)
         spoken = await s.montage.seconds(audio)
         shot.seconds = min(max(spoken + SHOT_PADDING, SHOT_MIN), SHOT_MAX)
         job.assets.voices[i] = files.relative(audio)

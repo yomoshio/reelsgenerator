@@ -39,7 +39,7 @@ make setup          # .env и папки
 make build
 make models         # около 90 ГБ весов
 make llm-model
-make voice DESC="A calm middle-aged man with a low warm voice"
+make voice DESC="A gripping storyteller in his forties, low warm voice, lively intonation, dramatic pauses, building tension, never monotone"
 make up
 make migrate
 ```

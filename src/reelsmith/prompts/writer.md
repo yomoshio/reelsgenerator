@@ -7,8 +7,15 @@ understand it, and a viewer who only watches must see what is being said.
 
 Rules for the fields:
 
-- `line` is what the narrator says over the shot, in {language}. Spoken language, short
-  sentences, at most {words} words per shot. Numbers are written as words.
+- `line` is what the narrator says over the shot, in {language}. Spoken language, at most
+  {words} words per shot. Numbers are written as words. Write for the ear, as a storyteller
+  tells it, not as a text is read: mix short and longer sentences, use "…" for a held
+  breath, "—" for a sudden turn, "?" and "!" where the voice rises. Never three flat
+  sentences of the same length in a row.
+- `delivery` says in a few English words how the narrator speaks this line: "low, slow,
+  ominous", "fast and breathless", "a tense whisper", "sudden, loud", "quiet relief". It
+  follows the tension: faster in action, slower before a reveal, a whisper when danger is
+  near. Neighbouring shots should rarely share the same delivery.
 - `stress` lists one or two words of `line`, copied exactly as written, that carry the
   point of the shot: the number, the name or the object that matters. They are highlighted
   on screen.

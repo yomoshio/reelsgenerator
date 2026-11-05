@@ -16,6 +16,10 @@ WIDTH, HEIGHT, FPS = 1080, 1920, 30
 # Clips are rendered at 480x848, so stills wider than this only add tokens for the judge.
 STILL_WIDTH = 540
 MUSIC_LEVEL = 0.22
+# A narrator who sounds close and present: rumble cut, peaks evened out, a little lift.
+VOICE_CHAIN = "highpass=f=70,acompressor=threshold=0.125:ratio=3:attack=5:release=120:makeup=2"
+# The level short-video platforms normalise to, so a video is neither quiet nor clipped.
+LOUDNESS = "loudnorm=I=-14:TP=-1.5:LRA=11"
 
 
 @dataclass(frozen=True, slots=True)
@@ -80,10 +84,10 @@ def ffmpeg_args(cut: Cut, out: Path, *, music_level: float = MUSIC_LEVEL) -> lis
     voice_labels = "".join(f"[a{i}]" for i in range(n))
     graph += [
         f"{video_labels}concat=n={n}:v=1:a=0,subtitles=filename='{_quoted(cut.subtitles)}'[video]",
-        f"{voice_labels}concat=n={n}:v=0:a=1,asplit=2[voice][key]",
+        f"{voice_labels}concat=n={n}:v=0:a=1,{VOICE_CHAIN},asplit=2[voice][key]",
         f"[{music_index}:a]aresample=48000,volume={music_level}[bed]",
         "[bed][key]sidechaincompress=threshold=0.04:ratio=8:attack=20:release=400[ducked]",
-        "[voice][ducked]amix=inputs=2:duration=first:normalize=0[audio]",
+        f"[voice][ducked]amix=inputs=2:duration=first:normalize=0,{LOUDNESS}[audio]",
     ]
     return [
         "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",

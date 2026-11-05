@@ -17,9 +17,12 @@ from voxcpm import VoxCPM
 
 MODEL_ID = os.environ.get("VOXCPM_MODEL", "openbmb/VoxCPM2")
 VOICES = Path(os.environ.get("VOICES_DIR", "/voices"))
+# The cloned voice inherits the reference's delivery, so the sample is told, not read:
+# short and long sentences, a held pause, a question, a sudden turn.
 SAMPLE = (
-    "Артём открывает блокнот у мигающей лампы. Вода медленно ползёт вверх по ступеням. "
-    "Первое правило: не зови никого по имени. Он считает до сорока и слушает тишину."
+    "Свет гаснет. Совсем. Он стоит в темноте и слушает… Тишина. А потом — шаги. "
+    "Медленные, тяжёлые, всё ближе. Кто там? Никто не отвечает. "
+    "И тогда он понимает: шаги идут не снаружи. Они уже внутри!"
 )
 
 

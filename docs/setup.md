@@ -42,7 +42,7 @@ nano .env                 # минимум REELSMITH_GPU_HOUR_USD, см. ниж�
 make build                # 10–20 минут
 make models               # веса, около 90 ГБ
 make llm-model            # Qwen3.5 27B, 17 ГБ
-make voice DESC="A calm middle-aged man with a low warm voice, steady slow pace"
+make voice DESC="A gripping storyteller in his forties, low warm voice, lively intonation, dramatic pauses, building tension, never monotone"
 make up
 make migrate
 ```

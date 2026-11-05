@@ -119,16 +119,26 @@ seed, сценарий, голос и кадры останутся.
 ## Голос
 
 Голос диктора это `voices/narrator.wav` и текст этой записи в `voices/narrator.txt`.
-Новый голос по описанию:
+Модель клонирует не только тембр эталона, но и его подачу: ровно прочитанный эталон даёт
+ровного диктора. Поэтому эталон записывается рассказом с паузами, вопросом и резким
+поворотом, а в описании голоса прямо сказано, что он живой:
 
 ```
-make voice DESC="A young woman with a quiet, slightly husky voice, unhurried"
+make voice DESC="A gripping storyteller in his forties, low warm voice, lively intonation, dramatic pauses, building tension, never monotone"
 ```
+
+Женский голос: `DESC="A young woman storyteller, quiet husky voice, tense whispers and
+sudden rises, never monotone"`.
 
 В `voices/` появятся `narrator-take1.wav`, `take2`, `take3`, и первый станет голосом
 канала. Послушайте все три. Понравившийся скопируйте поверх `narrator.wav`, его текст
-поверх `narrator.txt`. Своя запись тоже подходит: 10–20 секунд чистой речи без музыки и
-её точный текст. На сервере после замены: `scripts/remote.sh restore`.
+поверх `narrator.txt`. Своя запись тоже подходит: 10–20 секунд живого рассказа без музыки
+и его точный текст. На сервере после замены: `scripts/remote.sh restore`.
+
+Каждую реплику диктор говорит с подачей, которую выбрал писатель: «a tense whisper»,
+«fast and breathless», «slow, ominous». Она видна в сценарии задачи в поле `delivery` и
+меняется от шота к шоту вместе с напряжением. Итоговый звук сжимается и выравнивается до
+громкости площадок, −14 LUFS, поэтому голос не тонет под музыкой.
 
 ## Стиль
 
