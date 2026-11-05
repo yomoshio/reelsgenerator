@@ -7,7 +7,7 @@
 #>
 param(
     [string]$Distro = "Ubuntu-24.04",
-    [string]$Voice = "A calm middle-aged man with a low warm voice, steady slow pace",
+    [string]$Voice = "A gripping storyteller in his forties, low warm voice, lively intonation, dramatic pauses, building tension, never monotone",
     [double]$HourPrice = 0,
     [switch]$SkipModels,
     [switch]$NoSleep
