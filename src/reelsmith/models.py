@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import enum
+from collections.abc import Iterable
 from dataclasses import dataclass, field, replace
 from uuid import UUID, uuid4
 
@@ -49,6 +50,7 @@ class Recipe(BaseModel):
     hook_video: str | None = None
     hook_shots: int = 2
     calm_video: str | None = None
+    cast_image: str | None = None  # draws shots with a character from that character's portrait
 
     def video_for(self, shot: int, moves: bool = True) -> str:
         if shot < self.hook_shots and self.hook_video:
@@ -97,8 +99,8 @@ class Script(BaseModel):
     shots: list[Shot] = Field(min_length=3, max_length=40)
     music: str = Field(description="Genre, tempo and mood for the background track.")
 
-    def looks_of(self, shot: Shot) -> str:
-        wanted = set(shot.cast)
+    def looks_of(self, names: Iterable[str]) -> str:
+        wanted = set(names)
         return " ".join(c.look for c in self.characters if c.name in wanted)
 
     @property
@@ -182,6 +184,7 @@ class Assets(BaseModel):
     """Paths relative to the media root, keyed by shot index where it applies."""
 
     voices: dict[int, str] = Field(default_factory=dict)
+    cast: dict[str, str] = Field(default_factory=dict)
     candidates: dict[int, list[str]] = Field(default_factory=dict)
     frames: dict[int, str] = Field(default_factory=dict)
     clips: dict[int, str] = Field(default_factory=dict)

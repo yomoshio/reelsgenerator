@@ -49,6 +49,7 @@ def test_the_video_block_drops_a_request_and_never_waits(nodes: ModuleType, tmp_
             "story": "Утром квартира затоплена",
             "style": "serial",
             "animation": "hybrid",
+            "same_faces": False,
         }
     ]
     assert not list((tmp_path / "studio" / "inbox").glob("*.part"))

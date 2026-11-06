@@ -143,9 +143,13 @@ class FakeLlm:
 class FakePainter:
     name: str = "fake"
     log: list[tuple[str, int]] = field(default_factory=list)
+    references: list[Path | None] = field(default_factory=list)
 
-    async def paint(self, prompt: str, *, seed: int, out: Path) -> Path:
+    async def paint(
+        self, prompt: str, *, seed: int, out: Path, reference: Path | None = None
+    ) -> Path:
         self.log.append((prompt, seed))
+        self.references.append(reference)
         return _touch(out)
 
 
@@ -211,9 +215,12 @@ class FakeMontage:
 
 
 @dataclass
+@dataclass
 class FakeTranscriber:
+    heard: list[Word] = field(default_factory=lambda: [Word("line", 0.0, 0.4)])
+
     async def words(self, audio: Path) -> list[Word]:
-        return [Word("line", 0.0, 0.4)]
+        return list(self.heard)
 
 
 @dataclass

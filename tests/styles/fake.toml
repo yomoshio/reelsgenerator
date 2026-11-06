@@ -15,6 +15,7 @@ judge = "JUDGE"
 [captions]
 karaoke = true
 words = 3
+upcoming = "8E8E93"
 accent = "FFD21F"
 
 [overlays.rule]

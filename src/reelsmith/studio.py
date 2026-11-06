@@ -21,6 +21,7 @@ ANIMATION: dict[str, dict[str, str | None]] = {
     "hybrid": {"video": "wan-2.2", "calm_video": "still", "hook_video": None},
     "still": {"video": "still", "calm_video": None, "hook_video": None},
     "wan": {"video": "wan-2.2", "calm_video": None, "hook_video": None},
+    "wan-hd": {"video": "wan-2.2-hd", "calm_video": None, "hook_video": None},
 }
 STATUS_ROWS = 15
 
@@ -124,6 +125,8 @@ class Studio:
     def _recipe_for(self, request: dict[str, Any]) -> Recipe:
         update: dict[str, Any] = {"style": request.get("style") or self._recipe.style}
         update |= ANIMATION.get(str(request.get("animation", "hybrid")), {})
+        if request.get("same_faces"):
+            update["cast_image"] = "qwen-edit"
         self._styles.get(update["style"])
         return self._recipe.model_copy(update=update)
 
