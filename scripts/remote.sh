@@ -13,6 +13,7 @@
 #   scripts/remote.sh pause | resume                     пауза конвейера, чтобы работать в ComfyUI
 #   scripts/remote.sh comfy                              туннель к ComfyUI: http://localhost:8188
 #   scripts/remote.sh gpu                                кто сейчас занимает карту
+#   scripts/remote.sh smoke                              по одному вызову каждой модели: проверка машины
 #   scripts/remote.sh push | deploy                      залить код; deploy ещё пересобирает и перезапускает
 #   scripts/remote.sh restart                            перезапустить воркер, например после правки стиля
 #   scripts/remote.sh pull                               забрать готовые ролики и голоса
@@ -47,7 +48,7 @@ worker() { on_server "docker compose run --rm --no-deps -T worker $(printf '%q '
 command=${1:-help}
 shift || true
 case $command in
-    add | jobs | status | report | compare | styles | approve | reject | retry | rate | fork | measure)
+    add | jobs | status | report | compare | styles | approve | reject | retry | rate | fork | measure | smoke)
         worker "$command" "$@" ;;
     review)
         id=${1:?usage: review JOB_ID}

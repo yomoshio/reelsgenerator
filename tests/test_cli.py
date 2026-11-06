@@ -10,6 +10,7 @@ from typer.testing import CliRunner
 from reelsmith import app as build
 from reelsmith import cli
 from reelsmith.models import Status
+from reelsmith.services import synthetic
 from reelsmith.settings import Settings
 from reelsmith.store import MemoryJobs
 from tests.fakes import REPO_STYLES, script
@@ -299,3 +300,50 @@ def test_outline_writes_the_models_plan_for_every_idea(
     assert "## 1. станция теряет воздух" in text
     assert "## 2. ночная смена в архиве" in text
     assert "Detail planted early:" in text
+
+
+@needs_ffmpeg
+def test_smoke_runs_every_model_once_and_reports_each(
+    store: MemoryJobs, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("REELSMITH_SERVICES", "synthetic")
+
+    result = runner.invoke(cli.app, ["smoke", "--out", str(tmp_path / "smoke")])
+
+    assert result.exit_code == 0, result.output
+    steps = [line.split()[0] for line in result.output.splitlines()[1:7]]
+    assert steps == ["plan", "voice", "subtitles", "frame", "clip", "music"]
+    assert (tmp_path / "smoke" / "clip.mp4").exists()
+
+
+@needs_ffmpeg
+def test_smoke_draws_from_a_portrait_when_the_cast_model_is_on(
+    store: MemoryJobs, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("REELSMITH_SERVICES", "synthetic")
+    monkeypatch.setenv("REELSMITH_CAST_IMAGE_MODEL", "qwen-edit")
+
+    result = runner.invoke(cli.app, ["smoke", "--out", str(tmp_path / "smoke")])
+
+    assert result.exit_code == 0, result.output
+    steps = [line.split()[0] for line in result.output.splitlines()[1:8]]
+    assert steps == ["plan", "voice", "subtitles", "frame", "portrait", "clip", "music"]
+    assert (tmp_path / "smoke" / "frame-portrait.png").exists()
+
+
+@needs_ffmpeg
+def test_smoke_skips_what_depends_on_a_failed_step_and_fails(
+    store: MemoryJobs, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("REELSMITH_SERVICES", "synthetic")
+
+    async def broken(*_: object, **__: object) -> Path:
+        raise RuntimeError("no such model")
+
+    monkeypatch.setattr(synthetic.SyntheticPainter, "paint", broken)
+
+    result = runner.invoke(cli.app, ["smoke", "--out", str(tmp_path / "smoke")])
+
+    assert result.exit_code == 1
+    assert "RuntimeError: no such model" in result.output
+    assert " clip " not in result.output
