@@ -48,28 +48,38 @@ def test_ass_uses_centisecond_timestamps() -> None:
     assert "ТИХО" in ass
 
 
-def test_karaoke_sweeps_each_word_and_colours_the_stressed_one() -> None:
+def test_karaoke_lights_the_word_being_spoken_and_enlarges_the_stressed_one() -> None:
     words = [
         Word("теперь", 0.0, 0.5),
         Word("выведу", 0.6, 1.2, accent=True),
         Word("тебя", 1.3, 1.8),
     ]
 
-    ass = to_ass(captions(words), style())
+    events = [e for e in to_ass(captions(words), style()).splitlines() if e.startswith("Dialogue")]
 
-    assert (
-        r"Caption,{\1c&H00FFFFFF&\k60}ТЕПЕРЬ "
-        r"{\1c&H001FD2FF&\k70}ВЫВЕДУ "
-        r"{\1c&H00FFFFFF&\k50}ТЕБЯ"
-    ) in ass
+    white, grey, yellow = r"\1c&H00FFFFFF&", r"\1c&H00938E8E&", r"\1c&H001FD2FF&"
+    normal, large = r"\fscx100\fscy100", r"\fscx115\fscy115"
+    assert events == [
+        f"Dialogue: 0,0:00:00.00,0:00:00.60,Caption,{{{yellow}{normal}}}ТЕПЕРЬ "
+        f"{{{grey}{large}}}ВЫВЕДУ {{{grey}{normal}}}ТЕБЯ",
+        f"Dialogue: 0,0:00:00.60,0:00:01.30,Caption,{{{white}{normal}}}ТЕПЕРЬ "
+        f"{{{yellow}{large}}}ВЫВЕДУ {{{grey}{normal}}}ТЕБЯ",
+        f"Dialogue: 0,0:00:01.30,0:00:01.80,Caption,{{{white}{normal}}}ТЕПЕРЬ "
+        f"{{{white}{large}}}ВЫВЕДУ {{{yellow}{normal}}}ТЕБЯ",
+    ]
 
 
-def test_captions_without_karaoke_carry_no_sweep() -> None:
+def test_without_karaoke_a_caption_is_one_event_with_the_stressed_word_in_accent() -> None:
     plain = style().model_copy(
         update={"captions": style().captions.model_copy(update={"karaoke": False})}
     )
+    words = [Word("тихо", 0.0, 0.5), Word("здесь", 0.6, 1.0, accent=True)]
 
-    assert r"\k" not in to_ass(captions([Word("тихо", 0.0, 1.0)]), plain)
+    events = [e for e in to_ass(captions(words), plain).splitlines() if e.startswith("Dialogue")]
+
+    assert events == [
+        r"Dialogue: 0,0:00:00.00,0:00:01.00,Caption,{\1c&H00FFFFFF&}ТИХО {\1c&H001FD2FF&}ЗДЕСЬ"
+    ]
 
 
 def test_plates_become_boxed_styles_and_timed_events() -> None:

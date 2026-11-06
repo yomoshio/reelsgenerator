@@ -22,6 +22,9 @@ class Story(BaseModel):
     beats: tuple[int, int] = Field(default=(8, 12), description="Beats in the episode outline.")
     seconds: tuple[int, int] = (30, 50)
     words: int = Field(default=18, ge=4, description="Most words the narrator says in a shot.")
+    empty_shots: int = Field(
+        default=2, ge=1, description="Most shots in a row with nobody in the frame."
+    )
 
     @model_validator(mode="after")
     def _ordered(self) -> Self:
@@ -46,7 +49,13 @@ class Captions(BaseModel):
     accent: Hex = "FFD21F"
     outline: Hex = "000000"
     outline_px: int = 6
-    karaoke: bool = Field(default=False, description="Words not yet spoken show in `upcoming`.")
+    karaoke: bool = Field(
+        default=False,
+        description="The word being spoken shows in `accent`, words not yet spoken in `upcoming`.",
+    )
+    stress_size: int = Field(
+        default=115, ge=100, le=160, description="Size of stressed words in karaoke, percent."
+    )
 
 
 class Plate(BaseModel):

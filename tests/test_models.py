@@ -57,9 +57,9 @@ def test_looks_only_include_characters_in_frame() -> None:
     script.characters.append(Character(name="Ilya", look="boy, 9"))
     script.shots[2].cast = ["Ilya", "Vera"]
 
-    assert script.looks_of(script.shots[0]) == "nurse, 30s"
-    assert script.looks_of(script.shots[1]) == ""
-    assert script.looks_of(script.shots[2]) == "nurse, 30s boy, 9"
+    assert script.looks_of(script.shots[0].cast) == "nurse, 30s"
+    assert script.looks_of(script.shots[1].cast) == ""
+    assert script.looks_of(script.shots[2].cast) == "nurse, 30s boy, 9"
 
 
 def test_script_rejects_too_few_shots() -> None:

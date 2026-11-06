@@ -46,6 +46,7 @@ from tests.fakes import (
     FakeNarrator,
     FakePainter,
     FakePublisher,
+    FakeTranscriber,
     job,
     outline,
     recipe,
@@ -177,6 +178,35 @@ async def test_paint_makes_two_candidates_per_shot_and_skips_done_shots(tmp_path
     prompt, _ = painter.log[0]
     assert prompt == "nurse, 30s, grey cardigan. picture 1. FRAME"
     assert len({seed for _, seed in painter.log}) == 4
+
+
+async def test_paint_draws_a_person_the_line_names_even_when_the_cast_forgot_them(
+    tmp_path: Path,
+) -> None:
+    painter = FakePainter()
+    made = job(status=Status.VOICED, script=script(3))
+    shot = made.require_script().shots[0]
+    shot.line, shot.cast = "Vera opens the door.", []
+
+    await paint(made, replace(services(tmp_path, painter=painter), gates=Gates(candidates=1)))
+
+    assert painter.log[0][0] == "nurse, 30s, grey cardigan. picture 0. FRAME"
+
+
+async def test_animate_tells_the_video_model_that_nobody_new_appears(tmp_path: Path) -> None:
+    animator = FakeAnimator("fast")
+    made = _framed(3)
+    made.require_script().shots[1].cast = []
+
+    await animate(made, services(tmp_path, animators={"fast": animator}))
+
+    motions = [motion for _, motion, _, _ in animator.log]
+    assert (
+        motions[0] == "motion 0. only the people already in the frame, nobody new appears. MOTION"
+    )
+    assert motions[1] == (
+        "motion 1. the place stays empty, no person, animal or creature appears. MOTION"
+    )
 
 
 async def test_gates_set_how_many_frames_are_painted(tmp_path: Path) -> None:
@@ -355,12 +385,13 @@ async def test_assemble_renders_and_passes_qa(tmp_path: Path) -> None:
 async def test_assemble_puts_overlays_and_stressed_words_on_the_timeline(tmp_path: Path) -> None:
     made = _scored()
     shots = made.require_script().shots
+    shots[0].line, shots[1].line = "Уходи.", "Ночью."
     shots[0].overlays = [
         Overlay(kind="rule", text="1. Уходи", hold=2),
         Overlay(kind="nope", text="x"),
     ]
     shots[1].overlays = [Overlay(kind="tag", text="ночью")]
-    shots[0].stress = ["line"]
+    shots[0].stress = ["Уходи"]
 
     await assemble(made, services(tmp_path))
 
@@ -368,7 +399,36 @@ async def test_assemble_puts_overlays_and_stressed_words_on_the_timeline(tmp_pat
     assert "Dialogue: 1,0:00:00.00,0:00:08.00,Plate-rule," in ass
     assert "Dialogue: 1,0:00:04.00,0:00:08.00,Plate-tag," in ass
     assert "nope" not in ass
-    assert ass.count("&H001FD2FF&") == 1
+    assert ass.count(r"\fscx115") == 1
+
+
+async def test_a_plate_waits_for_the_narrator_to_say_it(tmp_path: Path) -> None:
+    made = _scored()
+    shots = made.require_script().shots
+    shots[0].overlays = [Overlay(kind="tag", text="ЦЕЛЬ: крыша", hold=3)]
+    shots[2].line = "Крыша близко."
+    shots[2].overlays = [Overlay(kind="tag", text="ЦЕЛЬ: крыша")]
+
+    await assemble(made, services(tmp_path))
+
+    ass = (tmp_path / str(made.id) / "subtitles.ass").read_text(encoding="utf-8")
+    assert [e.split(",")[1] for e in ass.splitlines() if "Plate-tag," in e and "Dialogue" in e] == [
+        "0:00:08.00"
+    ]
+
+
+async def test_a_caption_never_runs_across_a_cut(tmp_path: Path) -> None:
+    made = _scored(3)
+    for shot in made.require_script().shots:
+        shot.line, shot.seconds = "раз два", 2.0
+    heard = [Word("раз", 0.0, 0.4), Word("два", 1.5, 1.95)]
+
+    await assemble(made, services(tmp_path, transcriber=FakeTranscriber(heard)))
+
+    ass = (tmp_path / str(made.id) / "subtitles.ass").read_text(encoding="utf-8")
+    spans = [e.split(",")[1:3] for e in ass.splitlines() if e.startswith("Dialogue: 0,")]
+    cuts = ["0:00:02.00", "0:00:04.00"]
+    assert all(not (start < cut < end) for start, end in spans for cut in cuts)
 
 
 def test_captions_take_the_text_from_the_script_and_the_timing_from_the_voice() -> None:
@@ -382,14 +442,24 @@ def test_captions_take_the_text_from_the_script_and_the_timing_from_the_voice() 
     assert as_written(heard, "Считай двадцать шагов.")[1].start == 0.6
 
 
-def test_when_the_word_counts_differ_the_written_words_share_the_span() -> None:
-    heard = [Word("сорок", 1.0, 1.4), Word("два", 1.5, 2.0)]
+def test_a_word_the_transcript_missed_fills_the_pause_and_the_rest_keep_their_timing() -> None:
+    heard = [Word("Лифт", 0.0, 0.4), Word("мертв", 0.5, 0.9), Word("лестница", 2.0, 2.6)]
 
-    written = as_written(heard, "Сорок два этажа")
+    written = as_written(heard, "Лифт мёртв, одна лестница.")
 
-    assert [w.text for w in written] == ["Сорок", "два", "этажа"]
-    assert (written[0].start, written[-1].end) == (1.0, pytest.approx(2.0))
-    assert written[0].end == pytest.approx(written[1].start)
+    assert [w.text for w in written] == ["Лифт", "мёртв,", "одна", "лестница."]
+    assert [(w.start, w.end) for w in written] == [(0.0, 0.4), (0.5, 0.9), (0.9, 2.0), (2.0, 2.6)]
+
+
+def test_two_written_words_heard_as_one_share_its_time() -> None:
+    heard = [Word("Через", 0.0, 0.4), Word("22", 0.5, 1.5), Word("шага", 1.6, 2.0)]
+
+    written = as_written(heard, "Через двадцать два шага")
+
+    assert [w.text for w in written] == ["Через", "двадцать", "два", "шага"]
+    assert (written[1].start, written[2].end) == (0.5, pytest.approx(1.5))
+    assert written[1].end == pytest.approx(written[2].start)
+    assert (written[3].start, written[3].end) == (1.6, 2.0)
 
 
 def test_a_new_overlay_of_the_same_kind_ends_the_previous_one() -> None:
@@ -409,6 +479,8 @@ def test_a_new_overlay_of_the_same_kind_ends_the_previous_one() -> None:
 
 def test_the_same_plate_on_neighbouring_shots_stays_up() -> None:
     made = script(4)
+    made.shots[0].line = "Третий этаж."
+    made.shots[3].line = "Четвёртый этаж."
     for shot in made.shots[:3]:
         shot.overlays = [Overlay(kind="tag", text="ЭТАЖ 3")]
     made.shots[3].overlays = [Overlay(kind="tag", text="ЭТАЖ 4")]

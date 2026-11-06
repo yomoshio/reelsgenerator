@@ -211,9 +211,12 @@ class FakeMontage:
 
 
 @dataclass
+@dataclass
 class FakeTranscriber:
+    heard: list[Word] = field(default_factory=lambda: [Word("line", 0.0, 0.4)])
+
     async def words(self, audio: Path) -> list[Word]:
-        return [Word("line", 0.0, 0.4)]
+        return list(self.heard)
 
 
 @dataclass

@@ -183,7 +183,8 @@ def to_ass(lines: Iterable[Caption], style: Style, cards: Iterable[Card] = ()) -
                     _card_text(card, plates[card.kind]),
                 )
             )
-    out += [_event(0, c.start, c.end, "Caption", _caption_text(c, style)) for c in lines]
+    for caption in lines:
+        out += _caption_events(caption, style)
     return "\n".join(out) + "\n"
 
 
@@ -196,15 +197,28 @@ def _plate_style(kind: str, plate: Plate, default_font: str) -> str:
     )
 
 
-def _caption_text(caption: Caption, style: Style) -> str:
+def _caption_events(caption: Caption, style: Style) -> list[str]:
+    """Without karaoke a caption is one event and stressed words take the accent colour.
+    With karaoke it is one event per word: the word being spoken takes the accent colour,
+    and stressed words are told apart by size instead."""
     look = style.captions
-    parts: list[str] = []
-    for i, word in enumerate(caption.words):
-        following = caption.words[i + 1].start if i + 1 < len(caption.words) else caption.end
-        sweep = f"\\k{max(round((following - word.start) * 100), 1)}" if look.karaoke else ""
-        colour = _tag(look.accent if word.accent else look.spoken)
-        parts.append(f"{{\\1c{colour}{sweep}}}{_plain(word.text).upper()}")
-    return " ".join(parts)
+    words = caption.words
+    if not look.karaoke:
+        text = " ".join(
+            f"{{\\1c{_tag(look.accent if w.accent else look.spoken)}}}{_plain(w.text).upper()}"
+            for w in words
+        )
+        return [_event(0, caption.start, caption.end, "Caption", text)]
+    events: list[str] = []
+    for now, word in enumerate(words):
+        until = words[now + 1].start if now + 1 < len(words) else caption.end
+        parts: list[str] = []
+        for i, w in enumerate(words):
+            colour = look.spoken if i < now else look.accent if i == now else look.upcoming
+            size = look.stress_size if w.accent else 100
+            parts.append(f"{{\\1c{_tag(colour)}\\fscx{size}\\fscy{size}}}{_plain(w.text).upper()}")
+        events.append(_event(0, word.start, until, "Caption", " ".join(parts)))
+    return events
 
 
 _NUMBERED = re.compile(r"^(\d+\.)\s*(.*)$")

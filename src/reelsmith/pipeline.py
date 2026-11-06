@@ -9,10 +9,12 @@ import shutil
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass, replace
 from datetime import timedelta
+from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Protocol
 from uuid import UUID
 
+from reelsmith.checks import bare, present, problems, unsaid_plates
 from reelsmith.models import (
     Call,
     Job,
@@ -29,7 +31,7 @@ from reelsmith.models import (
     Verdict,
 )
 from reelsmith.pricing import Tariff, metered
-from reelsmith.services.ffmpeg import Card, Cut, Segment, Word, captions, shift, to_ass
+from reelsmith.services.ffmpeg import Caption, Card, Cut, Segment, Word, captions, shift, to_ass
 from reelsmith.styles import Style, Styles
 
 SHOT_PADDING = 0.35  # breath after each line so cuts do not clip the last syllable
@@ -217,7 +219,7 @@ async def write(job: Job, s: Services) -> None:
     """The idea, a sentence or a whole story, first becomes a beat-by-beat outline; the
     model follows an outline far better than it invents a plot while writing shots. Then
     writer and critic go round until the script passes or the rewrites are spent. A script
-    outside the style's shot count cannot pass. The best draft is kept either way."""
+    with a problem `checks` can see cannot pass. The best draft is kept either way."""
     style = s.styles.get(job.recipe.style)
     if job.outline is None:
         with metered(job, s.tariff, stage="plan", provider=s.llm.name):
@@ -230,10 +232,10 @@ async def write(job: Job, s: Services) -> None:
             script = await s.llm.write(brief, style, notes)
         with metered(job, s.tariff, stage="critic", provider=s.llm.name):
             verdict = await s.llm.review(script, style, brief)
-        if problem := style.misfit(script):
+        if found := problems(script, style):
             verdict = Verdict(
                 score=min(verdict.score, s.gates.script_pass - 1),
-                notes=f"{problem} {verdict.notes}",
+                notes=" ".join([*found[:6], verdict.notes]),
             )
         if best is None or verdict.score > best[1].score:
             best = (script, verdict)
@@ -266,7 +268,8 @@ async def paint(job: Job, s: Services) -> None:
     for i, shot in enumerate(script.shots):
         if i in job.assets.candidates:
             continue
-        prompt = ". ".join(p for p in (script.looks_of(shot), shot.picture, style.look.frame) if p)
+        looks = script.looks_of(present(shot, script))
+        prompt = ". ".join(p for p in (looks, shot.picture, style.look.frame) if p)
         made: list[Path] = []
         for k in range(s.gates.candidates):
             seed = seed_for(job.id, 1000 + i * 10 + k)
@@ -295,7 +298,8 @@ async def animate(job: Job, s: Services) -> None:
     for i, shot in enumerate(script.shots):
         if i in job.assets.clips:
             continue
-        motion = ". ".join(m for m in (shot.motion, style.look.motion) if m)
+        guard = _nobody_new(present(shot, script))
+        motion = ". ".join(m for m in (shot.motion, guard, style.look.motion) if m)
         animator = s.animator(job.recipe.video_for(i, shot.moves))
         seconds = min(shot.seconds, animator.max_seconds)
         seed = seed_for(job.id, 2000 + i * 10 + job.attempts)
@@ -384,21 +388,20 @@ async def assemble(job: Job, s: Services) -> None:
         raise LookupError(f"job {job.id} reached assembly without music")
 
     segments: list[Segment] = []
-    words: list[Word] = []
+    lines: list[Caption] = []
     starts: list[float] = []
     start = 0.0
     for i, shot in enumerate(script.shots):
         voice = files.resolve(job.assets.voices[i])
         heard = shift(await s.transcriber.words(voice), start)
-        words += _accented(as_written(heard, shot.line), shot)
+        spoken = _accented(as_written(heard, shot.line), shot)
+        lines += captions(spoken, max_words=style.captions.words)
         segments.append(Segment(files.resolve(job.assets.clips[i]), voice, shot.seconds))
         starts.append(start)
         start += shot.seconds
 
     subtitles = files.subtitles()
-    ass = to_ass(
-        captions(words, max_words=style.captions.words), style, _cards(script, style, starts)
-    )
+    ass = to_ass(lines, style, _cards(script, style, starts))
     subtitles.write_text(ass, encoding="utf-8")
     cut = Cut(tuple(segments), files.resolve(job.assets.music), subtitles)
     final = await s.montage.render(cut, files.final())
@@ -429,19 +432,37 @@ def showcase_name(job: Job) -> str:
 
 def as_written(heard: list[Word], line: str) -> list[Word]:
     """Captions show the line as the writer wrote it, numbers in words and names spelled
-    right; the transcript only says when the words are spoken. When the counts differ, the
-    written words share the spoken span by length."""
+    right; the transcript only says when the words are spoken. Words the transcript caught
+    keep its timing, pauses included. Words it heard differently, such as «двадцать» heard
+    as «20», share the time of what it heard in their place."""
     written = line.split()
     if not heard or not written:
         return heard
-    if len(heard) == len(written):
-        return [replace(w, text=text) for w, text in zip(heard, written, strict=True)]
-    start, span = heard[0].start, heard[-1].end - heard[0].start
-    total = sum(len(text) for text in written)
+    matcher = SequenceMatcher(
+        a=[bare(w) for w in written], b=[bare(w.text) for w in heard], autojunk=False
+    )
+    out: list[Word] = []
+    for tag, w1, w2, h1, h2 in matcher.get_opcodes():
+        if tag == "insert":
+            continue
+        if w2 - w1 == h2 - h1:
+            pairs = zip(written[w1:w2], heard[h1:h2], strict=True)
+            out += [replace(word, text=text) for text, word in pairs]
+            continue
+        start = heard[h1].start if h2 > h1 else out[-1].end if out else heard[0].start
+        end = heard[h2 - 1].end if h2 > h1 else heard[h1].start if h1 < len(heard) else start
+        out += _spread(written[w1:w2], start, end)
+    return out
+
+
+def _spread(texts: list[str], start: float, end: float) -> list[Word]:
+    """Words laid one after another over a span, each as long as its letters."""
+    end = max(end, start + 0.15 * len(texts))
+    total = sum(len(t) for t in texts)
     out: list[Word] = []
     at = start
-    for text in written:
-        length = span * len(text) / total
+    for text in texts:
+        length = (end - start) * len(text) / total
         out.append(Word(text, at, at + length))
         at += length
     return out
@@ -449,22 +470,28 @@ def as_written(heard: list[Word], line: str) -> list[Word]:
 
 def _accented(words: list[Word], shot: Shot) -> list[Word]:
     """Marks the words the writer asked to stress; the style decides how they look."""
-    wanted = {_bare(w) for phrase in shot.stress for w in phrase.split()}
-    return [replace(w, accent=_bare(w.text) in wanted) for w in words]
+    wanted = {bare(w) for phrase in shot.stress for w in phrase.split()}
+    return [replace(w, accent=bare(w.text) in wanted) for w in words]
 
 
-def _bare(word: str) -> str:
-    return re.sub(r"\W", "", word.lower())
+def _nobody_new(people: list[str]) -> str:
+    """The video model fills an empty frame with whoever it likes unless told otherwise."""
+    if not people:
+        return "the place stays empty, no person, animal or creature appears"
+    return "only the people already in the frame, nobody new appears"
 
 
 def _cards(script: Script, style: Style, starts: list[float]) -> list[Card]:
     """Overlays on the timeline: each lasts from its shot through `hold` shots, or until
     the next overlay of its kind comes up, so two rule banners never share a frame. The
-    same plate repeated on the next shot stays up instead of popping in again."""
+    same plate repeated on the next shot stays up instead of popping in again. A plate whose
+    words the narrator has not said yet stays off: the viewer would read what they have not
+    been told."""
+    early = {(i, o.kind, o.text) for i, o in unsaid_plates(script)}
     cards: list[Card] = []
     for i, shot in enumerate(script.shots):
         for overlay in shot.overlays:
-            if overlay.kind not in style.overlays:
+            if overlay.kind not in style.overlays or (i, overlay.kind, overlay.text) in early:
                 continue
             last = min(i + overlay.hold, len(script.shots)) - 1
             end = starts[last] + script.shots[last].seconds
