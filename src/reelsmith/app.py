@@ -5,6 +5,7 @@ from collections.abc import AsyncIterator, Awaitable, Callable, Collection
 from contextlib import AsyncExitStack, asynccontextmanager
 from dataclasses import dataclass, replace
 from datetime import timedelta
+from functools import partial
 from pathlib import Path
 
 import httpx
@@ -318,6 +319,12 @@ async def smoke(settings: Settings, out: Path) -> list[Check]:
             await services.painter(recipe.image).paint(prompt, seed=1, out=frame)
             return frame.name
 
+        async def redraw(model: str) -> str:
+            portrait = out / "frame-portrait.png"
+            prompt = f"The same person as in the reference image, at a window. {style.look.frame}"
+            await services.painter(model).paint(prompt, seed=1, out=portrait, reference=frame)
+            return f"{portrait.name} by {model}"
+
         async def animate() -> str:
             animator = services.animator(recipe.video)
             await animator.animate(frame, "slow push-in", seconds=2.0, seed=1, out=clip)
@@ -332,6 +339,8 @@ async def smoke(settings: Settings, out: Path) -> list[Check]:
         if await step("voice", "tts", speak):
             await step("subtitles", None, hear)
         if await step("frame", "comfy", paint):
+            if model := recipe.cast_image:
+                await step("portrait", "comfy", partial(redraw, model))
             await step("clip", "comfy", animate)
         await step("music", "comfy", compose)
         await gpu.release_all()

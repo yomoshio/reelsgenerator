@@ -169,6 +169,7 @@ make smoke
 | voice | VoxCPM2 читает реплику голосом диктора |
 | subtitles | faster-whisper распознаёт эту реплику |
 | frame | ComfyUI рисует кадр Z-Image |
+| portrait | ComfyUI рисует кадр Qwen-Image-Edit по кадру выше, только если задан `REELSMITH_CAST_IMAGE_MODEL` |
 | clip | ComfyUI оживляет кадр моделью из `REELSMITH_VIDEO_MODEL` |
 | music | ComfyUI пишет 5 секунд музыки ACE-Step |
 
