@@ -1,9 +1,10 @@
-about = "Serial survival story on flat vector graphics, 60 to 90 seconds: a goal, obstacles on the way, a new character, the goal reached, then a second problem and a revelation planted earlier."
+about = "Serial survival story on detailed flat 2D graphics, 60 to 90 seconds: a goal, obstacles on the way, a new character, the goal reached, then a second problem and a revelation planted earlier."
 
 [story]
 shots = [20, 28]
 seconds = [60, 90]
 words = 10
+empty_shots = 1
 brief = """
 You write one episode of a serial survival story. It must make sense with eyes closed:
 every sentence follows from the one before it, and nothing happens without a cause the
@@ -12,9 +13,10 @@ viewer has already heard.
 The episode has five beats, in this order:
 
 1. Problem, two shots. The hero wakes up or arrives and sees the danger at once. Name the
-   hero, the place and the danger in plain words. Then name the goal: one concrete place
-   or thing that would save them, such as "the highest room", "the roof", "the radio".
-   Put the goal on a `goal` plate and hold it until the goal is reached.
+   hero, the place and the danger in plain words. Then the narrator names the goal aloud:
+   one concrete place or thing that would save them, such as "the highest room", "the
+   roof", "the radio". The `goal` plate appears on that shot, not before, and holds until
+   the goal is reached.
 2. Plan, one or two shots. Why that goal saves them and what stands in the way.
 3. The way, five to seven shots. Two or three small obstacles, each one solved by a
    concrete action the viewer sees: a stuck door forced with a chair, a gap crossed on a
@@ -29,7 +31,12 @@ The episode has five beats, in this order:
    really meant. End on that line, as a statement, not a question.
 
 Keep one count running where it fits, such as floors left or minutes of light. Say it
-aloud, show it on a `count` plate, and change it only for a reason the viewer saw.
+aloud first, then show it on a `count` plate, and change it only for a reason the viewer
+saw.
+
+The hero is in the frame in most shots. The first time the story enters a place, show it
+in a wide shot with the hero inside it, so the viewer knows where they are; closer shots
+follow.
 
 The state of the world only changes for a reason the viewer saw: water that is at the
 knees does not reach the shoulders a shot later unless the narrator says it rose, and a
@@ -54,21 +61,30 @@ critic = """
 Are the five beats there, in order: problem and goal, plan, the way with a new character,
 the goal reached, problem two? Does the last line bring back a detail shown earlier and
 change its meaning? Is there any event without a cause in an earlier shot? Does the goal
-stay the same from the second shot to the goal shot?
+stay the same from the second shot to the goal shot? Is the hero in the frame in most
+shots, and does every picture show one place and one moment?
 """
 
 [look]
 frame = """
-flat vector illustration, simple geometric characters with plain featureless faces and a
-thin warm gold rim light, dark navy and near-black background, minimal props, one
-practical light source, vertical 9:16, blank surfaces, nothing written anywhere, no text,
-no letters, no numbers, no signs
+detailed flat 2D illustration in the manner of a modern animated series, clean vector
+shapes with soft cel shading, layered background with furniture, props and wall texture,
+characters with simple expressive faces: eyes, eyebrows, nose and mouth, visible hair,
+natural skin tone, face uncovered, eye-level camera inside the scene with the floor, the
+walls and the ceiling in view and clear depth from foreground to background, muted
+palette of deep navy and slate shadows lit by one warm amber light source, the
+characters' signature colours the only bright colours, vertical 9:16, blank surfaces,
+nothing written anywhere, no text, no letters, no numbers, no signs
 """
-motion = "flat 2D animation, shapes and colours stay exactly as drawn, still camera or a very slow push-in"
+motion = "smooth 2D animation, the drawing and its colours stay exactly as drawn, liquids only ripple gently, still camera or a very slow push-in"
 judge = """
-The pictures are flat vector illustrations on dark backgrounds with featureless characters.
-Plain faces and flat shapes are intended. Text and plates are added later, so any lettering
-or numerals inside a picture are a defect, and so is anything that looks like a photograph.
+The pictures are detailed flat 2D illustrations on dark, muted backgrounds, seen at eye
+level from inside the place. Characters have simple faces with eyes, eyebrows and a mouth,
+and each one matches their look in every shot: same hair, clothes and signature colour. A
+hidden or blank face, a person who is not in the cast, a figure or creature nobody asked
+for, a view in cross-section or from above, a picture inside a window that shows a second
+scene, and any lettering or numerals inside the picture are defects, and so is anything
+that looks like a photograph.
 """
 
 [captions]

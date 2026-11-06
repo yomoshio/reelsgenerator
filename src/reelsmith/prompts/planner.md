@@ -13,9 +13,11 @@ that is already split into beats.
 Rules for the fields:
 
 - `title`: a few words.
-- `characters`: at most three people, four if a crowd matters. Each `look`: age, face, hair,
-  clothes in one signature colour, and one item they always carry. These looks are copied
-  into every picture, so make them specific and never change them.
+- `characters`: at most three people, four if a crowd matters. Each `look`, in English
+  because the image model reads English: age, build, a face with one feature that sets
+  them apart, hair, clothes in one signature colour, and one item they always carry. The
+  face stays uncovered: no hood up, no mask. These looks are copied into every picture, so
+  make them specific and never change them. Keep the names as the idea gives them.
 - `beats`: {beats} beats in order, in {language}. Each beat is one concrete event the
   viewer can see and hear, one or two sentences, with exact places and numbers. Every beat
   follows from the one before; nothing happens without a cause the viewer already saw.
