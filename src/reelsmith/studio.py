@@ -18,10 +18,9 @@ from reelsmith.styles import Style, Styles
 log = structlog.get_logger()
 
 ANIMATION: dict[str, dict[str, str | None]] = {
-    "hybrid": {"video": "wan-2.2", "calm_video": "still", "hook_video": None},
+    "hybrid": {"video": "wan-2.2-hd", "calm_video": "still", "hook_video": None},
     "still": {"video": "still", "calm_video": None, "hook_video": None},
-    "wan": {"video": "wan-2.2", "calm_video": None, "hook_video": None},
-    "wan-hd": {"video": "wan-2.2-hd", "calm_video": None, "hook_video": None},
+    "wan": {"video": "wan-2.2-hd", "calm_video": None, "hook_video": None},
 }
 STATUS_ROWS = 15
 
