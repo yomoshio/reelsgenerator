@@ -23,8 +23,8 @@ build:                       ## собрать образы
 	$(COMPOSE) build
 
 models:                      ## скачать веса; ONLY=video,music часть, OPTIONAL=1 с необязательными
-	$(COMPOSE) run --rm --no-deps --entrypoint python -v $(CURDIR)/models:/models worker \
-		scripts/fetch_models.py --models /models --hf-home /hf \
+	$(COMPOSE) run --rm --no-deps --entrypoint python -v $(CURDIR):/project -w /project worker \
+		scripts/fetch_models.py --models models --hf-home hf \
 		$(if $(ONLY),--only $(ONLY)) $(if $(OPTIONAL),--with-optional)
 
 llm-model:                   ## скачать модель Ollama из .env
