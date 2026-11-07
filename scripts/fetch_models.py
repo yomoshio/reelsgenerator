@@ -1,7 +1,10 @@
 """Download the weights listed in models.toml.
 
-python scripts/fetch_models.py --models /models --hf-home /hf
+python scripts/fetch_models.py --models models --hf-home hf
 python scripts/fetch_models.py --only video,music --with-optional
+
+Both folders must sit on one mount, so a weight in models/ is a hard link into the cache
+and not a second copy; `make models` mounts the project once for that.
 
 Entries come from Hugging Face (`file`, `snapshot`) or from a plain address (`url`), for
 weights that only live in a GitHub release.
@@ -14,7 +17,7 @@ import tomllib
 import urllib.request
 from pathlib import Path
 
-from huggingface_hub import hf_hub_download, snapshot_download
+from huggingface_hub import hf_hub_download, snapshot_download, try_to_load_from_cache
 
 
 def main() -> None:
@@ -30,6 +33,7 @@ def main() -> None:
     for entry in filter(selected, manifest.get("file", [])):
         target = args.models / entry["into"] / Path(entry["path"]).name
         if target.exists():
+            _relink(entry["repo"], entry["path"], target, args.hf_home / "hub")
             print(f"have  {target}")
             continue
         print(f"fetch {entry['repo']}/{entry['path']}  [{entry['license']}]")
@@ -54,11 +58,29 @@ def main() -> None:
 
 
 def _place(cached: Path, target: Path) -> None:
-    # A hard link costs no space when both folders sit on one disk; otherwise copy.
+    # A hard link costs no space when both folders sit on one mount; otherwise copy.
     try:
         os.link(cached.resolve(), target)
     except OSError:
         shutil.copy2(cached, target)
+
+
+def _relink(repo: str, path: str, target: Path, cache: Path) -> None:
+    """Earlier installs mounted the weights and the cache separately, so every file was
+    copied and sat on the disk twice. Pointing the cached copy at the target frees that."""
+    cached = try_to_load_from_cache(repo, path, cache_dir=cache)
+    if not isinstance(cached, str):
+        return
+    blob = Path(cached).resolve()
+    if blob.samefile(target) or blob.stat().st_size != target.stat().st_size:
+        return
+    spare = blob.with_name(blob.name + ".link")
+    try:
+        os.link(target, spare)
+    except OSError:
+        return
+    os.replace(spare, blob)
+    print(f"freed {target.stat().st_size / 2**30:.1f} GB: {target.name} is no longer kept twice")
 
 
 def _parse() -> argparse.Namespace:
