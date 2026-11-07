@@ -45,7 +45,8 @@ async def test_writer_sends_the_brief_and_parses_the_script() -> None:
     assert call["format"] == Script.model_json_schema()
     assert call["think"] is False
     assert call["messages"][0]["role"] == "system"
-    assert "in ru" in call["messages"][0]["content"]
+    assert "The viewers speak Russian." in call["messages"][0]["content"]
+    assert "in ru" not in call["messages"][0]["content"]
     assert call["messages"][1] == {"role": "user", "content": "зомби в метро"}
 
 
@@ -189,7 +190,7 @@ async def test_critic_and_judge_prompts_take_their_lines_from_the_style(tmp_path
     await llm.inspect("push in", [still], style())
 
     assert "Is it brief?" in seen[0]["messages"][0]["content"]
-    assert "written in ru on purpose" in seen[0]["messages"][0]["content"]
+    assert "written in Russian on purpose" in seen[0]["messages"][0]["content"]
     assert "judge the script on its own" in seen[0]["messages"][0]["content"]
     assert "rule, tag" in seen[0]["messages"][0]["content"]
     assert "JUDGE" in seen[1]["messages"][0]["content"]

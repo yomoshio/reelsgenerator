@@ -199,6 +199,7 @@ def local_services(
         media=settings.media_root,
         styles=Styles(settings.styles),
         gates=settings.gates(),
+        language=settings.language,
         showcase=settings.studio / "output" / "reelsmith" / "videos"
         if settings.studio.is_dir()
         else None,

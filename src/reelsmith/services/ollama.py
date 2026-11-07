@@ -16,6 +16,7 @@ import httpx
 from pydantic import BaseModel, ValidationError
 
 from reelsmith.books import numbered
+from reelsmith.checks import language_name
 from reelsmith.models import Adaptation, Outline, Retelling, Script, Season, StageError, Verdict
 from reelsmith.styles import Style
 
@@ -66,7 +67,7 @@ class OllamaLlm:
         self._writer = writer_model
         self._judge = judge_model
         self._keep_alive = keep_alive
-        self._language = language
+        self._language = language_name(language)
         self._heat = (writer_temperature, critic_temperature, judge_temperature)
         self._context = context
 

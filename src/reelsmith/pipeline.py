@@ -148,6 +148,7 @@ class Services:
     analytics: Analytics | None = None
     gates: Gates = Gates()
     showcase: Path | None = None  # a copy of every cut lands here, e.g. ComfyUI's output
+    language: str | None = None  # scripts in another language go back to the writer
 
     def painter(self, name: str) -> Painter:
         return _named(self.painters, name, "image")
@@ -242,7 +243,7 @@ async def write(job: Job, s: Services) -> None:
             script = await s.llm.write(brief, style, notes)
         with metered(job, s.tariff, stage="critic", provider=s.llm.name):
             verdict = await s.llm.review(script, style, brief)
-        if found := problems(script, style):
+        if found := problems(script, style, s.language):
             verdict = Verdict(
                 score=min(verdict.score, s.gates.script_pass - 1),
                 notes=" ".join([*found[:6], verdict.notes]),

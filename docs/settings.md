@@ -9,7 +9,7 @@
 | Переменная | По умолчанию | Что меняет |
 | --- | --- | --- |
 | `REELSMITH_STYLE` | noir; в `.env.example` стоит serial | стиль новых задач, см. [styles.md](styles.md) |
-| `REELSMITH_LANGUAGE` | ru | язык реплик и субтитров |
+| `REELSMITH_LANGUAGE` | ru | язык заголовка, реплик, плашек и субтитров; сценарий на другом языке уходит писателю на переписывание (проверяются ru, uk, be, en) |
 | `REELSMITH_VOICE` | narrator | голос диктора: `voices/<имя>.wav` и `.txt` |
 | `REELSMITH_IMAGE_MODEL` | z-image | чем рисовать кадры |
 | `REELSMITH_VIDEO_MODEL` | wan-2.2; в `.env.example` стоит wan-2.2-hd | чем оживлять: `still` это медленный наезд камеры без нейросети, не плывёт и считается за секунды; `wan-2.2` настоящая анимация, около минуты на клип; `wan-2.2-hd` то же с апскейлом до 1080 × 1920; `wan-5b`, если есть `workflows/animate-draft.json` |

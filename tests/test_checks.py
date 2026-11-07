@@ -116,6 +116,26 @@ def test_pictures_and_looks_written_in_russian_are_refused() -> None:
     ]
 
 
+def test_lines_plates_and_title_in_another_language_are_sent_back() -> None:
+    script = flood(
+        shot("Cold water rises to his knees."),
+        shot("Артём просыпается в темноте, рация шипит."),
+        shot("Лена ждёт.", Overlay(kind="goal", text="Floor nine")),
+        shot("Мистер Уайт берёт лапу."),
+    )
+    script.title = "Flood: The Ninth Floor"
+
+    assert problems(script, style(), "ru")[0] == (
+        "Not in Russian: the title and shots 1, 3. The title, every line and every plate are "
+        "in Russian; only picture, motion, delivery, looks and music stay in English."
+    )
+    assert not [p for p in problems(script, style()) if "Not in" in p]
+    assert not [p for p in problems(script, style(), "ja") if "Not in" in p]
+    english = flood(shot("Rain."), shot("Wind."), shot("Snow."))
+    english.title = "Flood"
+    assert problems(english, style(), "en") == []
+
+
 def test_too_many_empty_shots_in_a_row_are_refused() -> None:
     script = flood(
         shot("Артём просыпается."),

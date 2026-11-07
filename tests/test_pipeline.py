@@ -549,6 +549,17 @@ async def test_write_rejects_a_script_outside_the_styles_shot_range(tmp_path: Pa
     ]
 
 
+async def test_write_sends_back_a_script_in_another_language(tmp_path: Path) -> None:
+    llm = FakeLlm(scores=[9.0])
+    made = job()
+
+    await write(made, replace(services(tmp_path, llm=llm), language="ru"))
+
+    assert len(llm.written) == 3
+    assert made.critique is not None
+    assert made.critique.notes.startswith("Not in Russian: the title and shots 1, 2, 3.")
+
+
 async def test_assemble_leaves_a_copy_of_the_cut_in_the_showcase(tmp_path: Path) -> None:
     made = _scored()
 
