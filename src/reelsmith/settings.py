@@ -69,7 +69,7 @@ class Settings(BaseSettings):
     batch_size: int = 6
     gpu_shared: bool = False
     max_attempts: int = 5
-    lease_minutes: int = 45
+    lease_minutes: int = Field(default=3, ge=1)
     idle_seconds: float = 20.0
 
     def recipe(self) -> Recipe:

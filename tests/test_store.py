@@ -1,3 +1,4 @@
+import asyncio
 import json
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
@@ -110,3 +111,28 @@ def test_job_round_trips_through_the_postgres_row() -> None:
     }
 
     assert _job(stored) == original
+
+
+async def test_a_held_lease_outlives_its_length_and_lapses_once_let_go() -> None:
+    store = MemoryJobs(lease=timedelta(seconds=0.3))
+    await store.add(job("a"))
+    claimed = await store.claim(Status.NEW, limit=1)
+
+    async with store.holding(claimed):
+        await asyncio.sleep(0.6)
+        assert await store.claim(Status.NEW, limit=1) == []
+    await asyncio.sleep(0.35)
+
+    assert [j.id for j in await store.claim(Status.NEW, limit=1)] == [claimed[0].id]
+
+
+async def test_holding_does_not_lease_again_a_job_already_saved() -> None:
+    store = MemoryJobs(lease=timedelta(seconds=0.15))
+    one = job("a")
+    await store.add(one)
+    claimed = await store.claim(Status.NEW, limit=1)
+
+    async with store.holding(claimed):
+        await store.save(one)
+        await asyncio.sleep(0.2)
+        assert [j.id for j in await store.claim(Status.NEW, limit=1)] == [one.id]

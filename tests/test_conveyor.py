@@ -1,3 +1,4 @@
+import asyncio
 from dataclasses import dataclass, field
 from datetime import timedelta
 from pathlib import Path
@@ -115,6 +116,29 @@ async def test_an_empty_queue_moves_nothing_and_touches_no_gpu() -> None:
 
     assert await conveyor.turn() == 0
     assert all(t.released == 0 for t in tenants.values())
+
+
+async def test_a_stage_longer_than_the_lease_keeps_its_jobs_leased() -> None:
+    store = MemoryJobs(lease=timedelta(seconds=0.15))
+    await store.add(job("a"))
+    await store.add(job("b"))
+    seen: list[list[Job]] = []
+
+    async def slow(job: Job, s: Services) -> None:
+        await asyncio.sleep(0.4)
+        seen.append(await store.claim(Status.NEW, limit=2))
+
+    conveyor = Conveyor(
+        [Stage("write", Status.NEW, "llm", slow)],
+        store,
+        services(Path("/nowhere")),
+        Gpu({"llm": Tenant()}),
+        batch_size=2,
+        max_attempts=3,
+    )
+
+    assert await conveyor.turn() == 2
+    assert seen == [[], []]
 
 
 async def test_rewind_sends_the_job_back_and_counts_an_attempt() -> None:

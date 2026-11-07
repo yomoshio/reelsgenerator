@@ -55,8 +55,8 @@ class Conveyor:
     once per batch: all claimed jobs get scripts, then all get voices, and so on.
 
     Only StageError and Rewind are job-level outcomes. Anything else is a bug or a dead
-    dependency: the process exits, docker restarts it, and the lease on the claimed jobs
-    expires so another turn picks them up."""
+    dependency: the process exits, docker restarts it, and the lease on the claimed jobs,
+    no longer renewed, runs out so another turn picks them up."""
 
     def __init__(
         self,
@@ -80,11 +80,13 @@ class Conveyor:
         worked = 0
         for stage in self._stages:
             jobs = await self._store.claim(stage.takes, self._batch_size, settled=stage.settled)
-            if jobs:
+            if not jobs:
+                continue
+            async with self._store.holding(jobs):
                 await self._gpu.use(stage.gpu)
-            for job in jobs:
-                await self._push(stage, job)
-                worked += 1
+                for job in jobs:
+                    await self._push(stage, job)
+                    worked += 1
         return worked
 
     async def run_forever(

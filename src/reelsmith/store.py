@@ -1,10 +1,13 @@
 """The queue. Postgres in production, memory for tests and the demo.
 
-A claim takes a lease instead of a lock held for hours of rendering: if the worker dies,
-the lease runs out and the next turn picks the jobs up again."""
+A claim takes a lease instead of a lock held for hours of rendering. The worker renews it
+while a stage runs, so the lease can be short: when the worker dies or is restarted, its
+jobs are back in the queue within one lease."""
 
+import asyncio
 from collections import Counter
-from collections.abc import Callable
+from collections.abc import AsyncIterator, Awaitable, Callable
+from contextlib import AbstractAsyncContextManager, asynccontextmanager, suppress
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -39,6 +42,10 @@ class Store(Protocol):
 
     async def save(self, job: Job) -> None: ...
 
+    def holding(self, jobs: list[Job]) -> AbstractAsyncContextManager[None]:
+        """Keeps the lease on claimed `jobs` for as long as the block runs."""
+        ...
+
     async def find(
         self, *, experiment: str | None = None, status: Status | None = None
     ) -> list[Job]: ...
@@ -68,6 +75,11 @@ where id in (
     for update skip locked
 )
 returning {_COLUMNS}
+"""
+
+_RENEW = """
+update jobs set lease_until = now() + make_interval(mins => %(lease)s)
+where id = any(%(ids)s) and lease_until is not null
 """
 
 _SAVE = """
@@ -120,6 +132,15 @@ class PostgresJobs:
     async def save(self, job: Job) -> None:
         async with self._pool.connection() as conn:
             await conn.execute(_SAVE, _row(job))
+
+    def holding(self, jobs: list[Job]) -> AbstractAsyncContextManager[None]:
+        ids = [job.id for job in jobs]
+
+        async def renew() -> None:
+            async with self._pool.connection() as conn:
+                await conn.execute(_RENEW, {"lease": self._lease, "ids": ids})
+
+        return _renewing(renew, every=self._lease * 60 / 3)
 
     async def find(
         self, *, experiment: str | None = None, status: Status | None = None
@@ -182,6 +203,22 @@ def _job(row: dict[str, Any]) -> Job:
     )
 
 
+@asynccontextmanager
+async def _renewing(renew: Callable[[], Awaitable[None]], *, every: float) -> AsyncIterator[None]:
+    async def beat() -> None:
+        while True:
+            await asyncio.sleep(every)
+            await renew()
+
+    task = asyncio.create_task(beat())
+    try:
+        yield
+    finally:
+        task.cancel()
+        with suppress(asyncio.CancelledError):
+            await task
+
+
 def _utcnow() -> datetime:
     return datetime.now(UTC)
 
@@ -196,7 +233,7 @@ class _Row:
 
 @dataclass
 class MemoryJobs:
-    lease: timedelta = timedelta(minutes=45)
+    lease: timedelta = timedelta(minutes=3)
     clock: Callable[[], datetime] = _utcnow
     _rows: dict[UUID, _Row] = field(default_factory=dict, init=False)
 
@@ -230,6 +267,14 @@ class MemoryJobs:
         row.job = job
         row.saved = self.clock()
         row.leased_until = None
+
+    def holding(self, jobs: list[Job]) -> AbstractAsyncContextManager[None]:
+        async def renew() -> None:
+            for row in (self._rows[job.id] for job in jobs):
+                if row.leased_until is not None:
+                    row.leased_until = self.clock() + self.lease
+
+        return _renewing(renew, every=self.lease.total_seconds() / 3)
 
     async def find(
         self, *, experiment: str | None = None, status: Status | None = None
