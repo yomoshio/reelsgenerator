@@ -344,14 +344,17 @@ class FfmpegMontage:
         await run(*stills_args(video, count, seconds, out_dir, width=self.still_width))
         return await asyncio.to_thread(lambda: sorted(out_dir.glob("*.png")))
 
-    async def stills_at(self, video: Path, times: list[float], out_dir: Path) -> list[Path]:
+    async def stills_at(
+        self, video: Path, times: list[float], out_dir: Path, *, widest: int
+    ) -> list[Path]:
+        width = min(self.still_width, widest)
         made: list[Path] = []
         for n, at in enumerate(times):
             out = out_dir / f"{n:02d}.png"
             await run(
                 "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
                 "-ss", f"{at:.3f}", "-i", str(video),
-                "-frames:v", "1", "-vf", f"scale={self.still_width}:-2", str(out),
+                "-frames:v", "1", "-vf", f"scale={width}:-2", str(out),
             )  # fmt: skip
             made.append(out)
         return made

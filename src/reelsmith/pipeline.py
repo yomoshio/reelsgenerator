@@ -66,6 +66,10 @@ class Llm(Protocol):
 
     async def judge(self, script: Script, stills: list[Path], style: Style) -> Verdict: ...
 
+    def widest(self, count: int) -> int:
+        """The widest still of which `count` fit in one request."""
+        ...
+
 
 class Painter(Protocol):
     name: str
@@ -111,7 +115,9 @@ class Montage(Protocol):
 
     async def stills(self, video: Path, count: int, out_dir: Path) -> list[Path]: ...
 
-    async def stills_at(self, video: Path, times: list[float], out_dir: Path) -> list[Path]: ...
+    async def stills_at(
+        self, video: Path, times: list[float], out_dir: Path, *, widest: int
+    ) -> list[Path]: ...
 
     async def render(self, cut: Cut, out: Path) -> Path: ...
 
@@ -447,7 +453,9 @@ async def assemble(job: Job, s: Services) -> None:
         await asyncio.to_thread(shutil.copyfile, final, s.showcase / showcase_name(job))
 
     middles = [start + shot.seconds / 2 for start, shot in zip(starts, script.shots, strict=True)]
-    stills = await s.montage.stills_at(final, middles, files.stills(None))
+    stills = await s.montage.stills_at(
+        final, middles, files.stills(None), widest=s.llm.widest(len(middles))
+    )
     with metered(job, s.tariff, stage="qa", provider=s.llm.name):
         verdict = await s.llm.judge(script, stills, style)
     verdict.bad_shots = [i for i in verdict.bad_shots if 0 <= i < len(script.shots)]

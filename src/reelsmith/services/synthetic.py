@@ -152,6 +152,9 @@ class SyntheticLlm:
             return Verdict(score=4.0, notes="motion smear on the subject")
         return Verdict(score=8.0)
 
+    def widest(self, count: int) -> int:
+        return 4096
+
     async def judge(self, script: Script, stills: list[Path], style: Style) -> Verdict:
         r = rng(script.title, _fingerprint(stills))
         if r.random() < self.reject:

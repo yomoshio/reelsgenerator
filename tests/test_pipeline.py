@@ -421,6 +421,7 @@ async def test_assemble_renders_and_passes_qa(tmp_path: Path) -> None:
     kind, stills = llm.log[-1]
     assert (kind, len(stills)) == ("judge", 3)
     assert montage.moments == [2.0, 6.0, 10.0]
+    assert montage.widths == [333]
     assert _stages(made) == ["qa"]
 
 

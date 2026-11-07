@@ -138,6 +138,9 @@ class FakeLlm:
         self.log.append(("judge", stills))
         return self.reject or Verdict(score=8.5)
 
+    def widest(self, count: int) -> int:
+        return 1000 // count
+
 
 @dataclass
 class FakePainter:
@@ -198,6 +201,7 @@ class FakeMontage:
     seconds_per_file: float = 3.0
     rendered: list[Cut] = field(default_factory=list)
     moments: list[float] = field(default_factory=list)
+    widths: list[int] = field(default_factory=list)
 
     async def seconds(self, media: Path) -> float:
         return self.seconds_per_file
@@ -205,8 +209,11 @@ class FakeMontage:
     async def stills(self, video: Path, count: int, out_dir: Path) -> list[Path]:
         return [_touch(out_dir / f"{i:02d}.png") for i in range(count)]
 
-    async def stills_at(self, video: Path, times: list[float], out_dir: Path) -> list[Path]:
+    async def stills_at(
+        self, video: Path, times: list[float], out_dir: Path, *, widest: int
+    ) -> list[Path]:
         self.moments = times
+        self.widths.append(widest)
         return [_touch(out_dir / f"{i:02d}.png") for i in range(len(times))]
 
     async def render(self, cut: Cut, out: Path) -> Path:
