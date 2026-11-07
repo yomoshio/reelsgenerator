@@ -3,6 +3,7 @@ the finished videos, the season plans and a database backup are safely on this c
 
     python3 scripts/autostop.py --set-key        store the API key from cloud.vast.ai/manage-keys
     python3 scripts/autostop.py --login          with two-factor login on: a code from the app
+    python3 scripts/autostop.py --login --email  or a code vast sends to the account's email
     python3 scripts/autostop.py --dry-run --once one check, with every step but the destroy
     python3 scripts/autostop.py --dry-run --now  copy everything off now, destroy nothing
     scripts/remote.sh autostop                   watch in the background, log in logs/autostop.log
@@ -60,7 +61,7 @@ def main() -> None:
         _save(KEY, getpass.getpass("Vast API key: "))
         return
     if args.login:
-        _login(args.code or input("Code from the authenticator app: "))
+        _login(email=args.email, code=args.code, secret=args.secret)
         return
     instance = _remote_env().get("VAST_INSTANCE") or sys.exit(
         "set VAST_INSTANCE in scripts/remote.env"
@@ -106,6 +107,8 @@ def _read(instance: str) -> Reading:
         price = float(server.get("dph_total") or 0)
     except urllib.error.HTTPError as exc:
         _log(f"vast refused the key ({exc.code}): {_why(exc)}")
+    if credit is not None and not price:
+        price = _local_price()
     return Reading(
         unfinished=sum(n for status, n in by_status.items() if status not in DONE),
         total=sum(by_status.values()),
@@ -145,10 +148,18 @@ def _finish(instance: str, *, dry: bool) -> None:
     _log(f"instance {instance} destroyed")
 
 
-def _login(code: str) -> None:
+def _login(*, email: bool, code: str | None, secret: str | None) -> None:
     """With two-factor login on, vast accepts the API key only together with a session
-    from a code, and every later call goes with that session."""
-    reply = _vast("POST", "/tfa/", {"tfa_method": "totp", "code": code.strip()}, key=_key(KEY))
+    from a code, and every later call goes with that session. An emailed code comes with a
+    secret that goes back with it."""
+    body: dict[str, object] = {"tfa_method": "totp"}
+    if email:
+        if not secret:
+            secret = str(_vast("POST", "/tfa/email/", {}, key=_key(KEY))["secret"])
+            print("vast sent a code to the account's email")
+        body = {"tfa_method": "email", "secret": secret}
+    body["code"] = (code or input("Code: ")).strip()
+    reply = _vast("POST", "/tfa/", body, key=_key(KEY))
     session = reply.get("session_key")
     if not session:
         sys.exit(f"vast gave no session: {reply}")
@@ -214,6 +225,15 @@ def _remote(command: str) -> str:
     return reply.stdout
 
 
+def _local_price() -> float | None:
+    """The hourly price from .env, for a key that may read the balance but not the server."""
+    path = ROOT / ".env"
+    for line in path.read_text().splitlines() if path.exists() else ():
+        if line.startswith("REELSMITH_GPU_HOUR_USD="):
+            return float(line.split("=", 1)[1]) or None
+    return None
+
+
 def _remote_env() -> dict[str, str]:
     path = ROOT / "scripts" / "remote.env"
     if not path.exists():
@@ -240,6 +260,8 @@ def _parse() -> argparse.Namespace:
     parser.add_argument("--set-key", action="store_true", help="store the vast.ai API key")
     parser.add_argument("--login", action="store_true", help="two-factor login with a code")
     parser.add_argument("--code", help="the code for --login instead of asking")
+    parser.add_argument("--email", action="store_true", help="--login with a code sent by email")
+    parser.add_argument("--secret", help="--email: the secret of a code already sent")
     return parser.parse_args()
 
 

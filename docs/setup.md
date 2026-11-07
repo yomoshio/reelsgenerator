@@ -165,7 +165,8 @@ exit
    `python3 scripts/autostop.py --set-key`. Он ляжет в `~/.config/vastai/vast_api_key`, как
    у официальной консоли vast.
 2. Если на аккаунте включена двухфакторная защита, vast принимает ключ только после входа
-   по коду: `python3 scripts/autostop.py --login` и код из приложения. Вход живёт
+   по коду: `python3 scripts/autostop.py --login` и код из приложения, или
+   `python3 scripts/autostop.py --login --email`, тогда код придёт на почту аккаунта. Вход живёт
    ограниченное время; если он истечёт, в журнале появится «vast refused the key», очередь
    скрипт продолжит смотреть, но удалить сервер не сможет: повторите `--login`.
 3. В `scripts/remote.env` впишите `VAST_INSTANCE`, номер инстанса из карточки аренды.
