@@ -1,3 +1,4 @@
+import asyncio
 import json
 import shutil
 from pathlib import Path
@@ -7,10 +8,12 @@ import httpx
 import pytest
 
 from reelsmith import app
-from reelsmith.models import Recipe, StageError, Status
-from reelsmith.pipeline import Gates
+from reelsmith.conveyor import Conveyor, Gpu
+from reelsmith.models import Job, Recipe, StageError, Status
+from reelsmith.pipeline import Gates, Services, Stage
 from reelsmith.settings import Settings
-from tests.fakes import REPO_STYLES, FakeAnalytics, services
+from reelsmith.store import MemoryJobs
+from tests.fakes import REPO_STYLES, FakeAnalytics, job, services
 
 needs_ffmpeg = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg")
 
@@ -123,3 +126,52 @@ async def test_demo_runs_both_arms_to_the_end(tmp_path: Path) -> None:
     assert {j.recipe.video for j in result.jobs if j.arm == "B"} == {"wan-5b"}
     assert len(list((tmp_path / "outbox").iterdir())) == result.report.good
     assert all(j.rating is not None for j in result.jobs if j.good)
+
+
+class Saves(MemoryJobs):
+    def __init__(self, expected: int) -> None:
+        super().__init__()
+        self.left = expected
+        self.done = asyncio.Event()
+
+    async def save(self, job: Job) -> None:
+        await super().save(job)
+        self.left -= 1
+        if self.left == 0:
+            self.done.set()
+
+
+async def test_lanes_on_a_shared_card_work_at_the_same_time() -> None:
+    store = Saves(expected=2)
+    script, frames = job("zombies"), job("asylum")
+    frames.status = Status.VOICED
+    for queued in (script, frames):
+        await store.add(queued)
+    wrote, drew = asyncio.Event(), asyncio.Event()
+
+    async def write(j: Job, s: Services) -> None:
+        wrote.set()
+        await drew.wait()
+
+    async def paint(j: Job, s: Services) -> None:
+        drew.set()
+        await wrote.wait()
+
+    def lane(stage: Stage) -> Conveyor:
+        gpu = Gpu({}, shared=True)
+        return Conveyor(
+            [stage], store, services(Path("/nowhere")), gpu, batch_size=1, max_attempts=1
+        )
+
+    built = app.App(
+        store,
+        lane(Stage("write", Status.NEW, "llm", write)),
+        beside=(lane(Stage("paint", Status.VOICED, "comfy", paint)),),
+    )
+    running = asyncio.create_task(built.run(0))
+    try:
+        await asyncio.wait_for(store.done.wait(), timeout=2)
+    finally:
+        running.cancel()
+
+    assert {j.status for j in await store.find()} == {Status.SCRIPTED, Status.PAINTED}

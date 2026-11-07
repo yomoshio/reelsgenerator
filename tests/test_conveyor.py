@@ -2,7 +2,9 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 from pathlib import Path
 
-from reelsmith.conveyor import Conveyor, Gpu
+import pytest
+
+from reelsmith.conveyor import Conveyor, Gpu, lanes
 from reelsmith.models import Job, Rewind, StageError, Status
 from reelsmith.pipeline import Services, Stage
 from reelsmith.store import MemoryJobs
@@ -167,3 +169,67 @@ async def test_gpu_hands_over_only_between_different_tenants() -> None:
     await gpu.release_all()
     assert gpu.holder is None
     assert (tenants["llm"].released, tenants["comfy"].released) == (2, 2)
+
+
+async def test_a_shared_card_unloads_nothing_until_the_conveyor_pauses() -> None:
+    tenants = {"llm": Tenant(), "comfy": Tenant()}
+    gpu = Gpu(tenants, shared=True)
+
+    await gpu.use("llm")
+    await gpu.use("comfy")
+    await gpu.use("llm")
+    assert [t.released for t in tenants.values()] == [0, 0]
+
+    await gpu.release_all()
+    assert [t.released for t in tenants.values()] == [1, 1]
+
+
+class Stop(Exception):
+    pass
+
+
+@pytest.mark.parametrize(("shared", "released"), [(False, 1), (True, 0)])
+async def test_an_idle_conveyor_frees_the_card_unless_it_is_shared(
+    shared: bool, released: int
+) -> None:
+    tenant = Tenant()
+    conveyor = Conveyor(
+        [Recorder().write()],
+        MemoryJobs(),
+        services(Path("/nowhere")),
+        Gpu({"llm": tenant}, shared=shared),
+        batch_size=1,
+        max_attempts=1,
+    )
+    turns = 0
+
+    async def before() -> bool:
+        nonlocal turns
+        turns += 1
+        if turns > 1:
+            raise Stop
+        return True
+
+    with pytest.raises(Stop):
+        await conveyor.run_forever(0, before_turn=before)
+
+    assert tenant.released == released
+
+
+async def test_each_lane_on_a_shared_card_unloads_only_its_own_models() -> None:
+    stages = [
+        Stage("write", Status.NEW, "llm", _nothing),
+        Stage("voice", Status.SCRIPTED, "tts", _nothing),
+        Stage("paint", Status.VOICED, "comfy", _nothing),
+        Stage("publish", Status.APPROVED, None, _nothing),
+    ]
+    tenants = {"llm": Tenant(), "tts": Tenant(), "comfy": Tenant()}
+
+    (rest, rest_gpu), (drawn, drawn_gpu) = lanes(stages, tenants)
+    await drawn_gpu.release_all()
+
+    assert [s.name for s in rest] == ["write", "voice", "publish"]
+    assert [s.name for s in drawn] == ["paint"]
+    assert rest_gpu.shared
+    assert drawn_gpu.shared
+    assert {name: t.released for name, t in tenants.items()} == {"llm": 0, "tts": 0, "comfy": 1}

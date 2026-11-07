@@ -67,6 +67,7 @@ class Settings(BaseSettings):
     studio: Path = Path("/data/studio")
 
     batch_size: int = 6
+    gpu_shared: bool = False
     max_attempts: int = 5
     lease_minutes: int = 45
     idle_seconds: float = 20.0
