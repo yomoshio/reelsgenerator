@@ -32,7 +32,8 @@ scripts/setup-host.sh check           # должна быть видна кар�
 
 Если драйвер и Docker уже стоят, первые две команды не нужны. `toolkit` нужен всегда:
 он ещё переключает Docker на драйвер cgroup, без которого контейнер со временем теряет
-видеокарту.
+видеокарту, и запрещает автообновлениям Ubuntu менять драйвер под работающими
+контейнерами.
 
 Дальше:
 
@@ -194,6 +195,7 @@ make logs                     # стадии write, voice, paint… одна з�
 | --- | --- |
 | `could not select device driver "" with capabilities: [[gpu]]` | Не стоит NVIDIA Container Toolkit: `sudo scripts/setup-host.sh toolkit`. |
 | `Permission denied` в `hf/`, `models/`, `voices/`, `studio/` | Контейнеры работают от пользователя с uid 1000. `make setup` ещё раз или `chmod a+rwx` на эту папку. |
+| `Failed to initialize NVML: Driver/library version mismatch` | Автообновления Ubuntu поставили новый драйвер, а загружен старый. Уже запущенные контейнеры работают, новые не получат карту. Перезагрузите сервер: `reboot`, контейнеры поднимутся сами. Шаг `toolkit` запрещает автообновлениям трогать драйвер; на машине, где он запускался раньше, повторите его. |
 | Ollama отвечает минутами, `ollama ps` показывает `100% CPU` | Контейнер потерял видеокарту. `sudo scripts/setup-host.sh toolkit`, затем `docker compose up -d --force-recreate`. |
 | Скачивание весов падает или очень медленное | В `.env` раскомментируйте `HF_ENDPOINT=https://hf-mirror.com` и повторите `make models`: уже скачанное пропустится. |
 | `make build` падает на `pip install` | Обычно сеть. Повторите `make build`, готовые слои не пересобираются. |

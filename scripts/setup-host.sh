@@ -17,6 +17,7 @@ need_root() {
 
 driver() {
     need_root
+    apt-mark unhold $(gpu_packages) >/dev/null 2>&1 || true
     apt-get update
     apt-get install -y "$DRIVER"
     echo "driver installed, reboot before the next step"
@@ -61,6 +62,21 @@ config["exec-opts"] = ["native.cgroupdriver=cgroupfs"]
 json.dump(config, open(path, "w"), indent=4)
 PY
     systemctl restart docker
+    hold_driver
+}
+
+gpu_packages() {
+    dpkg-query -W -f '${db:Status-Abbrev} ${Package}\n' 'nvidia-*' 'libnvidia-*' 2>/dev/null \
+        | awk '$1 == "ii" {print $2}'
+}
+
+# Unattended upgrades replaced the driver libraries under running containers on a rented
+# box, and every new container then failed with "Driver/library version mismatch" until a
+# reboot. The driver now changes only when `driver` is run.
+hold_driver() {
+    apt-mark hold $(gpu_packages) >/dev/null
+    printf '%s\n' 'Unattended-Upgrade::Package-Blacklist {' '    "nvidia-";' '    "libnvidia-";' '};' \
+        > /etc/apt/apt.conf.d/51reelsmith-no-gpu-upgrades
 }
 
 check() {
