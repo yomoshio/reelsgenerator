@@ -17,7 +17,9 @@
 #   scripts/remote.sh smoke                              по одному вызову каждой модели: проверка машины
 #   scripts/remote.sh push | deploy                      залить код; deploy ещё пересобирает и перезапускает
 #   scripts/remote.sh restart                            перезапустить воркер, например после правки стиля
-#   scripts/remote.sh pull                               забрать готовые ролики и голоса
+#   scripts/remote.sh pull                               забрать ролики, планы серий и голоса
+#   scripts/remote.sh autostop [--dry-run]               удалить сервер, когда очередь кончится или
+#                                                        баланса останется меньше чем на час
 #   scripts/remote.sh restore                            отправить голоса и .env на новый сервер
 #   scripts/remote.sh backup                             снять копию базы задач в backups/
 #   scripts/remote.sh check                              какие файлы кода отличаются здесь и там
@@ -93,8 +95,12 @@ case $command in
         "${RSYNC[@]}" --delete "${CODE_ONLY[@]}" ./ "$REMOTE_HOST:$REMOTE_DIR/"
         on_server "docker compose build worker tts && docker compose up -d" ;;
     pull)
+        mkdir -p studio/output/reelsmith/videos studio/series
+        "${SSH[@]}" -n "$REMOTE_HOST" "mkdir -p $REMOTE_DIR/studio/output/reelsmith/videos $REMOTE_DIR/studio/series"
         "${RSYNC[@]}" "$REMOTE_HOST:$REMOTE_DIR/outbox/" outbox/
-        "${RSYNC[@]}" "$REMOTE_HOST:$REMOTE_DIR/voices/" voices/ ;;
+        "${RSYNC[@]}" "$REMOTE_HOST:$REMOTE_DIR/voices/" voices/
+        "${RSYNC[@]}" "$REMOTE_HOST:$REMOTE_DIR/studio/output/reelsmith/videos/" studio/output/reelsmith/videos/
+        "${RSYNC[@]}" "$REMOTE_HOST:$REMOTE_DIR/studio/series/" studio/series/ ;;
     restore)
         "${SSH[@]}" "$REMOTE_HOST" "mkdir -p $REMOTE_DIR/voices"
         "${RSYNC[@]}" voices/ "$REMOTE_HOST:$REMOTE_DIR/voices/"
@@ -105,6 +111,10 @@ case $command in
         file="backups/jobs-$(date +%Y%m%d-%H%M).sql.gz"
         on_server "docker compose exec -T db pg_dump -U reelsmith reelsmith" | gzip > "$file"
         echo "$file" ;;
+    autostop)
+        mkdir -p logs
+        setsid nohup python3 scripts/autostop.py "$@" >> logs/autostop.log 2>&1 < /dev/null &
+        echo "следит в фоне, pid $!; ход в logs/autostop.log; остановить: pkill -f scripts/autostop.py" ;;
     restart) on_server "docker compose restart worker" ;;
     check)
         "${RSYNC[@]}" -rcn --delete --itemize-changes "${CODE_ONLY[@]}" ./ "$REMOTE_HOST:$REMOTE_DIR/" \
