@@ -100,12 +100,23 @@ case $command in
         "${RSYNC[@]}" "$REMOTE_HOST:$REMOTE_DIR/outbox/" outbox/
         "${RSYNC[@]}" "$REMOTE_HOST:$REMOTE_DIR/voices/" voices/
         "${RSYNC[@]}" "$REMOTE_HOST:$REMOTE_DIR/studio/output/reelsmith/videos/" studio/output/reelsmith/videos/
-        "${RSYNC[@]}" "$REMOTE_HOST:$REMOTE_DIR/studio/series/" studio/series/ ;;
+        "${RSYNC[@]}" "$REMOTE_HOST:$REMOTE_DIR/studio/series/" studio/series/
+        mkdir -p backups/media
+        "${RSYNC[@]}" "$REMOTE_HOST:$(on_server "docker volume inspect -f '{{.Mountpoint}}' reelsmith_media")/" backups/media/ ;;
     restore)
         "${SSH[@]}" "$REMOTE_HOST" "mkdir -p $REMOTE_DIR/voices"
         "${RSYNC[@]}" voices/ "$REMOTE_HOST:$REMOTE_DIR/voices/"
         "${RSYNC[@]}" .env "$REMOTE_HOST:$REMOTE_DIR/.env"
-        on_server "chmod a+rwx voices" ;;
+        on_server "chmod a+rwx voices"
+        if [ -d backups/media ] && [ -n "$(ls -A backups/media)" ]; then
+            media=$(on_server "docker volume inspect -f '{{.Mountpoint}}' reelsmith_media 2>/dev/null || true")
+            if [ -n "$media" ]; then
+                "${RSYNC[@]}" backups/media/ "$REMOTE_HOST:$media/"
+                on_server "chown -R 1000:1000 $media"
+            else
+                echo "файлы задач из backups/media вернутся, если повторить restore после make up"
+            fi
+        fi ;;
     backup)
         mkdir -p backups
         file="backups/jobs-$(date +%Y%m%d-%H%M).sql.gz"

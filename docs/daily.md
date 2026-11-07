@@ -168,8 +168,8 @@ sudden rises, never monotone"`.
 | --- | --- | --- |
 | `scripts/remote.sh push` | на сервер | код, стили, графы, документация |
 | `scripts/remote.sh deploy` | на сервер | то же, плюс пересборка и перезапуск |
-| `scripts/remote.sh restore` | на сервер | голос и `.env` |
-| `scripts/remote.sh pull` | сюда | готовые ролики и голос |
+| `scripts/remote.sh restore` | на сервер | голос, `.env`, файлы задач из `backups/media/` |
+| `scripts/remote.sh pull` | сюда | готовые ролики, голос, файлы недоделанных задач |
 | `scripts/remote.sh backup` | сюда | база задач с историей и ценами, в `backups/` |
 | `scripts/remote.sh check` | | какие файлы кода отличаются здесь и там |
 
@@ -200,4 +200,8 @@ scripts/remote.sh backup
 
 ```
 gunzip -c backups/<файл>.sql.gz | scripts/remote.sh shell "cd /root/projects/reelsgenerator && docker compose exec -T db psql -U reelsmith reelsmith"
+scripts/remote.sh restore
 ```
+
+`restore` после `make up` возвращает и файлы недоделанных задач из `backups/media/`: задачи
+продолжатся с того шага, где их застало выключение, а не начнутся заново.
