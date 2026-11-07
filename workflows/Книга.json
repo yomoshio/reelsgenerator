@@ -1,0 +1,108 @@
+{
+  "last_node_id": 3,
+  "last_link_id": 1,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "Note",
+      "pos": [
+        40,
+        40
+      ],
+      "size": [
+        440,
+        300
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "Note"
+      },
+      "widgets_values": [
+        "Книга\n\n1. Вставьте рассказ целиком в поле текста или положите файл .txt, .fb2 или .epub в папку studio/input и выберите его в списке (после копирования нажмите R, чтобы список обновился).\n2. episodes: самое большее выпусков. Рассказ займёт столько, сколько в нём частей: короткий рассказ с одним поворотом станет одним выпуском.\n3. Стиль twist держится событий автора и ничего не добавляет.\n4. «сразу в очередь» ставит все выпуски в работу. Без него появится только план: studio/series/<имя>.md и <имя>.txt.\n5. Нажмите «Запустить» один раз.\n\nРассказ читается за несколько минут, книга за полчаса и дольше. Ход работы показывает схема reelsmith/Статус."
+      ]
+    },
+    {
+      "id": 2,
+      "type": "ReelsmithBook",
+      "pos": [
+        40,
+        360
+      ],
+      "size": [
+        440,
+        460
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "ответ",
+          "type": "STRING",
+          "links": [
+            1
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ReelsmithBook"
+      },
+      "widgets_values": [
+        "",
+        "—",
+        "book",
+        5,
+        "twist",
+        "Wan на движении, наезд на остальном",
+        false
+      ]
+    },
+    {
+      "id": 3,
+      "type": "PreviewAny",
+      "pos": [
+        520,
+        360
+      ],
+      "size": [
+        420,
+        200
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "source",
+          "type": "*",
+          "link": 1
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "PreviewAny"
+      },
+      "widgets_values": []
+    }
+  ],
+  "links": [
+    [
+      1,
+      2,
+      0,
+      3,
+      0,
+      "*"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {},
+  "version": 0.4
+}

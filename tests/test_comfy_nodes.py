@@ -77,6 +77,37 @@ def test_the_series_block_cleans_the_name_and_passes_the_switch(
     assert (request["name"], request["episodes"], request["queue"]) == ("мой-потоп-", 10, True)
 
 
+def test_the_book_block_takes_pasted_text_or_a_file_from_the_input_folder(
+    nodes: ModuleType, tmp_path: Path
+) -> None:
+    folder = tmp_path / "studio" / "input"
+    folder.mkdir(parents=True)
+    for name in ("лапа.fb2", "окно.txt", "кадр.png"):
+        (folder / name).write_text("", encoding="utf-8")
+    block, animation = nodes.ReelsmithBook(), next(iter(nodes.ANIMATION))
+
+    (files,) = nodes.ReelsmithBook.INPUT_TYPES()["required"]["file"]
+    block.start("", "лапа.fb2", "лапа", 3, "serial", animation, False)
+    block.start("  Жила-была шкатулка.  ", "окно.txt", "", 1, "serial", animation, True)
+    with pytest.raises(ValueError, match="Вставьте"):
+        block.start("  ", nodes.NO_FILE, "x", 1, "serial", animation, False)
+
+    assert files == [nodes.NO_FILE, "лапа.fb2", "окно.txt"]
+    first, second = _requests(tmp_path / "studio")
+    assert (first["kind"], first["story"], first["file"], first["episodes"]) == (
+        "book",
+        "",
+        "лапа.fb2",
+        3,
+    )
+    assert (second["story"], second["file"], second["name"], second["queue"]) == (
+        "Жила-была шкатулка.",
+        "",
+        "book",
+        True,
+    )
+
+
 def test_the_status_block_reads_what_the_worker_wrote(nodes: ModuleType, tmp_path: Path) -> None:
     assert "ещё не писал" in nodes.ReelsmithStatus().read()[0]
     (tmp_path / "studio").mkdir(exist_ok=True)

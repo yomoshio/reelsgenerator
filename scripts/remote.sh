@@ -4,6 +4,7 @@
 #   scripts/remote.sh add "идея" [--style rules-serial]   поставить идею
 #   scripts/remote.sh ideas [studio/series/flood.txt]   поставить новые строки файла идей
 #   scripts/remote.sh series studio/stories/x.txt [--episodes 10]   сезон из синопсиса в studio/series/
+#   scripts/remote.sh adapt studio/input/x.fb2 [--episodes 5] [--style twist]   рассказ или книга в серию
 #   scripts/remote.sh jobs [--status assembled]          все задачи с id и статусом
 #   scripts/remote.sh status | report | styles           счётчики, деньги, стили
 #   scripts/remote.sh review ID                          скачать собранный ролик в review/ID.mp4
@@ -67,6 +68,14 @@ case $command in
         "${SSH[@]}" -n "$REMOTE_HOST" "mkdir -p $REMOTE_DIR/$(dirname "$file") $REMOTE_DIR/studio/series"
         "${RSYNC[@]}" "$file" "$REMOTE_HOST:$REMOTE_DIR/$file"
         on_server "chmod -R a+rwX studio && docker compose run --rm --no-deps -T worker series /data/$file $(printf '%q ' "$@")"
+        mkdir -p studio/series
+        "${RSYNC[@]}" "$REMOTE_HOST:$REMOTE_DIR/studio/series/" studio/series/ ;;
+    adapt)
+        file=${1:?usage: adapt studio/input/NAME.fb2 [--episodes N] [--style twist]}
+        shift
+        "${SSH[@]}" -n "$REMOTE_HOST" "mkdir -p $REMOTE_DIR/$(dirname "$file") $REMOTE_DIR/studio/series"
+        "${RSYNC[@]}" "$file" "$REMOTE_HOST:$REMOTE_DIR/$file"
+        on_server "chmod -R a+rwX studio && docker compose run --rm --no-deps -T worker adapt /data/$file $(printf '%q ' "$@")"
         mkdir -p studio/series
         "${RSYNC[@]}" "$REMOTE_HOST:$REMOTE_DIR/studio/series/" studio/series/ ;;
     logs) on_server "docker compose logs -f --tail 50 worker" ;;

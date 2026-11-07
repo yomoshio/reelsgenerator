@@ -12,12 +12,13 @@ from pathlib import Path
 import httpx
 from psycopg_pool import AsyncConnectionPool
 
+from reelsmith.books import Adapter, make_adaptation
 from reelsmith.conveyor import Conveyor, Gpu, GpuTenant, lanes
 from reelsmith.models import Job, Outline, Recipe, Status
 from reelsmith.pipeline import STAGES, Animator, Painter, Services, Stage
 from reelsmith.pricing import DEFAULT, Tariff
 from reelsmith.report import Arm, Report, compare, report
-from reelsmith.series import Planner, Serial, make_serial
+from reelsmith.series import Serial, make_serial
 from reelsmith.services import synthetic
 from reelsmith.services.comfy import (
     ComfyAnimator,
@@ -100,7 +101,7 @@ def ollama_llm(settings: Settings, http: httpx.AsyncClient) -> OllamaLlm:
 
 
 @asynccontextmanager
-async def planner(settings: Settings) -> AsyncIterator[Planner]:
+async def planner(settings: Settings) -> AsyncIterator[Adapter]:
     """The writer model for work outside the conveyor, or its stand-in."""
     if settings.services == "synthetic":
         yield synthetic.SyntheticLlm()
@@ -113,6 +114,18 @@ async def serial(settings: Settings, synopsis: str, style: Style, episodes: int)
     """A season from a synopsis, on the real writer model or on the stand-in."""
     async with planner(settings) as llm:
         return await make_serial(llm, synopsis, style, episodes)
+
+
+async def adaptation(
+    settings: Settings,
+    text: str,
+    style: Style,
+    most: int,
+    progress: Callable[[str], None] = lambda _: None,
+) -> Serial:
+    """A serial that keeps a finished story's events, at most `most` episodes."""
+    async with planner(settings) as llm:
+        return await make_adaptation(llm, text, style, most, progress)
 
 
 async def outlines(settings: Settings, ideas: list[str], style: Style) -> list[Outline]:
@@ -373,6 +386,9 @@ def studio_for(settings: Settings, jobs: Store, services: Services, gpu: Gpu) ->
     async def series(synopsis: str, style: Style, episodes: int) -> Serial:
         return await serial(settings, synopsis, style, episodes)
 
+    async def book(text: str, style: Style, most: int) -> Serial:
+        return await adaptation(settings, text, style, most)
+
     return Studio(
         settings.studio,
         jobs,
@@ -380,6 +396,7 @@ def studio_for(settings: Settings, jobs: Store, services: Services, gpu: Gpu) ->
         styles=services.styles,
         make_serial=series,
         before_llm=lambda: gpu.use("llm"),
+        make_book=book,
     )
 
 

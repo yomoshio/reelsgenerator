@@ -10,6 +10,7 @@ import structlog
 import typer
 
 from reelsmith import app as build
+from reelsmith.books import read_book
 from reelsmith.models import Job, Metrics, Recipe, StageError, Status
 from reelsmith.remix import ideas_file as remix_file
 from reelsmith.remix import load as load_library
@@ -218,6 +219,33 @@ def series(
     except StageError as exc:
         _fail(str(exc))
     for path in write_serial(made, chosen, out, name or story.stem):
+        typer.echo(path)
+
+
+@app.command()
+def adapt(
+    book: Path,
+    episodes: Annotated[int, typer.Option(min=1, max=30, help="the most, never stretched")] = 5,
+    name: str | None = None,
+    style: Style = None,
+    out: Path = Path("/data/studio/series"),
+) -> None:
+    """Turn a finished story or a whole book (.txt, .fb2, .epub) into a serial that keeps the
+    author's events: the bible in NAME.md and one outline per line in NAME.txt. The story
+    takes as many episodes as it has parts, at most --episodes."""
+    settings = _settings()
+    chosen = style or settings.style
+    _known_style(settings, chosen)
+    try:
+        text = read_book(book)
+    except (ValueError, OSError) as exc:
+        _fail(str(exc))
+    template = Styles(settings.styles).get(chosen)
+    try:
+        made = asyncio.run(build.adaptation(settings, text, template, episodes, typer.echo))
+    except StageError as exc:
+        _fail(str(exc))
+    for path in write_serial(made, chosen, out, name or book.stem):
         typer.echo(path)
 
 

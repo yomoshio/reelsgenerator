@@ -20,6 +20,7 @@
 | `src/reelsmith/services/` | По файлу на каждый внешний сервис: `ollama.py`, `comfy.py`, `voxcpm.py`, `whisper.py`, `ffmpeg.py` (монтаж, субтитры, плашки), `outbox.py`, `synthetic.py` (заглушки). |
 | `src/reelsmith/settings.py` | Всё, что читается из `.env`. |
 | `src/reelsmith/series.py` | Синопсис в серию: дуга сезона, план каждого выпуска, файлы `.md` и `.txt`; разбор файлов идей. |
+| `src/reelsmith/books.py` | Готовый рассказ или книга в серию: чтение `.txt`, `.fb2`, `.epub`, пересказ кусками по событиям, деление событий на выпуски там, где поворачивает история, план выпуска строго из его событий. |
 | `src/reelsmith/studio.py` | Заявки от блоков ComfyUI из `studio/inbox`, файл статуса `studio/status.txt`, пауза. |
 | `comfy_nodes/reelsmith/` | Блоки Reelsmith для редактора ComfyUI: ролик, серия, статус, одобрить, пауза. |
 | `src/reelsmith/prompts/` | Общие части промптов писателя, критика и судьи; остальное приходит из стиля. |

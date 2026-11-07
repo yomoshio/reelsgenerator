@@ -1,5 +1,5 @@
-"""Reelsmith blocks for the ComfyUI editor: start a video or a whole serial from a sentence
-or a story, see what the conveyor is doing, approve a finished video.
+"""Reelsmith blocks for the ComfyUI editor: start a video or a whole serial from a sentence,
+a story or a book, see what the conveyor is doing, approve a finished video.
 
 A block never waits for the video. It drops a request into the studio inbox and returns at
 once: the conveyor needs this same ComfyUI queue to draw frames and clips, so a block that
@@ -45,6 +45,20 @@ def status() -> str:
     if not path.exists():
         return "Воркер ещё не писал статус: он запущен? Проверьте `docker compose ps`."
     return path.read_text(encoding="utf-8")
+
+
+BOOKS = (".txt", ".md", ".fb2", ".epub")
+NO_FILE = "—"
+
+
+def books() -> list[str]:
+    """Book files in ComfyUI's input folder, which the worker sees as studio/input."""
+    found = sorted(p.name for p in (STUDIO / "input").glob("*") if p.suffix.lower() in BOOKS)
+    return [NO_FILE, *found]
+
+
+def _slug(name: str, default: str) -> str:
+    return "".join(c if c.isalnum() or c in "-_" else "-" for c in name.strip()) or default
 
 
 def _text(value: str, what: str) -> str:
@@ -131,7 +145,7 @@ class ReelsmithSeries:
         self, synopsis: str, name: str, episodes: int, style: str, animation: str, queue_all: bool
     ) -> tuple[str]:
         text = _text(synopsis, "синопсис")
-        slug = "".join(c if c.isalnum() or c in "-_" else "-" for c in name.strip()) or "series"
+        slug = _slug(name, "series")
         drop(
             {
                 "kind": "series",
@@ -146,6 +160,72 @@ class ReelsmithSeries:
         then = "и все выпуски встанут в очередь" if queue_all else "выпуски можно поставить потом"
         return (
             f"Серия {slug}: план появится в studio/series/{slug}.md через несколько минут, {then}.",
+        )
+
+
+class ReelsmithBook:
+    CATEGORY = "Reelsmith"
+    FUNCTION = "start"
+    OUTPUT_NODE = True
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("ответ",)
+    DESCRIPTION = (
+        "Делает из готового рассказа или книги серию, где события как у автора. Рассказ займёт "
+        "столько выпусков, сколько в нём частей, не больше указанного числа."
+    )
+
+    @classmethod
+    def INPUT_TYPES(cls) -> dict[str, object]:
+        found = styles()
+        return {
+            "required": {
+                "text": (
+                    "STRING",
+                    {"multiline": True, "placeholder": "Рассказ целиком, или выберите файл"},
+                ),
+                "file": (books(),),
+                "name": ("STRING", {"default": "book"}),
+                "episodes": ("INT", {"default": 5, "min": 1, "max": 30}),
+                "style": (found, {"default": "twist" if "twist" in found else found[0]}),
+                "animation": (list(ANIMATION),),
+                "queue_all": ("BOOLEAN", {"default": False, "label_on": "сразу в очередь"}),
+            }
+        }
+
+    @classmethod
+    def IS_CHANGED(cls, **_: object) -> float:
+        return float("nan")
+
+    def start(
+        self,
+        text: str,
+        file: str,
+        name: str,
+        episodes: int,
+        style: str,
+        animation: str,
+        queue_all: bool,
+    ) -> tuple[str]:
+        story = text.strip()
+        if not story and file == NO_FILE:
+            raise ValueError("Вставьте текст рассказа или выберите файл книги.")
+        slug = _slug(name, "book")
+        drop(
+            {
+                "kind": "book",
+                "story": story,
+                "file": "" if story else file,
+                "name": slug,
+                "episodes": episodes,
+                "style": style,
+                "animation": ANIMATION[animation],
+                "queue": queue_all,
+            }
+        )
+        then = "и все выпуски встанут в очередь" if queue_all else "выпуски можно поставить потом"
+        return (
+            f"Книга {slug}: план появится в studio/series/{slug}.md, рассказ за несколько минут, "
+            f"книга за полчаса и дольше, {then}.",
         )
 
 
@@ -223,6 +303,7 @@ class ReelsmithPause:
 NODE_CLASS_MAPPINGS = {
     "ReelsmithVideo": ReelsmithVideo,
     "ReelsmithSeries": ReelsmithSeries,
+    "ReelsmithBook": ReelsmithBook,
     "ReelsmithStatus": ReelsmithStatus,
     "ReelsmithApprove": ReelsmithApprove,
     "ReelsmithPause": ReelsmithPause,
@@ -230,6 +311,7 @@ NODE_CLASS_MAPPINGS = {
 NODE_DISPLAY_NAME_MAPPINGS = {
     "ReelsmithVideo": "Reelsmith · Ролик",
     "ReelsmithSeries": "Reelsmith · Серия",
+    "ReelsmithBook": "Reelsmith · Книга",
     "ReelsmithStatus": "Reelsmith · Статус",
     "ReelsmithApprove": "Reelsmith · Одобрить",
     "ReelsmithPause": "Reelsmith · Пауза",

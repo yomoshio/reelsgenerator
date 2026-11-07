@@ -48,12 +48,25 @@ make series STORY=studio/stories/flood.txt EPISODES=10
 поправьте и поставьте: `make ideas FILE=studio/series/flood.txt`. В ComfyUI то же самое
 делает схема «Новая серия»: [comfyui.md](comfyui.md#ролик-целиком-из-comfyui).
 
+Серию из готового рассказа или целой книги делает команда `adapt`. Она читает `.txt`,
+`.fb2` и `.epub`, держится событий автора и делит их на выпуски там, где поворачивает
+сама история, не больше `EPISODES`:
+
+```
+make adapt BOOK=studio/input/paw.fb2 EPISODES=5 STYLE=twist
+scripts/remote.sh adapt studio/input/paw.fb2 --episodes 5 --style twist
+```
+
+Получатся такие же `studio/series/paw.md` и `paw.txt`. В ComfyUI то же делает схема
+«Книга».
+
 Готовые серии лежат в `studio/series/`: «Потоп» и «Треножники» по 10 выпусков, у каждой
 есть описание мира и героев в `.md` и файл выпусков в `.txt`. Серия целиком ставится так:
 `make ideas FILE=studio/series/flood.txt`. Каждая строка там это подробный план выпуска по
 битам: модель хорошо раскладывает готовый план на шоты и плохо придумывает связный сюжет
-сама, поэтому чем подробнее план, тем осмысленнее ролик. Заходы для новых серий собраны в
-`studio/series/bank.md`.
+сама, поэтому чем подробнее план, тем осмысленнее ролик. «Рассказы с поворотом» в
+`twists.txt`: семь классических рассказов, 11 выпусков в стиле `twist`. Заходы для новых
+серий собраны в `studio/series/bank.md`.
 
 Стиль по умолчанию задан в `.env` строкой `REELSMITH_STYLE`. Какие стили есть: `make styles`.
 

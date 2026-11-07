@@ -9,6 +9,7 @@ from typing import Any
 
 import structlog
 
+from reelsmith.books import BOOKS, read_book
 from reelsmith.models import Job, Recipe, StageError, Status
 from reelsmith.pipeline import showcase_name
 from reelsmith.series import Serial, ideas, write_serial
@@ -37,12 +38,14 @@ class Studio:
         styles: Styles,
         make_serial: MakeSerial,
         before_llm: Callable[[], Awaitable[None]],
+        make_book: MakeSerial | None = None,
     ) -> None:
         self.folder = folder
         self._store = store
         self._recipe = recipe
         self._styles = styles
         self._make_serial = make_serial
+        self._make_book = make_book or make_serial
         self._before_llm = before_llm
 
     @property
@@ -99,6 +102,8 @@ class Studio:
             return f"approved {job.id}"
         if kind == "series":
             return await self._series(request)
+        if kind == "book":
+            return await self._book(request)
         if kind == "pause":
             (self.folder / "paused").touch()
             return "paused"
@@ -112,7 +117,31 @@ class Studio:
         style = self._styles.get(recipe.style)
         await self._before_llm()
         serial = await self._make_serial(str(request["story"]), style, int(request["episodes"]))
-        name = str(request.get("name") or "series")
+        return await self._season(serial, recipe, request, "series")
+
+    async def _book(self, request: dict[str, Any]) -> str:
+        """The text pasted into the block, or a book file put into ComfyUI's input folder."""
+        recipe = self._recipe_for(request)
+        style = self._styles.get(recipe.style)
+        text = str(request.get("story") or "").strip()
+        if not text:
+            text = await asyncio.to_thread(read_book, self._book_file(str(request.get("file"))))
+        if not text.strip():
+            raise ValueError("the book is empty")
+        await self._before_llm()
+        serial = await self._make_book(text, style, int(request["episodes"]))
+        return await self._season(serial, recipe, request, "book")
+
+    def _book_file(self, name: str) -> Path:
+        path = self.folder / "input" / name
+        if Path(name).name != name or path.suffix.lower() not in BOOKS or not path.is_file():
+            raise LookupError(f"no book {name!r} in input/; it takes {', '.join(BOOKS)}")
+        return path
+
+    async def _season(
+        self, serial: Serial, recipe: Recipe, request: dict[str, Any], default: str
+    ) -> str:
+        name = str(request.get("name") or default)
         notes, queue = write_serial(serial, recipe.style, self.folder / "series", name)
         if not request.get("queue"):
             return f"wrote {notes.name} and {queue.name}"

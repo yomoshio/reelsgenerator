@@ -14,7 +14,8 @@ from typing import Any
 import httpx
 from pydantic import BaseModel, ValidationError
 
-from reelsmith.models import Outline, Script, Season, StageError, Verdict
+from reelsmith.books import numbered
+from reelsmith.models import Adaptation, Outline, Retelling, Script, Season, StageError, Verdict
 from reelsmith.styles import Style
 
 
@@ -85,6 +86,24 @@ class OllamaLlm:
             language=self._language,
         )
         return await self._chat(self._writer, system, synopsis, Season, temperature=self._heat[0])
+
+    async def retell(self, passage: str) -> list[str]:
+        system = fill(_prompt("retell"), language=self._language)
+        told = await self._chat(self._writer, system, passage, Retelling, temperature=self._heat[1])
+        return told.events
+
+    async def adapt(self, events: list[str], style: Style, most: int) -> Adaptation:
+        story = style.story
+        system = fill(
+            _prompt("adapt"),
+            brief=story.brief.strip(),
+            seconds=f"{story.seconds[0]} to {story.seconds[1]}",
+            most=most,
+            language=self._language,
+        )
+        return await self._chat(
+            self._writer, system, numbered(events), Adaptation, temperature=self._heat[0]
+        )
 
     async def write(self, idea: str, style: Style, notes: str | None = None) -> Script:
         ask = idea if notes is None else f"{idea}\n\nRewrite the script. The critic said: {notes}"

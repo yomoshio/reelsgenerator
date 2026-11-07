@@ -151,6 +151,27 @@ class Season(BaseModel):
     episodes: list[EpisodeIdea] = Field(min_length=1, max_length=30)
 
 
+class Retelling(BaseModel):
+    """A passage of a book as the events that happen in it."""
+
+    events: list[str] = Field(min_length=1, description="Every event of the passage, in order.")
+
+
+class Part(BaseModel):
+    title: str
+    logline: str = Field(description="What happens in the episode and where it stops.")
+    last: int = Field(ge=1, description="The number of the last event this episode retells.")
+
+
+class Adaptation(BaseModel):
+    """A finished story split into episodes where it turns, before they are outlined."""
+
+    title: str
+    world: str
+    characters: list[Character] = Field(min_length=1, max_length=6)
+    parts: list[Part] = Field(min_length=1, max_length=30)
+
+
 class Verdict(BaseModel):
     score: float = Field(ge=0, le=10)
     notes: str = ""
