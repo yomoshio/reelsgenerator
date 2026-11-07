@@ -1,7 +1,7 @@
 about = "Serial survival story on detailed flat 2D graphics, 60 to 90 seconds: a goal, obstacles on the way, a new character, the goal reached, then a second problem and a revelation planted earlier."
 
 [story]
-shots = [20, 28]
+shots = [18, 24]
 seconds = [60, 90]
 words = 10
 empty_shots = 1

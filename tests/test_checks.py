@@ -1,4 +1,6 @@
-from reelsmith.checks import present, problems, unsaid_plates
+import pytest
+
+from reelsmith.checks import present, problems, spoken_seconds, unsaid_plates
 from reelsmith.models import Character, Overlay, Script, Shot
 from tests.fakes import style
 
@@ -126,3 +128,26 @@ def test_too_many_empty_shots_in_a_row_are_refused() -> None:
     assert "Shots 2 to 4 show nobody" in " ".join(problems(script, style()))
     script.shots[2].cast = ["Артём"]
     assert "show nobody" not in " ".join(problems(script, style()))
+
+
+def test_the_length_read_aloud_holds_short_lines_and_caps_long_ones() -> None:
+    long = " ".join(["Артём поднимается по тёмной лестнице и считает ступени вслух"] * 3)
+
+    assert spoken_seconds(flood(shot("Да."), shot("Нет."), shot("Да."))) == 6.0
+    assert spoken_seconds(flood(shot(long), shot(long), shot(long))) == 24.0
+    assert spoken_seconds(flood(*[shot("Артём открывает дверь и видит воду.")] * 3)) == (
+        pytest.approx(3 * (12 / 5.0 + 0.35))
+    )
+
+
+def test_an_episode_that_would_run_past_the_style_limit_is_sent_back() -> None:
+    long = " ".join(["Артём поднимается по тёмной лестнице и считает ступени вслух"] * 3)
+
+    too_long = problems(flood(*[shot(long)] * 10), style())
+    fits = problems(flood(*[shot("Артём идёт наверх.")] * 10), style())
+
+    assert [p for p in too_long if "runs about" in p] == [
+        "Read aloud, the episode runs about 80 s and must stay under 60 s. Cut whole shots "
+        "or words until it fits; keep the opening and the last line."
+    ]
+    assert not [p for p in fits if "runs about" in p]

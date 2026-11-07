@@ -1,7 +1,8 @@
-"""Mistakes in a script that a program can see without asking a model: plates showing words
-the narrator has not said yet, people named in a line but missing from the frame, too many
-shots of empty rooms in a row, camera moves that make the video model invent what lies
-outside the picture, and looks the image model cannot read.
+"""Mistakes in a script that a program can see without asking a model: an episode that
+would run longer than the channel allows, plates showing words the narrator has not said
+yet, people named in a line but missing from the frame, too many shots of empty rooms in a
+row, camera moves that make the video model invent what lies outside the picture, and
+looks the image model cannot read.
 
 Words are compared by their first letters, so «рация» on a plate matches «рацией» in a line.
 The comparison errs toward letting a plate through."""
@@ -10,7 +11,7 @@ import re
 from collections.abc import Iterator
 from itertools import groupby
 
-from reelsmith.models import Overlay, Script, Shot
+from reelsmith.models import Overlay, Script, Shot, shot_seconds
 from reelsmith.styles import Style
 
 # Stems of numerals in Russian and English, cardinal and ordinal.
@@ -52,6 +53,10 @@ _CAMERA = re.compile(
     re.IGNORECASE,
 )
 _CYRILLIC = re.compile(r"[а-яё]", re.IGNORECASE)  # noqa: RUF001
+_VOWELS = re.compile(r"[аеёиоуыэюяaeiouy]", re.IGNORECASE)  # noqa: RUF001
+# Whisper measured the narrator at 5.4 syllables a second; slower lines before a reveal
+# need the margin.
+PACE = 5.0
 _ENUMERATOR = re.compile(r"^\s*\d+\.\s*")
 
 
@@ -64,6 +69,12 @@ def problems(script: Script, style: Style) -> list[str]:
     found: list[str] = []
     if misfit := style.misfit(script):
         found.append(misfit)
+    limit = style.story.seconds[1]
+    if (runs := spoken_seconds(script)) > limit:
+        found.append(
+            f"Read aloud, the episode runs about {runs:.0f} s and must stay under {limit} s. "
+            "Cut whole shots or words until it fits; keep the opening and the last line."
+        )
     early: dict[str, list[int]] = {}
     for i, overlay in unsaid_plates(script):
         early.setdefault(overlay.text, []).append(i + 1)
@@ -111,6 +122,12 @@ def problems(script: Script, style: Style) -> list[str]:
         if _CYRILLIC.search(c.look)
     ]
     return found
+
+
+def spoken_seconds(script: Script) -> float:
+    """How long the episode runs once voiced: its syllables at the narrator's pace, each
+    shot held as the voice stage will hold it."""
+    return sum(shot_seconds(len(_VOWELS.findall(s.line)) / PACE) for s in script.shots)
 
 
 def unsaid_plates(script: Script) -> Iterator[tuple[int, Overlay]]:

@@ -30,13 +30,12 @@ from reelsmith.models import (
     StageError,
     Status,
     Verdict,
+    shot_seconds,
 )
 from reelsmith.pricing import Tariff, metered
 from reelsmith.services.ffmpeg import Caption, Card, Cut, Segment, Word, captions, shift, to_ass
 from reelsmith.styles import Style, Styles
 
-SHOT_PADDING = 0.35  # breath after each line so cuts do not clip the last syllable
-SHOT_MIN, SHOT_MAX = 2.0, 8.0
 STILLS = 4  # per clip for the judge
 
 
@@ -261,7 +260,7 @@ async def voice(job: Job, s: Services) -> None:
             out = files.voice(i, s.narrator.suffix)
             audio = await s.narrator.speak(shot.line, out, delivery=shot.delivery)
         spoken = await s.montage.seconds(audio)
-        shot.seconds = min(max(spoken + SHOT_PADDING, SHOT_MIN), SHOT_MAX)
+        shot.seconds = shot_seconds(spoken)
         job.assets.voices[i] = files.relative(audio)
 
 
