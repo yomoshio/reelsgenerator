@@ -40,8 +40,8 @@ over them. Flat shapes and plain figures are intended.
 
 [captions]
 font = "Montserrat ExtraBold"
-size = 96
-margin_v = 560
+size = 110
+margin_v = 460
 words = 3
 spoken = "FFFFFF"
 upcoming = "8E8E93"

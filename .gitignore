@@ -22,3 +22,5 @@ studio/input/
 studio/user/
 studio/inbox/
 studio/status.txt
+studio/series/*/sfx/
+studio/series/*/bed/

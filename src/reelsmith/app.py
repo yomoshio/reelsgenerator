@@ -29,7 +29,7 @@ from reelsmith.services.comfy import (
     ComfyPainter,
     Workflow,
 )
-from reelsmith.services.ffmpeg import FfmpegMontage, StillAnimator
+from reelsmith.services.ffmpeg import FfmpegMontage, StillAnimator, Word
 from reelsmith.services.ollama import OllamaLlm
 from reelsmith.services.outbox import OutboxPublisher
 from reelsmith.services.voxcpm import VoxNarrator
@@ -150,6 +150,12 @@ async def beat_scripts(
             made.append(await draft(write, library, settings.language, settings.rewrites))
             progress(n, *made[-1])
     return made
+
+
+async def heard(settings: Settings, voice: Path) -> tuple[list[Word], float]:
+    """What whisper hears in a voice file, and how long the file runs."""
+    words = await WhisperTranscriber(settings.whisper_model, settings.language).words(voice)
+    return words, await FfmpegMontage().seconds(voice)
 
 
 async def outlines(settings: Settings, ideas: list[str], style: Style) -> list[Outline]:

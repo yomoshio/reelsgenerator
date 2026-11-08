@@ -8,6 +8,7 @@ from uuid import UUID
 
 import structlog
 import typer
+from pydantic import ValidationError
 
 from reelsmith import app as build
 from reelsmith.beats import BeatScript, read_library
@@ -16,6 +17,7 @@ from reelsmith.models import Job, Metrics, Recipe, StageError, Status
 from reelsmith.remix import ideas_file as remix_file
 from reelsmith.remix import load as load_library
 from reelsmith.remix import remix as make_remix
+from reelsmith.render import render, sheet, starts, timing
 from reelsmith.report import Arm, Report, compare, report
 from reelsmith.series import ideas, outline_markdown, write_serial
 from reelsmith.services.ffmpeg import preview
@@ -314,6 +316,66 @@ def beats(
     passed = sum(1 for _, _, left in made if not left)
     average = sum(r for _, r, _ in made) / len(made)
     typer.echo(f"passed {passed} of {len(made)}, {average:.1f} rewrites on average")
+
+
+def _beat_script(path: Path) -> BeatScript:
+    try:
+        return BeatScript.model_validate_json(path.read_text(encoding="utf-8"))
+    except ValidationError as exc:
+        _fail(f"{path} is not a beat script: {exc.error_count()} errors")
+
+
+@app.command(name="render-beat")
+def render_beat(
+    script: Path,
+    series: Annotated[Path, typer.Option(help="the series folder with library.toml")],
+    beat: Annotated[int, typer.Option(min=1, help="which beat, from 1")] = 1,
+    voice: Annotated[Path | None, typer.Option(help="the narrator saying this beat")] = None,
+    style: Annotated[str, typer.Option(help="style template for the captions")] = "rules-beats",
+    out: Path = Path("beat.mp4"),
+) -> None:
+    """One beat of a beat script as a video, with graphics, captions and sound. With a
+    voice the graphics come up on the words whisper hears; without one the words are timed
+    from their syllables and only the bed and the sounds play."""
+    settings = _settings()
+    _known_style(settings, style)
+    made = _beat_script(script)
+    if beat > len(made.beats):
+        _fail(f"{script} has {len(made.beats)} beats")
+    chosen = made.beats[beat - 1]
+    try:
+        library = read_library(series)
+        heard, seconds = asyncio.run(build.heard(settings, voice)) if voice else ([], 0.0)
+        laid = asyncio.run(
+            render(chosen, library, series, Styles(settings.styles).get(style), out,
+                   voice=voice, heard=heard, voice_seconds=seconds)
+        )  # fmt: skip
+    except StageError as exc:
+        _fail(str(exc))
+    said = [w.text for w in timing(chosen, heard).shown]
+    typer.echo(f"{out}  {laid.seconds:.2f} s")
+    for reveal, at in zip(chosen.reveals, starts(chosen, timing(chosen, heard)), strict=True):
+        typer.echo(f"  {at:6.2f} s  {reveal.kind:<12} on «{reveal.on_word}»  {reveal.text}")
+    if not heard:
+        typer.echo(f"  words timed from syllables: {' '.join(said)[:60]}...")
+
+
+@app.command()
+def storyboard(
+    script: Path,
+    series: Annotated[Path, typer.Option(help="the series folder with library.toml")],
+    out: Path | None = None,
+) -> None:
+    """Every beat of a beat script as it looks at its end, with all its graphics up, on
+    one sheet. Words are timed from syllables; takes seconds and needs no model."""
+    made = _beat_script(script)
+    try:
+        library = read_library(series)
+    except StageError as exc:
+        _fail(str(exc))
+    target = out or script.with_suffix(".jpg")
+    sheet(made, library, series).save(target, quality=85)
+    typer.echo(target)
 
 
 @app.command()
