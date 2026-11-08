@@ -9,6 +9,7 @@ import random
 import re
 from pathlib import Path
 
+from reelsmith.beats import EXAMPLES, BeatScript, Library
 from reelsmith.models import (
     Adaptation,
     Character,
@@ -104,6 +105,33 @@ class SyntheticLlm:
                 Part(title=f"Part {n}", logline=events[end - 1], last=end)
                 for n, end in enumerate(ends, 1)
             ],
+        )
+
+    async def write_beats(
+        self, idea: str, style: Style, library: Library, notes: str | None = None
+    ) -> BeatScript:
+        """The example beats moved into the first place of the library, in turn."""
+        place = next(iter(library.locations))
+        pose = next(iter(library.poses))
+        beats = [
+            EXAMPLES[(n + 1) % len(EXAMPLES)].model_copy(
+                update={"location": place, "pose": pose, "sfx": []}, deep=True
+            )
+            for n in range(9)
+        ]
+        for beat in beats:
+            for reveal in beat.reveals:
+                reveal.target = "" if reveal.kind == "rule_card" else "hero"
+                if reveal.kind in ("prop_stage", "pose"):
+                    reveal.kind = "label"
+        return BeatScript(
+            title=idea.split(".", maxsplit=1)[0][:60],
+            part=1,
+            hook=beats[0].lines[0],
+            hud="ДЕНЬ 1 · 03:00",
+            beats=beats,
+            cliffhanger="КТО ПОД НАМИ?",  # noqa: RUF001
+            music="low drone, slow pulse",
         )
 
     async def plan(self, idea: str, style: Style) -> Outline:

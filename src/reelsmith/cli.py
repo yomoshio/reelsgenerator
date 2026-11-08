@@ -10,6 +10,7 @@ import structlog
 import typer
 
 from reelsmith import app as build
+from reelsmith.beats import BeatScript, read_library
 from reelsmith.books import read_book
 from reelsmith.models import Job, Metrics, Recipe, StageError, Status
 from reelsmith.remix import ideas_file as remix_file
@@ -273,6 +274,46 @@ def remix(
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(remix_file(made, parts, chosen, used), encoding="utf-8")
     typer.echo(f"{target}  ({len(made)} ideas, seed {used})")
+
+
+@app.command()
+def beats(
+    file: Path,
+    series: Annotated[Path, typer.Option(help="the series folder with library.toml")],
+    style: Annotated[str, typer.Option(help="style template for the brief")] = "rules-beats",
+    out: Path | None = None,
+) -> None:
+    """A beat script for every idea in a file, sent back to the writer until the code finds
+    nothing or the rewrites are spent. Nothing is rendered: this shows how well the writer
+    model keeps the beat format. One JSON per idea goes to OUT, by default SERIES/scripts."""
+    settings = _settings()
+    _known_style(settings, style)
+    try:
+        library = read_library(series)
+    except StageError as exc:
+        _fail(str(exc))
+    found = ideas(file.read_text(encoding="utf-8").splitlines())
+    if not found:
+        _fail(f"no ideas in {file}")
+    target = out or series / "scripts"
+    target.mkdir(parents=True, exist_ok=True)
+
+    def done(n: int, script: BeatScript, rewrites: int, left: list[str]) -> None:
+        path = target / f"{file.stem}-{n:02d}.json"
+        path.write_text(script.model_dump_json(indent=1), encoding="utf-8")
+        verdict = "ok" if not left else f"{len(left)} problem(s) left: {' '.join(left)}"
+        typer.echo(f"{path}  rewrites {rewrites}  {verdict}")
+
+    template = Styles(settings.styles).get(style)
+    try:
+        made = asyncio.run(
+            build.beat_scripts(settings, [i for _, _, i in found], template, library, done)
+        )
+    except StageError as exc:
+        _fail(str(exc))
+    passed = sum(1 for _, _, left in made if not left)
+    average = sum(r for _, r, _ in made) / len(made)
+    typer.echo(f"passed {passed} of {len(made)}, {average:.1f} rewrites on average")
 
 
 @app.command()

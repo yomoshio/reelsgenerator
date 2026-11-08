@@ -15,6 +15,7 @@ from typing import Any
 import httpx
 from pydantic import BaseModel, ValidationError
 
+from reelsmith.beats import EXAMPLES, BeatScript, Library
 from reelsmith.books import numbered
 from reelsmith.checks import language_name
 from reelsmith.models import Adaptation, Outline, Retelling, Script, Season, StageError, Verdict
@@ -126,6 +127,19 @@ class OllamaLlm:
         return await self._chat(
             self._writer, self._writer_prompt(style), ask, Script, temperature=self._heat[0]
         )
+
+    async def write_beats(
+        self, idea: str, style: Style, library: Library, notes: str | None = None
+    ) -> BeatScript:
+        ask = idea if notes is None else f"{idea}\n\nRewrite the script. The checks found: {notes}"
+        system = fill(
+            _prompt("beats"),
+            brief=style.story.brief.strip(),
+            language=self._language,
+            library=library.menu(),
+            examples=",\n".join(b.model_dump_json(indent=1) for b in EXAMPLES),
+        )
+        return await self._chat(self._writer, system, ask, BeatScript, temperature=self._heat[0])
 
     async def review(self, script: Script, style: Style, outline: str = "") -> Verdict:
         draft = script.model_dump_json(indent=2)
