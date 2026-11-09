@@ -7,11 +7,14 @@ from typing import Any
 import httpx
 import pytest
 
+from reelsmith.beats import BeatScript, read_library
 from reelsmith.models import Outline, Script, StageError, Verdict
 from reelsmith.services.ollama import OllamaLlm
+from reelsmith.services.synthetic import SyntheticLlm
 from tests.fakes import outline, script, style
 
 LOADED = [{"name": "qwen3.5:27b"}, {"name": "qwen3-vl:8b"}]
+PROTO = Path(__file__).resolve().parent.parent / "studio" / "series" / "proto"
 
 
 def _server(answers: list[object], seen: list[dict[str, Any]]) -> httpx.AsyncClient:
@@ -208,3 +211,27 @@ def test_every_still_of_a_long_cut_fits_the_context_beside_the_prompt(context: i
         assert count * tokens <= context - 4096
     assert OllamaLlm(_server([], []), writer_model="m", judge_model="m", language="ru",
                      context=16384).widest(26) == 512  # fmt: skip
+
+
+async def test_beat_writer_shows_the_library_and_the_example_beats() -> None:
+    library = read_library(PROTO)
+    answer = await SyntheticLlm().write_beats("стук снизу", style(), library)
+    seen: list[dict[str, Any]] = []
+    llm = _llm([answer.model_dump(mode="json")] * 2, seen)
+
+    made = await llm.write_beats("стук снизу", style(), library)
+    await llm.write_beats(
+        "стук снизу", style(), library, notes="The first line of beat 1 is the `hook`."
+    )
+
+    assert made == answer
+    assert seen[0]["format"] == BeatScript.model_json_schema()
+    system = seen[0]["messages"][0]["content"]
+    assert "The viewers speak Russian." in system
+    assert "`riser_room`" in system
+    assert "`hand_on_pipe`" in system
+    assert "Марк не отвечает стуком." in system
+    assert "{" + "library}" not in system
+    assert seen[1]["messages"][1]["content"] == (
+        "стук снизу\n\nRewrite the script. The checks found: The first line of beat 1 is the `hook`."
+    )

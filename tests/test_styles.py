@@ -33,7 +33,7 @@ def test_every_shipped_style_is_valid_and_fits_the_page(name: str) -> None:
 
 
 def test_shipped_styles_are_the_ones_we_expect() -> None:
-    assert Styles(REPO_STYLES).names() == ["noir", "rules-serial", "serial", "twist"]
+    assert Styles(REPO_STYLES).names() == ["noir", "rules-beats", "rules-serial", "serial", "twist"]
 
 
 def test_the_serial_style_offers_the_plates_the_writer_needs() -> None:

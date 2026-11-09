@@ -1,0 +1,51 @@
+about = "Serial survival story in beats over a dark motion infographic, 60 to 95 seconds. Each part ends on a question about the next."
+
+[story]
+seconds = [60, 95]
+words = 14
+brief = """
+You write one part of a serial survival story told as rules. A person is in the middle of
+a crisis in an ordinary place, a block of flats, a stairwell, a kitchen at night, and the
+narrator explains, one rule at a time, what they do to stay alive and why.
+
+Structure of a part:
+1. Open on the danger itself, as a question to the viewer or a threat, with the name of
+   the person it happens to in the next line. One short line of context for someone who
+   missed the earlier parts, never more.
+2. Two to four rules. The narrator says each one aloud in a few words, and the beat that
+   says it brings up its numbered rule card. Each rule has a limit that can be counted:
+   one minute of light, three knocks, forty floors, a guard change at four.
+3. After each rule, a beat or two show it at work in exact numbers: floors, minutes,
+   names, counts. Name people by first name.
+4. Quote speech through the narrator in one short line, "He says: ...", never a dialogue.
+5. The last beat turns the part over: a knock from a floor that is empty, a count that
+   now holds a different name. End on the one line that changes what the viewer thought.
+   Never summarise.
+
+Voice: present tense, third person, plain words, sentences of three to ten words, one fact
+per sentence. Write numbers as words, because the narrator reads them aloud. Do not
+describe fear with adjectives; the dread comes from specifics.
+"""
+
+[look]
+frame = """
+flat vector illustration, simple flat shapes, no texture, dark navy and near-black
+background, one beam or pool of light, empty lower third, vertical 9:16, no people, no
+text, no letters, no numbers, no signs
+"""
+judge = """
+The pictures are dark flat vector scenes with small featureless figures and graphics drawn
+over them. Flat shapes and plain figures are intended.
+"""
+
+[captions]
+font = "Montserrat ExtraBold"
+size = 96
+margin_v = 560
+words = 3
+spoken = "FFFFFF"
+upcoming = "8E8E93"
+accent = "FFD21F"
+outline = "000000"
+outline_px = 7
+karaoke = true

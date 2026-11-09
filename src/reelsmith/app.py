@@ -8,10 +8,12 @@ from dataclasses import dataclass, replace
 from datetime import timedelta
 from functools import partial
 from pathlib import Path
+from typing import Protocol
 
 import httpx
 from psycopg_pool import AsyncConnectionPool
 
+from reelsmith.beats import BeatScript, BeatWriter, Library, draft
 from reelsmith.books import Adapter, make_adaptation
 from reelsmith.conveyor import Conveyor, Gpu, GpuTenant, lanes
 from reelsmith.models import Job, Outline, Recipe, Status
@@ -100,8 +102,12 @@ def ollama_llm(settings: Settings, http: httpx.AsyncClient) -> OllamaLlm:
     )
 
 
+class Desk(Adapter, BeatWriter, Protocol):
+    """Everything the writer model does outside the conveyor."""
+
+
 @asynccontextmanager
-async def planner(settings: Settings) -> AsyncIterator[Adapter]:
+async def planner(settings: Settings) -> AsyncIterator[Desk]:
     """The writer model for work outside the conveyor, or its stand-in."""
     if settings.services == "synthetic":
         yield synthetic.SyntheticLlm()
@@ -126,6 +132,24 @@ async def adaptation(
     """A serial that keeps a finished story's events, at most `most` episodes."""
     async with planner(settings) as llm:
         return await make_adaptation(llm, text, style, most, progress)
+
+
+async def beat_scripts(
+    settings: Settings,
+    ideas: list[str],
+    style: Style,
+    library: Library,
+    progress: Callable[[int, BeatScript, int, list[str]], None] = lambda *_: None,
+) -> list[tuple[BeatScript, int, list[str]]]:
+    """A beat script for each idea, sent back to the writer until the code finds nothing
+    or the rewrites are spent: the script, the rewrites it took and what is left."""
+    made = []
+    async with planner(settings) as llm:
+        for n, idea in enumerate(ideas, 1):
+            write = partial(llm.write_beats, idea, style, library)
+            made.append(await draft(write, library, settings.language, settings.rewrites))
+            progress(n, *made[-1])
+    return made
 
 
 async def outlines(settings: Settings, ideas: list[str], style: Style) -> list[Outline]:

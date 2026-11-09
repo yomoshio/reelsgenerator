@@ -9,6 +9,7 @@ from typer.testing import CliRunner
 
 from reelsmith import app as build
 from reelsmith import cli
+from reelsmith.beats import BeatScript
 from reelsmith.models import Status
 from reelsmith.services import synthetic
 from reelsmith.settings import Settings
@@ -319,6 +320,39 @@ def test_outline_writes_the_models_plan_for_every_idea(
     assert "## 1. станция теряет воздух" in text
     assert "## 2. ночная смена в архиве" in text
     assert "Detail planted early:" in text
+
+
+def test_beats_writes_a_script_per_idea_and_counts_the_rewrites(
+    store: MemoryJobs, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("REELSMITH_SERVICES", "synthetic")
+    monkeypatch.setenv("REELSMITH_REWRITES", "1")
+    file = tmp_path / "proto.txt"
+    file.write_text(
+        "# идеи\nстук снизу в три часа ночи\nсвет гаснет на всех этажах\n", encoding="utf-8"
+    )
+    proto = Path(__file__).resolve().parent.parent / "studio" / "series" / "proto"
+
+    result = runner.invoke(
+        cli.app, ["beats", str(file), "--series", str(proto), "--out", str(tmp_path / "scripts")]
+    )
+
+    assert result.exit_code == 0, result.output
+    made = sorted((tmp_path / "scripts").glob("*.json"))
+    assert [p.name for p in made] == ["proto-01.json", "proto-02.json"]
+    assert BeatScript.model_validate_json(made[0].read_text(encoding="utf-8")).part == 1
+    assert "rewrites 1" in result.output
+    assert result.output.strip().endswith("passed 0 of 2, 1.0 rewrites on average")
+
+
+def test_beats_names_a_series_without_a_library(store: MemoryJobs, tmp_path: Path) -> None:
+    file = tmp_path / "proto.txt"
+    file.write_text("стук снизу\n", encoding="utf-8")
+
+    result = runner.invoke(cli.app, ["beats", str(file), "--series", str(tmp_path)])
+
+    assert result.exit_code == 1
+    assert "no series library at" in result.output
 
 
 @needs_ffmpeg

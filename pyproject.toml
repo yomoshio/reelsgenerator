@@ -38,6 +38,8 @@ ignore = ["PLR2004", "PLR0913"]
 [tool.ruff.lint.per-file-ignores]
 "tests/*" = ["E501", "RUF001"]
 "src/reelsmith/cli.py" = ["PLR0917"]
+# The example beats shown to the writer are Russian.
+"src/reelsmith/beats.py" = ["RUF001"]
 "scripts/make_graphs.py" = ["RUF001"]
 "services/tts/design_voice.py" = ["RUF001"]
 # ComfyUI calls block methods with one keyword per input, and the labels are Russian.

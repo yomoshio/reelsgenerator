@@ -1,0 +1,59 @@
+# Библиотека прототипа: внутренний тест формата битов, не для публикации.
+# Координаты якорей — доли ширины и высоты кадра 1080 x 1920. Сцена занимает полосу
+# 180–1150 px по высоте (y от 0.094 до 0.6), ниже идут субтитры.
+
+[locations.riser_room]
+about = "A small dark room in a block of flats with a riser pipe running floor to ceiling."
+[locations.riser_room.anchors]
+hero = { x = 0.5, y = 0.54, about = "where the hero stands, by the feet" }
+pipe = { x = 0.62, y = 0.36, about = "the riser pipe, middle of its length" }
+door = { x = 0.14, y = 0.42, about = "the flat's front door" }
+floor = { x = 0.3, y = 0.56, about = "the floor, where sound and water come through" }
+
+[locations.stairwell]
+about = "A stairwell landing with a flight going down into darkness and a metal railing."
+[locations.stairwell.anchors]
+hero = { x = 0.42, y = 0.52 }
+railing = { x = 0.7, y = 0.4 }
+stairs_down = { x = 0.66, y = 0.56, about = "the flight down to the floor below" }
+door = { x = 0.18, y = 0.4, about = "a neighbour's door" }
+
+[locations.section]
+about = "A cut through the building showing five floors stacked, the hero's flat lit."
+[locations.section.anchors]
+hero = { x = 0.5, y = 0.36, about = "the hero in the lit flat" }
+floor_above = { x = 0.5, y = 0.22 }
+floor_below = { x = 0.5, y = 0.5 }
+riser = { x = 0.78, y = 0.35, about = "the pipe running through every floor" }
+
+[locations.window]
+about = "A dark kitchen with a window onto the night yard and a table."
+[locations.window.anchors]
+hero = { x = 0.32, y = 0.54 }
+window = { x = 0.64, y = 0.3 }
+table = { x = 0.66, y = 0.52 }
+
+[poses]
+stand = "stands still, facing the viewer"
+listen = "stands with the head tilted to one side, listening"
+knock = "raises a fist to knock"
+look_down = "looks down at the floor"
+walk = "walks to the right"
+sit = "sits on the floor, knees up"
+hold_item = "holds a small object in front of the chest"
+hand_on_pipe = "stands with one hand on the pipe"
+
+[props.pipe]
+about = "The riser pipe in the room."
+stages = ["bare pipe", "one blanket around it", "two blankets", "wrapped and taped"]
+
+[sfx]
+pipe_knock = "a clear knock on a metal pipe"
+pipe_knock_muffled = "a knock on a pipe, muffled through fabric"
+card_pop = "a short soft pop when a card appears"
+cloth_wrap = "fabric rustling as it is wrapped"
+ui_confirm = "a short rising two-tone confirmation"
+ui_tick = "a quiet interface tick"
+stamp_hit = "a heavy stamp hitting paper"
+alarm_beep = "three short alarm beeps"
+glitch = "a short digital glitch burst"
