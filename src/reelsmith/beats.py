@@ -10,6 +10,7 @@ import re
 import tomllib
 from collections.abc import Awaitable, Callable
 from pathlib import Path
+from statistics import median
 from typing import Literal, Protocol, Self
 
 from pydantic import BaseModel, Field, ValidationError, model_validator
@@ -28,6 +29,9 @@ BEAT_SECONDS = (3.5, 11.0)
 EPISODE_SECONDS = (60.0, 95.0)
 LONG_BEAT = 7.0
 LONG_BEATS = 4
+# tools/reference_check.py wants the median scene at most 7.5 s, and a beat holds half a
+# second past its last word.
+MEDIAN_MOST = 7.5 - BETWEEN
 RULES = (2, 4)
 THREAT_BY = 2.0
 _VOWELS = re.compile(r"[аеёиоуыэюяaeiouy]", re.IGNORECASE)
@@ -192,6 +196,7 @@ def problems(script: BeatScript, library: Library, language: str | None = None) 
         *_unknown(script, library),
         *_lengths(script),
         *_long_beats(script),
+        *_median(script),
         *_rules(script),
         *_hook(script),
     ]
@@ -282,6 +287,16 @@ def _lengths(script: BeatScript) -> list[str]:
             f"Read aloud, the episode runs about {total:.0f} s; it must run {low:g} to {high:g} s."
         )
     return found
+
+
+def _median(script: BeatScript) -> list[str]:
+    middle = median(beat_seconds(b) for b in script.beats)
+    if middle <= MEDIAN_MOST:
+        return []
+    return [
+        f"Half the beats run longer than {middle:.1f} s; the median beat runs at most "
+        f"{MEDIAN_MOST:g} s. Split a long beat in two, keeping two or more long ones."
+    ]
 
 
 def _long_beats(script: BeatScript) -> list[str]:

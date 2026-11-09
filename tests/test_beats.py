@@ -297,3 +297,15 @@ async def test_draft_keeps_the_draft_with_the_fewest_problems_when_rewrites_run_
 def test_an_empty_library_is_refused() -> None:
     with pytest.raises(ValidationError):
         Library(locations={}, poses={})
+
+
+def test_a_script_whose_median_beat_would_fail_the_reference_check_goes_back() -> None:
+    script = good()
+    script.beats[4:] = [beat(7.5) for _ in range(6)]
+
+    found = [p for p in problems(script, LIBRARY, "ru") if p.startswith("Half the beats")]
+
+    assert found == [
+        "Half the beats run longer than 7.5 s; the median beat runs at most 7 s. "
+        "Split a long beat in two, keeping two or more long ones."
+    ]

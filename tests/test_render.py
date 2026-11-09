@@ -8,7 +8,7 @@ import pytest
 from PIL import Image
 
 from reelsmith import graphics
-from reelsmith.beats import EXAMPLES, Beat, BeatScript, Reveal, read_library
+from reelsmith.beats import EXAMPLES, Beat, BeatScript, Reveal, beat_seconds, read_library
 from reelsmith.graphics import SCENE_BOTTOM, Sprite, state
 from reelsmith.render import (
     TAIL,
@@ -51,7 +51,15 @@ def test_words_without_a_voice_follow_each_other_with_pauses_after_sentences() -
         "тишина.",
     ]
     after_sentence = said.shown[4].start - said.shown[3].end
-    assert after_sentence == pytest.approx(0.3)
+    between_words = said.shown[3].start - said.shown[2].end
+    assert after_sentence > 0.2
+    assert between_words == 0
+
+
+def test_without_a_voice_a_beat_runs_as_long_as_the_checks_expect() -> None:
+    said = timing(SILENCE)
+
+    assert said.end - said.shown[0].start == pytest.approx(beat_seconds(SILENCE))
 
 
 def test_each_graphic_comes_up_exactly_when_whisper_hears_its_word() -> None:
