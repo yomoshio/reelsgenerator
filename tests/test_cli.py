@@ -270,6 +270,25 @@ def test_series_writes_a_bible_and_an_ideas_file(
     )
 
 
+def test_adapt_turns_a_book_into_episodes_in_its_style_and_refuses_other_formats(
+    store: MemoryJobs, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("REELSMITH_SERVICES", "synthetic")
+    book = tmp_path / "paw.txt"
+    book.write_text("Уайт загадывает деньги. Сын погибает. Ночью стучат.", encoding="utf-8")
+    (tmp_path / "paw.pdf").write_bytes(b"%PDF")
+    out = tmp_path / "out"
+
+    result = runner.invoke(cli.app, ["adapt", str(book), "--style", "twist", "--out", str(out)])
+    refused = runner.invoke(cli.app, ["adapt", str(tmp_path / "paw.pdf"), "--out", str(out)])
+
+    assert result.exit_code == 0, result.output
+    found = cli.ideas((out / "paw.txt").read_text(encoding="utf-8").splitlines())
+    assert [style for _, style, _ in found] == ["twist", "twist"]
+    assert refused.exit_code != 0
+    assert "fb2" in refused.output
+
+
 def test_remix_writes_ideas_for_a_theme(
     store: MemoryJobs, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

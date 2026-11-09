@@ -9,6 +9,14 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
+SHOT_PADDING = 0.35  # breath after each line so cuts do not clip the last syllable
+SHOT_MIN, SHOT_MAX = 2.0, 8.0
+
+
+def shot_seconds(spoken: float) -> float:
+    """How long a shot is held for a line that takes `spoken` seconds to say."""
+    return min(max(spoken + SHOT_PADDING, SHOT_MIN), SHOT_MAX)
+
 
 class Status(enum.StrEnum):
     NEW = "new"
@@ -141,6 +149,27 @@ class Season(BaseModel):
     world: str
     characters: list[Character] = Field(min_length=1, max_length=6)
     episodes: list[EpisodeIdea] = Field(min_length=1, max_length=30)
+
+
+class Retelling(BaseModel):
+    """A passage of a book as the events that happen in it."""
+
+    events: list[str] = Field(min_length=1, description="Every event of the passage, in order.")
+
+
+class Part(BaseModel):
+    title: str
+    logline: str = Field(description="What happens in the episode and where it stops.")
+    last: int = Field(ge=1, description="The number of the last event this episode retells.")
+
+
+class Adaptation(BaseModel):
+    """A finished story split into episodes where it turns, before they are outlined."""
+
+    title: str
+    world: str
+    characters: list[Character] = Field(min_length=1, max_length=6)
+    parts: list[Part] = Field(min_length=1, max_length=30)
 
 
 class Verdict(BaseModel):

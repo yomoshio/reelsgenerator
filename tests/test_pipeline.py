@@ -421,6 +421,7 @@ async def test_assemble_renders_and_passes_qa(tmp_path: Path) -> None:
     kind, stills = llm.log[-1]
     assert (kind, len(stills)) == ("judge", 3)
     assert montage.moments == [2.0, 6.0, 10.0]
+    assert montage.widths == [333]
     assert _stages(made) == ["qa"]
 
 
@@ -546,6 +547,17 @@ async def test_write_rejects_a_script_outside_the_styles_shot_range(tmp_path: Pa
         "The script has 12 shots; this channel needs 3 to 10. tighten the hook",
         "The script has 11 shots; this channel needs 3 to 10. tighten the hook",
     ]
+
+
+async def test_write_sends_back_a_script_in_another_language(tmp_path: Path) -> None:
+    llm = FakeLlm(scores=[9.0])
+    made = job()
+
+    await write(made, replace(services(tmp_path, llm=llm), language="ru"))
+
+    assert len(llm.written) == 3
+    assert made.critique is not None
+    assert made.critique.notes.startswith("Not in Russian: the title and shots 1, 2, 3.")
 
 
 async def test_assemble_leaves_a_copy_of_the_cut_in_the_showcase(tmp_path: Path) -> None:

@@ -12,7 +12,7 @@ that is already split into beats.
 
 Rules for the fields:
 
-- `title`: a few words.
+- `title`: a few words, in {language}.
 - `characters`: at most three people, four if a crowd matters. Each `look`, in English
   because the image model reads English: age, build, a face with one feature that sets
   them apart, hair, clothes in one signature colour, and one item they always carry. The

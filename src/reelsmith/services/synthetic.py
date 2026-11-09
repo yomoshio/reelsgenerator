@@ -6,14 +6,17 @@ real: colour clips and tones made with ffmpeg, so the assembly runs on real file
 import hashlib
 import json
 import random
+import re
 from pathlib import Path
 
 from reelsmith.models import (
+    Adaptation,
     Character,
     EpisodeIdea,
     Metrics,
     Outline,
     Overlay,
+    Part,
     Script,
     Season,
     Shot,
@@ -85,6 +88,24 @@ class SyntheticLlm:
             ],
         )
 
+    async def retell(self, passage: str) -> list[str]:
+        """Each sentence of the passage is an event."""
+        return [s for s in re.split(r"(?<=[.!?])\s+", " ".join(passage.split())) if s]
+
+    async def adapt(self, events: list[str], style: Style, most: int) -> Adaptation:
+        """Two episodes split in the middle when the story is long enough, one otherwise."""
+        count = 2 if most > 1 and len(events) > 1 else 1
+        ends = [len(events) * (n + 1) // count for n in range(count)]
+        return Adaptation(
+            title=" ".join(events[0].split()[:3]),
+            world=events[0],
+            characters=[Character(name="Vera", look="nurse, 30s, tired eyes, grey cardigan")],
+            parts=[
+                Part(title=f"Part {n}", logline=events[end - 1], last=end)
+                for n, end in enumerate(ends, 1)
+            ],
+        )
+
     async def plan(self, idea: str, style: Style) -> Outline:
         return Outline(
             title=idea.split(".", maxsplit=1)[0][:60],
@@ -130,6 +151,9 @@ class SyntheticLlm:
         if rng(motion, _fingerprint(stills)).random() < self.flag:
             return Verdict(score=4.0, notes="motion smear on the subject")
         return Verdict(score=8.0)
+
+    def widest(self, count: int) -> int:
+        return 4096
 
     async def judge(self, script: Script, stills: list[Path], style: Style) -> Verdict:
         r = rng(script.title, _fingerprint(stills))

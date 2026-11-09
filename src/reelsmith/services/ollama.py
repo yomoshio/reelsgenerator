@@ -6,6 +6,7 @@ one that takes pictures."""
 
 import asyncio
 import base64
+import math
 from collections.abc import Sequence
 from importlib import resources
 from pathlib import Path
@@ -14,8 +15,14 @@ from typing import Any
 import httpx
 from pydantic import BaseModel, ValidationError
 
-from reelsmith.models import Outline, Script, Season, StageError, Verdict
+from reelsmith.books import numbered
+from reelsmith.checks import language_name
+from reelsmith.models import Adaptation, Outline, Retelling, Script, Season, StageError, Verdict
 from reelsmith.styles import Style
+
+PATCH = 32  # a Qwen-VL image token covers 32 x 32 pixels; other judges spend fewer
+SPARE = 4096  # tokens kept beside the images for the prompt and the answer
+NARROWEST = 256
 
 
 def _prompt(name: str) -> str:
@@ -60,9 +67,19 @@ class OllamaLlm:
         self._writer = writer_model
         self._judge = judge_model
         self._keep_alive = keep_alive
-        self._language = language
+        self._language = language_name(language)
         self._heat = (writer_temperature, critic_temperature, judge_temperature)
         self._context = context
+
+    def widest(self, count: int) -> int:
+        """The widest 9:16 still of which `count` fit the context beside the prompt. The
+        judge sees every shot of the cut at once, and Ollama refuses a request longer than
+        the context: 26 stills 720 wide take 23,000 tokens."""
+        per_image = max(self._context - SPARE, 0) / max(count, 1)
+        side = math.isqrt(int(per_image * 9 / 16))
+        while side > 1 and side * math.ceil(side * 16 / 9) > per_image:
+            side -= 1
+        return max(side * PATCH, NARROWEST)
 
     async def plan(self, idea: str, style: Style) -> Outline:
         story = style.story
@@ -85,6 +102,24 @@ class OllamaLlm:
             language=self._language,
         )
         return await self._chat(self._writer, system, synopsis, Season, temperature=self._heat[0])
+
+    async def retell(self, passage: str) -> list[str]:
+        system = fill(_prompt("retell"), language=self._language)
+        told = await self._chat(self._writer, system, passage, Retelling, temperature=self._heat[1])
+        return told.events
+
+    async def adapt(self, events: list[str], style: Style, most: int) -> Adaptation:
+        story = style.story
+        system = fill(
+            _prompt("adapt"),
+            brief=story.brief.strip(),
+            seconds=f"{story.seconds[0]} to {story.seconds[1]}",
+            most=most,
+            language=self._language,
+        )
+        return await self._chat(
+            self._writer, system, numbered(events), Adaptation, temperature=self._heat[0]
+        )
 
     async def write(self, idea: str, style: Style, notes: str | None = None) -> Script:
         ask = idea if notes is None else f"{idea}\n\nRewrite the script. The critic said: {notes}"

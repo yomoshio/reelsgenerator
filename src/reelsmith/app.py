@@ -1,5 +1,6 @@
 """Builds the services from settings and wires the conveyor. The demo lives here too."""
 
+import asyncio
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable, Collection
 from contextlib import AsyncExitStack, asynccontextmanager
@@ -11,12 +12,13 @@ from pathlib import Path
 import httpx
 from psycopg_pool import AsyncConnectionPool
 
-from reelsmith.conveyor import Conveyor, Gpu, GpuTenant
+from reelsmith.books import Adapter, make_adaptation
+from reelsmith.conveyor import Conveyor, Gpu, GpuTenant, lanes
 from reelsmith.models import Job, Outline, Recipe, Status
 from reelsmith.pipeline import STAGES, Animator, Painter, Services, Stage
 from reelsmith.pricing import DEFAULT, Tariff
 from reelsmith.report import Arm, Report, compare, report
-from reelsmith.series import Planner, Serial, make_serial
+from reelsmith.series import Serial, make_serial
 from reelsmith.services import synthetic
 from reelsmith.services.comfy import (
     ComfyAnimator,
@@ -52,17 +54,28 @@ DEMO_FLAG, DEMO_REJECT = 0.2, 0.15
 
 @dataclass(frozen=True)
 class App:
+    """`conveyor` takes the studio's requests; `beside` are lanes that run at the same time
+    on a shared card and only check for a pause."""
+
     jobs: Store
     conveyor: Conveyor
     studio: Studio | None = None
+    beside: tuple[Conveyor, ...] = ()
 
     async def run(self, idle_seconds: float, *, once: bool = False) -> None:
         between = self.studio.sync if self.studio else None
         if not once:
-            await self.conveyor.run_forever(idle_seconds, before_turn=between)
+            beside = (lane.run_forever(idle_seconds, self._working) for lane in self.beside)
+            await asyncio.gather(
+                self.conveyor.run_forever(idle_seconds, before_turn=between), *beside
+            )
             return
         if between is None or await between():
-            await self.conveyor.turn()
+            for conveyor in (self.conveyor, *self.beside):
+                await conveyor.turn()
+
+    async def _working(self) -> bool:
+        return self.studio is None or not self.studio.paused
 
 
 @asynccontextmanager
@@ -83,11 +96,12 @@ def ollama_llm(settings: Settings, http: httpx.AsyncClient) -> OllamaLlm:
         critic_temperature=settings.critic_temperature,
         judge_temperature=settings.judge_temperature,
         context=settings.llm_context,
+        keep_alive="24h" if settings.gpu_shared else "15m",
     )
 
 
 @asynccontextmanager
-async def planner(settings: Settings) -> AsyncIterator[Planner]:
+async def planner(settings: Settings) -> AsyncIterator[Adapter]:
     """The writer model for work outside the conveyor, or its stand-in."""
     if settings.services == "synthetic":
         yield synthetic.SyntheticLlm()
@@ -100,6 +114,18 @@ async def serial(settings: Settings, synopsis: str, style: Style, episodes: int)
     """A season from a synopsis, on the real writer model or on the stand-in."""
     async with planner(settings) as llm:
         return await make_serial(llm, synopsis, style, episodes)
+
+
+async def adaptation(
+    settings: Settings,
+    text: str,
+    style: Style,
+    most: int,
+    progress: Callable[[str], None] = lambda _: None,
+) -> Serial:
+    """A serial that keeps a finished story's events, at most `most` episodes."""
+    async with planner(settings) as llm:
+        return await make_adaptation(llm, text, style, most, progress)
 
 
 async def outlines(settings: Settings, ideas: list[str], style: Style) -> list[Outline]:
@@ -173,6 +199,7 @@ def local_services(
         media=settings.media_root,
         styles=Styles(settings.styles),
         gates=settings.gates(),
+        language=settings.language,
         showcase=settings.studio / "output" / "reelsmith" / "videos"
         if settings.studio.is_dir()
         else None,
@@ -236,16 +263,21 @@ async def application(
         services, tenants = await services_for(settings, stack)
         if stage_names is None:
             services.check(settings.recipe())
-        gpu = Gpu(tenants)
-        conveyor = Conveyor(
-            stages_for(services, stage_names),
-            jobs,
-            services,
-            gpu,
-            batch_size=settings.batch_size,
-            max_attempts=settings.max_attempts,
-        )
-        yield App(jobs, conveyor, studio_for(settings, jobs, services, gpu))
+        stages = stages_for(services, stage_names)
+        split = lanes(stages, tenants) if settings.gpu_shared else [(stages, Gpu(tenants))]
+        main, *beside = [
+            Conveyor(
+                chosen,
+                jobs,
+                services,
+                gpu,
+                batch_size=settings.batch_size,
+                max_attempts=settings.max_attempts,
+            )
+            for chosen, gpu in split
+        ]
+        studio = studio_for(settings, jobs, services, split[0][1])
+        yield App(jobs, main, studio, tuple(beside))
 
 
 async def services_for(
@@ -355,6 +387,9 @@ def studio_for(settings: Settings, jobs: Store, services: Services, gpu: Gpu) ->
     async def series(synopsis: str, style: Style, episodes: int) -> Serial:
         return await serial(settings, synopsis, style, episodes)
 
+    async def book(text: str, style: Style, most: int) -> Serial:
+        return await adaptation(settings, text, style, most)
+
     return Studio(
         settings.studio,
         jobs,
@@ -362,6 +397,7 @@ def studio_for(settings: Settings, jobs: Store, services: Services, gpu: Gpu) ->
         styles=services.styles,
         make_serial=series,
         before_llm=lambda: gpu.use("llm"),
+        make_book=book,
     )
 
 

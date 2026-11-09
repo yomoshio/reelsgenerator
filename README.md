@@ -74,9 +74,10 @@ make approve ID=<id>          # готовый ролик в outbox/
 Нужны Python 3.12 и ffmpeg, видеокарта не нужна.
 
 ```
-python3.12 -m venv .venv && . .venv/bin/activate && pip install -e ".[dev]"
+python3.12 -m venv .venv && . .venv/bin/activate && pip install -e ".[dev,check]"
 make test lint
 make demo           # весь конвейер на заглушках
 ```
 
-Код в `src/reelsmith/`, сервис голоса в `services/tts/`, скрипты в `scripts/`.
+Код в `src/reelsmith/`, сервис голоса в `services/tts/`, скрипты в `scripts/`, сверка с
+эталоном в `tools/reference_check.py`.

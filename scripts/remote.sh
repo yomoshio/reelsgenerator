@@ -4,6 +4,7 @@
 #   scripts/remote.sh add "идея" [--style rules-serial]   поставить идею
 #   scripts/remote.sh ideas [studio/series/flood.txt]   поставить новые строки файла идей
 #   scripts/remote.sh series studio/stories/x.txt [--episodes 10]   сезон из синопсиса в studio/series/
+#   scripts/remote.sh adapt studio/input/x.fb2 [--episodes 5] [--style twist]   рассказ или книга в серию
 #   scripts/remote.sh jobs [--status assembled]          все задачи с id и статусом
 #   scripts/remote.sh status | report | styles           счётчики, деньги, стили
 #   scripts/remote.sh review ID                          скачать собранный ролик в review/ID.mp4
@@ -16,7 +17,9 @@
 #   scripts/remote.sh smoke                              по одному вызову каждой модели: проверка машины
 #   scripts/remote.sh push | deploy                      залить код; deploy ещё пересобирает и перезапускает
 #   scripts/remote.sh restart                            перезапустить воркер, например после правки стиля
-#   scripts/remote.sh pull                               забрать готовые ролики и голоса
+#   scripts/remote.sh pull                               забрать ролики, планы серий и голоса
+#   scripts/remote.sh autostop [--dry-run]               удалить сервер, когда очередь кончится или
+#                                                        баланса останется меньше чем на час
 #   scripts/remote.sh restore                            отправить голоса и .env на новый сервер
 #   scripts/remote.sh backup                             снять копию базы задач в backups/
 #   scripts/remote.sh check                              какие файлы кода отличаются здесь и там
@@ -69,6 +72,14 @@ case $command in
         on_server "chmod -R a+rwX studio && docker compose run --rm --no-deps -T worker series /data/$file $(printf '%q ' "$@")"
         mkdir -p studio/series
         "${RSYNC[@]}" "$REMOTE_HOST:$REMOTE_DIR/studio/series/" studio/series/ ;;
+    adapt)
+        file=${1:?usage: adapt studio/input/NAME.fb2 [--episodes N] [--style twist]}
+        shift
+        "${SSH[@]}" -n "$REMOTE_HOST" "mkdir -p $REMOTE_DIR/$(dirname "$file") $REMOTE_DIR/studio/series"
+        "${RSYNC[@]}" "$file" "$REMOTE_HOST:$REMOTE_DIR/$file"
+        on_server "chmod -R a+rwX studio && docker compose run --rm --no-deps -T worker adapt /data/$file $(printf '%q ' "$@")"
+        mkdir -p studio/series
+        "${RSYNC[@]}" "$REMOTE_HOST:$REMOTE_DIR/studio/series/" studio/series/ ;;
     logs) on_server "docker compose logs -f --tail 50 worker" ;;
     pause) on_server "docker compose stop worker" ;;
     resume) on_server "docker compose start worker" ;;
@@ -84,18 +95,37 @@ case $command in
         "${RSYNC[@]}" --delete "${CODE_ONLY[@]}" ./ "$REMOTE_HOST:$REMOTE_DIR/"
         on_server "docker compose build worker tts && docker compose up -d" ;;
     pull)
+        mkdir -p studio/output/reelsmith/videos studio/series
+        "${SSH[@]}" -n "$REMOTE_HOST" "mkdir -p $REMOTE_DIR/studio/output/reelsmith/videos $REMOTE_DIR/studio/series"
         "${RSYNC[@]}" "$REMOTE_HOST:$REMOTE_DIR/outbox/" outbox/
-        "${RSYNC[@]}" "$REMOTE_HOST:$REMOTE_DIR/voices/" voices/ ;;
+        "${RSYNC[@]}" "$REMOTE_HOST:$REMOTE_DIR/voices/" voices/
+        "${RSYNC[@]}" "$REMOTE_HOST:$REMOTE_DIR/studio/output/reelsmith/videos/" studio/output/reelsmith/videos/
+        "${RSYNC[@]}" "$REMOTE_HOST:$REMOTE_DIR/studio/series/" studio/series/
+        mkdir -p backups/media
+        "${RSYNC[@]}" "$REMOTE_HOST:$(on_server "docker volume inspect -f '{{.Mountpoint}}' reelsmith_media")/" backups/media/ ;;
     restore)
         "${SSH[@]}" "$REMOTE_HOST" "mkdir -p $REMOTE_DIR/voices"
         "${RSYNC[@]}" voices/ "$REMOTE_HOST:$REMOTE_DIR/voices/"
         "${RSYNC[@]}" .env "$REMOTE_HOST:$REMOTE_DIR/.env"
-        on_server "chmod a+rwx voices" ;;
+        on_server "chmod a+rwx voices"
+        if [ -d backups/media ] && [ -n "$(ls -A backups/media)" ]; then
+            media=$(on_server "docker volume inspect -f '{{.Mountpoint}}' reelsmith_media 2>/dev/null || true")
+            if [ -n "$media" ]; then
+                "${RSYNC[@]}" backups/media/ "$REMOTE_HOST:$media/"
+                on_server "chown -R 1000:1000 $media"
+            else
+                echo "файлы задач из backups/media вернутся, если повторить restore после make up"
+            fi
+        fi ;;
     backup)
         mkdir -p backups
         file="backups/jobs-$(date +%Y%m%d-%H%M).sql.gz"
         on_server "docker compose exec -T db pg_dump -U reelsmith reelsmith" | gzip > "$file"
         echo "$file" ;;
+    autostop)
+        mkdir -p logs
+        setsid nohup python3 scripts/autostop.py "$@" >> logs/autostop.log 2>&1 < /dev/null &
+        echo "следит в фоне, pid $!; ход в logs/autostop.log; остановить: pkill -f scripts/autostop.py" ;;
     restart) on_server "docker compose restart worker" ;;
     check)
         "${RSYNC[@]}" -rcn --delete --itemize-changes "${CODE_ONLY[@]}" ./ "$REMOTE_HOST:$REMOTE_DIR/" \

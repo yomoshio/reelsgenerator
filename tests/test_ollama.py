@@ -1,5 +1,6 @@
 import base64
 import json
+import math
 from pathlib import Path
 from typing import Any
 
@@ -44,7 +45,8 @@ async def test_writer_sends_the_brief_and_parses_the_script() -> None:
     assert call["format"] == Script.model_json_schema()
     assert call["think"] is False
     assert call["messages"][0]["role"] == "system"
-    assert "in ru" in call["messages"][0]["content"]
+    assert "The viewers speak Russian." in call["messages"][0]["content"]
+    assert "in ru" not in call["messages"][0]["content"]
     assert call["messages"][1] == {"role": "user", "content": "зомби в метро"}
 
 
@@ -188,7 +190,21 @@ async def test_critic_and_judge_prompts_take_their_lines_from_the_style(tmp_path
     await llm.inspect("push in", [still], style())
 
     assert "Is it brief?" in seen[0]["messages"][0]["content"]
-    assert "written in ru on purpose" in seen[0]["messages"][0]["content"]
+    assert "written in Russian on purpose" in seen[0]["messages"][0]["content"]
     assert "judge the script on its own" in seen[0]["messages"][0]["content"]
     assert "rule, tag" in seen[0]["messages"][0]["content"]
     assert "JUDGE" in seen[1]["messages"][0]["content"]
+
+
+@pytest.mark.parametrize("context", [12288, 16384, 32768])
+def test_every_still_of_a_long_cut_fits_the_context_beside_the_prompt(context: int) -> None:
+    llm = OllamaLlm(
+        _server([], []), writer_model="m", judge_model="m", language="ru", context=context
+    )
+
+    for count in range(1, 31):
+        width = llm.widest(count)
+        tokens = math.ceil(width / 32) * math.ceil(width * 16 / 9 / 32)
+        assert count * tokens <= context - 4096
+    assert OllamaLlm(_server([], []), writer_model="m", judge_model="m", language="ru",
+                     context=16384).widest(26) == 512  # fmt: skip

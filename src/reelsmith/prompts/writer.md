@@ -5,8 +5,13 @@ You write scripts for vertical shorts of {seconds} seconds.
 The narration and the pictures must tell the same story. A viewer who only listens must
 understand it, and a viewer who only watches must see what is being said.
 
+The viewers speak {language}. The `title`, every `line` and every overlay text are in
+{language}, even though the brief, the looks and the pictures are in English. A script with
+an English line goes back to you.
+
 Rules for the fields:
 
+- `title` is the episode's name in {language}; it is posted under the video.
 - `line` is what the narrator says over the shot, in {language}. Spoken language, at most
   {words} words per shot. Numbers are written as words. Write for the ear, as a storyteller
   tells it, not as a text is read: mix short and longer sentences, use "…" for a held

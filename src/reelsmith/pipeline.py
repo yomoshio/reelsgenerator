@@ -30,13 +30,12 @@ from reelsmith.models import (
     StageError,
     Status,
     Verdict,
+    shot_seconds,
 )
 from reelsmith.pricing import Tariff, metered
 from reelsmith.services.ffmpeg import Caption, Card, Cut, Segment, Word, captions, shift, to_ass
 from reelsmith.styles import Style, Styles
 
-SHOT_PADDING = 0.35  # breath after each line so cuts do not clip the last syllable
-SHOT_MIN, SHOT_MAX = 2.0, 8.0
 STILLS = 4  # per clip for the judge
 
 
@@ -66,6 +65,10 @@ class Llm(Protocol):
     async def inspect(self, motion: str, stills: list[Path], style: Style) -> Verdict: ...
 
     async def judge(self, script: Script, stills: list[Path], style: Style) -> Verdict: ...
+
+    def widest(self, count: int) -> int:
+        """The widest still of which `count` fit in one request."""
+        ...
 
 
 class Painter(Protocol):
@@ -112,7 +115,9 @@ class Montage(Protocol):
 
     async def stills(self, video: Path, count: int, out_dir: Path) -> list[Path]: ...
 
-    async def stills_at(self, video: Path, times: list[float], out_dir: Path) -> list[Path]: ...
+    async def stills_at(
+        self, video: Path, times: list[float], out_dir: Path, *, widest: int
+    ) -> list[Path]: ...
 
     async def render(self, cut: Cut, out: Path) -> Path: ...
 
@@ -143,6 +148,7 @@ class Services:
     analytics: Analytics | None = None
     gates: Gates = Gates()
     showcase: Path | None = None  # a copy of every cut lands here, e.g. ComfyUI's output
+    language: str | None = None  # scripts in another language go back to the writer
 
     def painter(self, name: str) -> Painter:
         return _named(self.painters, name, "image")
@@ -237,7 +243,7 @@ async def write(job: Job, s: Services) -> None:
             script = await s.llm.write(brief, style, notes)
         with metered(job, s.tariff, stage="critic", provider=s.llm.name):
             verdict = await s.llm.review(script, style, brief)
-        if found := problems(script, style):
+        if found := problems(script, style, s.language):
             verdict = Verdict(
                 score=min(verdict.score, s.gates.script_pass - 1),
                 notes=" ".join([*found[:6], verdict.notes]),
@@ -261,7 +267,7 @@ async def voice(job: Job, s: Services) -> None:
             out = files.voice(i, s.narrator.suffix)
             audio = await s.narrator.speak(shot.line, out, delivery=shot.delivery)
         spoken = await s.montage.seconds(audio)
-        shot.seconds = min(max(spoken + SHOT_PADDING, SHOT_MIN), SHOT_MAX)
+        shot.seconds = shot_seconds(spoken)
         job.assets.voices[i] = files.relative(audio)
 
 
@@ -448,7 +454,9 @@ async def assemble(job: Job, s: Services) -> None:
         await asyncio.to_thread(shutil.copyfile, final, s.showcase / showcase_name(job))
 
     middles = [start + shot.seconds / 2 for start, shot in zip(starts, script.shots, strict=True)]
-    stills = await s.montage.stills_at(final, middles, files.stills(None))
+    stills = await s.montage.stills_at(
+        final, middles, files.stills(None), widest=s.llm.widest(len(middles))
+    )
     with metered(job, s.tariff, stage="qa", provider=s.llm.name):
         verdict = await s.llm.judge(script, stills, style)
     verdict.bad_shots = [i for i in verdict.bad_shots if 0 <= i < len(script.shots)]

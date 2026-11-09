@@ -1,7 +1,8 @@
-"""Mistakes in a script that a program can see without asking a model: plates showing words
-the narrator has not said yet, people named in a line but missing from the frame, too many
-shots of empty rooms in a row, camera moves that make the video model invent what lies
-outside the picture, and looks the image model cannot read.
+"""Mistakes in a script that a program can see without asking a model: an episode that
+would run longer than the channel allows, plates showing words the narrator has not said
+yet, people named in a line but missing from the frame, too many shots of empty rooms in a
+row, camera moves that make the video model invent what lies outside the picture, and
+looks the image model cannot read.
 
 Words are compared by their first letters, so «рация» on a plate matches «рацией» in a line.
 The comparison errs toward letting a plate through."""
@@ -10,7 +11,7 @@ import re
 from collections.abc import Iterator
 from itertools import groupby
 
-from reelsmith.models import Overlay, Script, Shot
+from reelsmith.models import Overlay, Script, Shot, shot_seconds
 from reelsmith.styles import Style
 
 # Stems of numerals in Russian and English, cardinal and ordinal.
@@ -52,18 +53,69 @@ _CAMERA = re.compile(
     re.IGNORECASE,
 )
 _CYRILLIC = re.compile(r"[а-яё]", re.IGNORECASE)  # noqa: RUF001
+# The name a model understands and the letters each language of the channel is written in.
+LANGUAGES: dict[str, tuple[str, str]] = {
+    "ru": ("Russian", "а-яё"),  # noqa: RUF001
+    "uk": ("Ukrainian", "а-щьюяєіїґ"),  # noqa: RUF001
+    "be": ("Belarusian", "а-яёіў"),  # noqa: RUF001
+    "en": ("English", "a-z"),
+}
+_WORD = re.compile(r"[^\W\d_]+")
+_VOWELS = re.compile(r"[аеёиоуыэюяaeiouy]", re.IGNORECASE)  # noqa: RUF001
+# Whisper measured the narrator at 5.4 syllables a second; slower lines before a reveal
+# need the margin.
+PACE = 5.0
 _ENUMERATOR = re.compile(r"^\s*\d+\.\s*")
+
+
+def _in_another_language(script: Script, language: str) -> str:
+    shots = [
+        i + 1
+        for i, shot in enumerate(script.shots)
+        if any(foreign(text, language) for text in [shot.line, *(o.text for o in shot.overlays)])
+    ]
+    where = [f"shots {_list(shots)}"] if shots else []
+    if foreign(script.title, language):
+        where.insert(0, "the title")
+    return " and ".join(where)
 
 
 def bare(word: str) -> str:
     return re.sub(r"\W", "", word.lower().replace("ё", "е"))  # noqa: RUF001
 
 
-def problems(script: Script, style: Style) -> list[str]:
+def language_name(code: str) -> str:
+    return LANGUAGES.get(code, (code, ""))[0]
+
+
+def foreign(text: str, language: str) -> bool:
+    """Most words of `text` are spelled outside the language's letters. A language not in
+    LANGUAGES is never foreign."""
+    letters = LANGUAGES.get(language, ("", ""))[1]
+    if not letters:
+        return False
+    own = re.compile(f"[{letters}]", re.IGNORECASE)
+    words = _WORD.findall(text)
+    return 2 * sum(1 for w in words if not own.search(w)) > len(words)
+
+
+def problems(script: Script, style: Style, language: str | None = None) -> list[str]:
     """Each kind of problem as one instruction to the writer. Shots are counted from 1."""
     found: list[str] = []
+    if language and (wrong := _in_another_language(script, language)):
+        name = language_name(language)
+        found.append(
+            f"Not in {name}: {wrong}. The title, every line and every plate are in {name}; "
+            "only picture, motion, delivery, looks and music stay in English."
+        )
     if misfit := style.misfit(script):
         found.append(misfit)
+    limit = style.story.seconds[1]
+    if (runs := spoken_seconds(script)) > limit:
+        found.append(
+            f"Read aloud, the episode runs about {runs:.0f} s and must stay under {limit} s. "
+            "Cut whole shots or words until it fits; keep the opening and the last line."
+        )
     early: dict[str, list[int]] = {}
     for i, overlay in unsaid_plates(script):
         early.setdefault(overlay.text, []).append(i + 1)
@@ -111,6 +163,12 @@ def problems(script: Script, style: Style) -> list[str]:
         if _CYRILLIC.search(c.look)
     ]
     return found
+
+
+def spoken_seconds(script: Script) -> float:
+    """How long the episode runs once voiced: its syllables at the narrator's pace, each
+    shot held as the voice stage will hold it."""
+    return sum(shot_seconds(len(_VOWELS.findall(s.line)) / PACE) for s in script.shots)
 
 
 def unsaid_plates(script: Script) -> Iterator[tuple[int, Overlay]]:

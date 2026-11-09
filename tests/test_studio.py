@@ -7,6 +7,7 @@ from pathlib import Path
 import pytest
 
 from reelsmith.app import stages_for, synthetic_services
+from reelsmith.books import make_adaptation
 from reelsmith.conveyor import Conveyor, Gpu
 from reelsmith.models import Job, Recipe, Status
 from reelsmith.pipeline import showcase_name
@@ -23,6 +24,9 @@ def _studio(folder: Path, store: MemoryJobs, calls: list[str]) -> Studio:
     async def series(synopsis: str, style: Style, episodes: int):  # type: ignore[no-untyped-def]
         return await make_serial(SyntheticLlm(), synopsis, style, episodes)
 
+    async def book(text: str, style: Style, most: int):  # type: ignore[no-untyped-def]
+        return await make_adaptation(SyntheticLlm(), text, style, most)
+
     async def before_llm() -> None:
         calls.append("llm")
 
@@ -33,6 +37,7 @@ def _studio(folder: Path, store: MemoryJobs, calls: list[str]) -> Studio:
         styles=Styles(REPO_STYLES),
         make_serial=series,
         before_llm=before_llm,
+        make_book=book,
     )
 
 
@@ -129,6 +134,28 @@ async def test_a_series_request_writes_the_files_and_can_queue_every_episode(
     jobs = await store.find()
     assert len(jobs) == 3
     assert all(j.recipe.style == "serial" for j in jobs)
+
+
+async def test_a_book_request_reads_the_file_from_input_and_queues_its_episodes(
+    tmp_path: Path,
+) -> None:
+    store, calls = MemoryJobs(), []
+    (tmp_path / "input").mkdir()
+    (tmp_path / "input" / "paw.txt").write_text(
+        "Уайт загадывает деньги. Сын погибает. Ночью стучат. Дорога пуста.", encoding="utf-8"
+    )
+    book = {"kind": "book", "file": "paw.txt", "episodes": 5, "style": "twist", "queue": True}
+    _drop(tmp_path, "a", book)
+    _drop(tmp_path, "b", book | {"file": "../status.txt"})
+
+    await _studio(tmp_path, store, calls).sync()
+
+    assert calls == ["llm"]
+    assert (tmp_path / "series" / "book.md").exists()
+    jobs = await store.find()
+    assert len(jobs) == 2
+    assert {j.recipe.style for j in jobs} == {"twist"}
+    assert "no book" in (tmp_path / "inbox" / "done" / "b.txt").read_text(encoding="utf-8")
 
 
 async def test_pause_and_resume_requests_switch_the_conveyor(tmp_path: Path) -> None:

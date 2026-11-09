@@ -1,5 +1,5 @@
 """Drives a batch through the stages one stage at a time, and keeps one model family on
-the card at a time."""
+the card at a time, unless the card holds them all."""
 
 import asyncio
 from collections.abc import Awaitable, Callable, Mapping, Sequence
@@ -23,11 +23,13 @@ class GpuTenant(Protocol):
 class Gpu:
     """Ollama, ComfyUI and the TTS server each grab VRAM on first use and hold it. On a 32 GB
     card any two of them together run out of memory, so before a stage starts whoever held
-    the card last is asked to unload."""
+    the card last is asked to unload. A `shared` card holds all of them at once, and
+    nobody unloads until the conveyor pauses."""
 
-    def __init__(self, tenants: Mapping[str, GpuTenant]) -> None:
+    def __init__(self, tenants: Mapping[str, GpuTenant], *, shared: bool = False) -> None:
         self._tenants = dict(tenants)
         self._holder: str | None = None
+        self.shared = shared
 
     @property
     def holder(self) -> str | None:
@@ -37,7 +39,7 @@ class Gpu:
         if name is None or name == self._holder:
             return
         previous = self._tenants.get(self._holder or "")
-        if previous is not None:
+        if previous is not None and not self.shared:
             log.info("gpu.handover", released=self._holder, acquired=name)
             await previous.release()
         self._holder = name
@@ -53,8 +55,8 @@ class Conveyor:
     once per batch: all claimed jobs get scripts, then all get voices, and so on.
 
     Only StageError and Rewind are job-level outcomes. Anything else is a bug or a dead
-    dependency: the process exits, docker restarts it, and the lease on the claimed jobs
-    expires so another turn picks them up."""
+    dependency: the process exits, docker restarts it, and the lease on the claimed jobs,
+    no longer renewed, runs out so another turn picks them up."""
 
     def __init__(
         self,
@@ -78,11 +80,13 @@ class Conveyor:
         worked = 0
         for stage in self._stages:
             jobs = await self._store.claim(stage.takes, self._batch_size, settled=stage.settled)
-            if jobs:
+            if not jobs:
+                continue
+            async with self._store.holding(jobs):
                 await self._gpu.use(stage.gpu)
-            for job in jobs:
-                await self._push(stage, job)
-                worked += 1
+                for job in jobs:
+                    await self._push(stage, job)
+                    worked += 1
         return worked
 
     async def run_forever(
@@ -96,7 +100,8 @@ class Conveyor:
                 await asyncio.sleep(idle_seconds)
                 continue
             if await self.turn() == 0:
-                await self._gpu.release_all()
+                if not self._gpu.shared:
+                    await self._gpu.release_all()
                 await asyncio.sleep(idle_seconds)
 
     async def _push(self, stage: Stage, job: Job) -> None:
@@ -113,3 +118,18 @@ class Conveyor:
             job.status = job.status.next()
             bound.info("stage.done", status=job.status.value)
         await self._store.save(job)
+
+
+def lanes(
+    stages: Sequence[Stage], tenants: Mapping[str, GpuTenant]
+) -> list[tuple[list[Stage], Gpu]]:
+    """On a shared card the ComfyUI stages run beside the rest: one video's frames and clips
+    are drawn while the next one is written and voiced. Each lane owns its models, so a
+    pause unloads only what that lane holds and never a model the other lane is using."""
+    drawn = [s for s in stages if s.gpu == "comfy"]
+    rest = [s for s in stages if s.gpu != "comfy"]
+    split = [
+        (rest, Gpu({k: t for k, t in tenants.items() if k != "comfy"}, shared=True)),
+        (drawn, Gpu({k: t for k, t in tenants.items() if k == "comfy"}, shared=True)),
+    ]
+    return [(chosen, gpu) for chosen, gpu in split if chosen]

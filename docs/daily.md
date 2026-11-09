@@ -48,12 +48,25 @@ make series STORY=studio/stories/flood.txt EPISODES=10
 поправьте и поставьте: `make ideas FILE=studio/series/flood.txt`. В ComfyUI то же самое
 делает схема «Новая серия»: [comfyui.md](comfyui.md#ролик-целиком-из-comfyui).
 
+Серию из готового рассказа или целой книги делает команда `adapt`. Она читает `.txt`,
+`.fb2` и `.epub`, держится событий автора и делит их на выпуски там, где поворачивает
+сама история, не больше `EPISODES`:
+
+```
+make adapt BOOK=studio/input/paw.fb2 EPISODES=5 STYLE=twist
+scripts/remote.sh adapt studio/input/paw.fb2 --episodes 5 --style twist
+```
+
+Получатся такие же `studio/series/paw.md` и `paw.txt`. В ComfyUI то же делает схема
+«Книга».
+
 Готовые серии лежат в `studio/series/`: «Потоп» и «Треножники» по 10 выпусков, у каждой
 есть описание мира и героев в `.md` и файл выпусков в `.txt`. Серия целиком ставится так:
 `make ideas FILE=studio/series/flood.txt`. Каждая строка там это подробный план выпуска по
 битам: модель хорошо раскладывает готовый план на шоты и плохо придумывает связный сюжет
-сама, поэтому чем подробнее план, тем осмысленнее ролик. Заходы для новых серий собраны в
-`studio/series/bank.md`.
+сама, поэтому чем подробнее план, тем осмысленнее ролик. «Рассказы с поворотом» в
+`twists.txt`: семь классических рассказов, 11 выпусков в стиле `twist`. Заходы для новых
+серий собраны в `studio/series/bank.md`.
 
 Стиль по умолчанию задан в `.env` строкой `REELSMITH_STYLE`. Какие стили есть: `make styles`.
 
@@ -93,6 +106,24 @@ make review ID=982ab129-55b4-486d-9ded-1993308be447
 seed, сценарий, голос и кадры останутся.
 
 С сервера готовые ролики забирает `scripts/remote.sh pull`.
+
+### Сверка с эталоном
+
+Перед `approve` прогоните ролик через сверку. Она меряет то же, что и в эталоне: длину и
+число сцен, переходы, яркость, движение внутри сцены, паузы, фон под голосом, громкость и
+формат звука. Работает на этом компьютере без видеокарты, 10–20 секунд на ролик.
+
+```
+pip install -e ".[check]"                   # один раз: numpy, scipy, opencv
+python tools/reference_check.py review/<id>.mp4
+python tools/reference_check.py review/<id>.mp4 --sheet review/<id>.jpg   # и раскадровка
+```
+
+Каждая строка `ok` или `FAIL` с замером и допуском, внизу «N/15 checks pass». Ролик с
+хотя бы одной `FAIL` не одобряйте. Допуски сняты с эталона «Блэкаут на 32 этаже», часть 3:
+она проходит 14 из 15, не проходит только `audio_rate` (44,1 кГц, так её перекодировал
+TikTok). Другие части эталона пока не измерены. Допуски в функции `checks()` меняются
+только после замера новой части эталона, а не чтобы прошёл наш ролик.
 
 ## Время и деньги
 
@@ -155,8 +186,8 @@ sudden rises, never monotone"`.
 | --- | --- | --- |
 | `scripts/remote.sh push` | на сервер | код, стили, графы, документация |
 | `scripts/remote.sh deploy` | на сервер | то же, плюс пересборка и перезапуск |
-| `scripts/remote.sh restore` | на сервер | голос и `.env` |
-| `scripts/remote.sh pull` | сюда | готовые ролики и голос |
+| `scripts/remote.sh restore` | на сервер | голос, `.env`, файлы задач из `backups/media/` |
+| `scripts/remote.sh pull` | сюда | готовые ролики, голос, файлы недоделанных задач |
 | `scripts/remote.sh backup` | сюда | база задач с историей и ценами, в `backups/` |
 | `scripts/remote.sh check` | | какие файлы кода отличаются здесь и там |
 
@@ -168,7 +199,7 @@ sudden rises, never monotone"`.
 | --- | --- |
 | `failed` в `make jobs` | Причина в колонке `last error`. Исправить причину, затем `make retry ID=... STATUS=framed`: всё сделанное сохранится, переделается только недостающее. Или поставить идею заново. |
 | Задача долго стоит в одном статусе | `make logs`. Если пусто, `docker compose ps`: все пять сервисов должны быть `Up`. |
-| Задача стоит после перезапуска воркера | Воркер держал её в аренде, она сама вернётся через 45 минут. Сразу: `make retry ID=...`. |
+| Задача стоит после перезапуска воркера | Воркер держал её в аренде, она сама вернётся через `LEASE_MINUTES` (3 минуты). Сразу: `make retry ID=...`. |
 | `tts: ReadTimeout` на первой реплике | Голосовая модель грузится до двух минут. Задача повторится сама. |
 | Воркер не стартует и пишет про граф и слот | Граф в `workflows/` испорчен. `make graphs`, затем `make up`. |
 | Ollama отвечает минутами | `docker compose exec llm ollama ps`. Если `100% CPU`, см. [setup.md](setup.md#если-установка-не-идёт). |
@@ -187,4 +218,8 @@ scripts/remote.sh backup
 
 ```
 gunzip -c backups/<файл>.sql.gz | scripts/remote.sh shell "cd /root/projects/reelsgenerator && docker compose exec -T db psql -U reelsmith reelsmith"
+scripts/remote.sh restore
 ```
+
+`restore` после `make up` возвращает и файлы недоделанных задач из `backups/media/`: задачи
+продолжатся с того шага, где их застало выключение, а не начнутся заново.
