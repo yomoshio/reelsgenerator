@@ -9,7 +9,7 @@ from typer.testing import CliRunner
 
 from reelsmith import app as build
 from reelsmith import cli
-from reelsmith.beats import BeatScript
+from reelsmith.beats import EXAMPLES, BeatScript
 from reelsmith.models import Status
 from reelsmith.services import synthetic
 from reelsmith.settings import Settings
@@ -18,6 +18,7 @@ from tests.fakes import REPO_STYLES, script
 
 needs_ffmpeg = pytest.mark.skipif(shutil.which("ffmpeg") is None, reason="ffmpeg")
 runner = CliRunner()
+PROTO = Path(__file__).resolve().parent.parent / "studio" / "series" / "proto"
 
 
 @pytest.fixture
@@ -353,6 +354,55 @@ def test_beats_names_a_series_without_a_library(store: MemoryJobs, tmp_path: Pat
 
     assert result.exit_code == 1
     assert "no series library at" in result.output
+
+
+def _beat_script(tmp_path: Path) -> Path:
+    first = EXAMPLES[0]
+    made = BeatScript(
+        title="Тишина", part=3, hook=first.lines[0], hud="ДЕНЬ 3 · 02:41",
+        beats=[first] * 9, cliffhanger="КТО ПОД НАМИ?", music="drone",
+    )  # fmt: skip
+    path = tmp_path / "silence.json"
+    path.write_text(made.model_dump_json(), encoding="utf-8")
+    return path
+
+
+def test_storyboard_draws_every_beat_on_one_sheet(tmp_path: Path) -> None:
+    script = _beat_script(tmp_path)
+
+    result = runner.invoke(cli.app, ["storyboard", str(script), "--series", str(PROTO)])
+
+    assert result.exit_code == 0, result.output
+    assert (tmp_path / "silence.jpg").stat().st_size > 10_000
+
+
+@needs_ffmpeg
+def test_render_beat_without_a_voice_times_the_words_from_syllables(
+    store: MemoryJobs, tmp_path: Path
+) -> None:
+    script = _beat_script(tmp_path)
+    out = tmp_path / "beat.mp4"
+
+    result = runner.invoke(
+        cli.app, ["render-beat", str(script), "--series", str(PROTO), "--out", str(out)]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert out.stat().st_size > 10_000
+    assert "rule_card    on «тишина»  1. тишина" in result.output
+    assert "words timed from syllables" in result.output
+
+
+def test_render_beat_refuses_a_file_that_is_not_a_beat_script(
+    store: MemoryJobs, tmp_path: Path
+) -> None:
+    bad = tmp_path / "bad.json"
+    bad.write_text("{}", encoding="utf-8")
+
+    result = runner.invoke(cli.app, ["render-beat", str(bad), "--series", str(PROTO)])
+
+    assert result.exit_code == 1
+    assert "is not a beat script" in result.output
 
 
 @needs_ffmpeg
