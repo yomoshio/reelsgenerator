@@ -171,3 +171,18 @@ def test_an_episode_that_would_run_past_the_style_limit_is_sent_back() -> None:
         "or words until it fits; keep the opening and the last line."
     ]
     assert not [p for p in fits if "runs about" in p]
+
+
+def test_a_thing_held_in_a_look_would_be_in_every_frame_and_is_sent_back() -> None:
+    script = flood(shot("Раз."), shot("Два."), shot("Три."))
+    script.characters[0].look = "man, 30, short dark hair, blue raincoat, holding a torch"
+
+    assert problems(script, style()) == [
+        "The look of Артём has them 'holding a torch', so it is drawn into every shot they "
+        "are in. A look is age, hair, face and clothes; a thing in the hands goes in the "
+        "picture of the shot that shows it."
+    ]
+
+
+def test_a_signature_thing_that_is_part_of_the_look_stays() -> None:
+    assert problems(flood(shot("Раз."), shot("Два."), shot("Три.")), style()) == []

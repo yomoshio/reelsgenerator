@@ -53,6 +53,9 @@ _CAMERA = re.compile(
     re.IGNORECASE,
 )
 _CYRILLIC = re.compile(r"[а-яё]", re.IGNORECASE)  # noqa: RUF001
+_HELD = re.compile(
+    r"\b(?:holding|holds|carrying|carries|clutching|clutches)\b[^,;.]*", re.IGNORECASE
+)
 # The name a model understands and the letters each language of the channel is written in.
 LANGUAGES: dict[str, tuple[str, str]] = {
     "ru": ("Russian", "а-яё"),  # noqa: RUF001
@@ -161,6 +164,13 @@ def problems(script: Script, style: Style, language: str | None = None) -> list[
         f"Write the look of {c.name} in English; the image model reads English."
         for c in script.characters
         if _CYRILLIC.search(c.look)
+    ]
+    found += [
+        f"The look of {c.name} has them '{held[0].strip()}', so it is drawn into every shot "
+        "they are in. A look is age, hair, face and clothes; a thing in the hands goes in the "
+        "picture of the shot that shows it."
+        for c in script.characters
+        if (held := _HELD.search(c.look))
     ]
     return found
 
