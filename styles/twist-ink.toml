@@ -1,0 +1,166 @@
+about = "Classic short stories with a turn at the end, retold faithfully on inked graphic novel panels, 50 to 90 seconds an episode; a story takes as many episodes as its own parts."
+
+[story]
+shots = [14, 20]
+seconds = [50, 90]
+beats = [6, 12]
+words = 10
+empty_shots = 1
+brief = """
+You retell one episode of a classic short story. The idea gives the story beat by beat:
+keep its events, their order, its people and its ending, and add nothing the author did
+not write. Your job is to make that story hold a viewer who is about to scroll away.
+
+Every numbered beat of the idea gets shots of its own, in the idea's order, and none is
+merged away or skipped: the beat where a wish is made, a lie is told or a thing is lost
+is the one the ending needs. A beat with a decision or a reveal gets two shots. The idea's
+last phrase is the last line, kept as it is.
+
+Every person the idea gives a look, and every group such as three hunters or the
+soldiers, is a character, with that look copied word for word. A shot's `cast` names
+everyone visible in its picture; a shot with people in it never has an empty cast.
+
+Opening, two shots. The first line puts the viewer inside the strangest or most dangerous
+moment of the first beat in at most eight words, before any name. When the first beat
+is calm, the first line says instead the most dangerous fact of the episode, such as what
+the thing did to its last owner, and the story then starts in order. Weather is never a
+hook. The second line says
+who, where and what is at stake. An episode that continues an earlier one opens instead
+with one line that says where the story stopped, then goes straight on.
+
+Middle. Every two or three shots something changes: a new fact, a decision, a sound, a
+person at the door. Join the shots with "so", "but", "then". The idea names the detail the
+ending depends on; show it early in a shot of its own and name it plainly, so the viewer
+remembers it without being told why it matters.
+
+Ending. In a story's last episode the last shot brings that detail back and turns the
+meaning of everything before it. In an episode that continues, end on the moment of the
+highest suspense. Either way end on a statement, not a question.
+
+Plates only where they help: a `card` the first time a person appears, and a `count` only
+where the story keeps a count of its own, such as wishes left, nights or money owed. Say
+the number aloud first, then show it, and change it only for a reason the viewer saw. No
+`goal` plate unless the story names a place to reach.
+
+The hero is in the frame in most shots. The first time the story enters a place, show it
+in a wide shot with the hero inside it, so the viewer knows where they are; closer shots
+follow. The world only changes for a reason the viewer saw.
+
+Holding the viewer matters more than anything else:
+- Every two or three shots something changes.
+- No shot only describes the scenery or repeats what the viewer already knows.
+- Follow the outline beat by beat and do not invent other events.
+
+Suspense over gore: no blood, wounds or bodies on screen; a death is told, or shown by
+what the others see on a face.
+
+Voice: present tense, third person, plain words. The narrator is a storyteller inside
+the story, not someone reading it out: tension builds toward each turn, lines get short
+and quick in action and slow down before a reveal. A shot is one moment of three or four
+seconds: one or two short sentences, six to ten words in all. No fear adjectives; the
+dread comes from facts. Never speak to the viewer.
+
+Write the lines in the plain word order of spoken speech: who, does what, to whom, as a
+storyteller says it aloud. No inverted word order, no rhyme, no poetic turns, no two
+words that say the same thing. Every line adds a fact the previous line did not; the
+turn at the end is said once, never twice in a row.
+
+The music is quiet and tense, low strings or a sparse piano over a drone, no beat.
+"""
+critic = """
+Does the episode keep the outline's events in their order, with nothing invented, and
+does every numbered beat of the idea have a shot of its own? Is every person and group the
+idea describes among the characters, and does every shot with people list them in its
+cast? Are the lines in plain spoken word order, with no inversion, no rhyme and no line
+that repeats the one before? Does
+the first line drop the viewer into the strangest moment in eight words or fewer? Is the
+detail the ending depends on shown and named early? In a last episode, does the last
+line bring it back and turn the meaning; in an episode that continues, does it stop on
+the highest suspense? Is the hero in the frame in most shots, and does every picture show
+one place and one moment?
+"""
+
+[look]
+frame = """
+graphic novel panel printed full bleed to every edge, no border, no panel frame, no white
+margin, bold black ink lines, heavy black shadows and cross-hatching, off-white paper
+highlights, few flat colours: the characters' signature colours and one deep red accent,
+characters with clear expressive faces: eyes, eyebrows, nose and mouth, visible hair,
+eye-level camera inside the scene with clear depth from foreground to background,
+vertical 9:16, no speech bubbles, no captions, nothing written anywhere, no text, no
+letters, no numbers, no signs
+"""
+motion = "subtle animation of an inked comic panel, the lines, hatching and colours stay exactly as drawn, smoke and liquids move gently, still camera or a very slow push-in"
+judge = """
+The pictures are inked graphic novel panels: bold black lines, heavy black shadows,
+cross-hatching and a few flat colours, printed to the edges. Characters have clear faces
+with eyes, eyebrows and a mouth, and each one matches their look in every shot: same hair,
+clothes and signature colour. A hidden or blank face, a person who is not in the cast, a
+figure or creature nobody asked for, a view in cross-section or from above, a picture
+inside a window that shows a second scene, a white border or panel frame, speech bubbles,
+any lettering or numerals inside the picture are defects, and so is anything that looks
+like a photograph.
+"""
+
+[captions]
+font = "Montserrat ExtraBold"
+size = 96
+margin_v = 560
+words = 3
+spoken = "FFFFFF"
+upcoming = "8E8E93"
+accent = "FFD21F"
+outline = "000000"
+outline_px = 7
+karaoke = true
+
+[overlays.goal]
+about = "the goal at the top, 'ЦЕЛЬ: самая высокая комната'. Once, on the shot that names it, with `hold` until the goal is reached."
+align = 7
+margin_l = 30
+margin_v = 60
+size = 56
+ink = "1A1A1A"
+fill = "E9DFC4"
+pad = 20
+
+[overlays.count]
+about = "the running count under the goal, at most four words, such as 'ЭТАЖ 2 ИЗ 5'. The number is the one spoken in this shot."
+align = 7
+margin_l = 60
+margin_v = 180
+size = 44
+ink = "FFFFFF"
+fill = "2E9E5B"
+pad = 14
+
+[overlays.card]
+about = "white name card, 'Имя | одна деталь', the first time a person appears."
+align = 7
+margin_l = 50
+margin_v = 320
+size = 54
+ink = "1A1A1A"
+fill = "F4F4F4"
+pad = 18
+upper = false
+
+[overlays.label]
+about = "yellow callout on an object the narrator names in this shot, at most four words."
+align = 7
+margin_l = 70
+margin_v = 980
+size = 46
+ink = "1A1A1A"
+fill = "F2B632"
+pad = 14
+
+[overlays.alert]
+about = "red stamp for a new threat the narrator names in this shot, at most four words."
+align = 9
+margin_r = 50
+margin_v = 420
+size = 46
+ink = "FFFFFF"
+fill = "C0392B"
+pad = 14
