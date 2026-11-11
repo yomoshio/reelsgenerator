@@ -39,6 +39,7 @@ def test_shipped_styles_are_the_ones_we_expect() -> None:
         "rules-serial",
         "serial",
         "twist",
+        "twist-graphic",
         "twist-ink",
     ]
 
