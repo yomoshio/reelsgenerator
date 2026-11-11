@@ -18,8 +18,9 @@ Rules for the fields:
 - `characters`: everyone who appears in more than one episode, at most six, under the
   names the story gives them. Each `look`, in English because the image model reads
   English: age, build, a face with one feature that sets them apart, hair, clothes in one
-  signature colour, one item they always carry. Keep what the story says about them. The
-  face stays uncovered: no hood up, no mask.
+  signature colour. Keep what the story says about them, but never a thing in the hands or
+  an action: the look is drawn into every frame of that person. The face stays uncovered:
+  no hood up, no mask.
 - `parts`: the episodes in order. Each has a `title` of a few words and a `logline` of two
   or three sentences in {language}: what happens and where the episode stops. `last` is
   the number of the last event the episode retells; the next episode starts with the event

@@ -64,8 +64,9 @@ Rules for the fields:
 - At most three characters. Each `look` is written once, in English even when the lines
   are not, and must be specific enough that two artists would draw the same person: age,
   build, face with one feature that sets them apart (freckles, stubble, a scar, round
-  glasses), hair, clothes in one signature colour, one item they always carry. The face is
-  always uncovered: no hood up, no mask, no goggles.
+  glasses), hair, clothes in one signature colour. Never a thing in the hands or an
+  action: the look is drawn into every frame of that person. The face is always
+  uncovered: no hood up, no mask, no goggles.
 - {shots} shots.
 - `music` is a short brief for a background track: genre, tempo, instruments, mood.
 
