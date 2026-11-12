@@ -167,8 +167,7 @@ server() {
             push
             "${rsync[@]}" .env "$host:$dir/.env"
             [[ -d voices ]] && "${rsync[@]}" voices/ "$host:$dir/voices/"
-            "${ssh[@]}" -t "$host" "cd $dir && bash install.sh $(quoted "$@")"
-            restore_media ;;
+            "${ssh[@]}" -t "$host" "cd $dir && bash install.sh $(quoted "$@")" ;;
         push) push ;;
         deploy) push && there "docker compose build worker tts && docker compose up -d" ;;
         ideas | series | adapt)
