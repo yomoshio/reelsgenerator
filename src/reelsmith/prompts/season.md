@@ -16,8 +16,9 @@ Rules for the fields:
   how it changes over time.
 - `characters`: everyone who appears in more than one episode, at most six. Each `look`,
   in English because the image model reads English: age, build, a face with one feature
-  that sets them apart, hair, clothes in one signature colour, one item they always carry.
-  The face stays uncovered: no hood up, no mask.
+  that sets them apart, hair, clothes in one signature colour. Never a thing in the hands
+  or an action: the look is drawn into every frame of that person. The face stays
+  uncovered: no hood up, no mask.
 - `episodes`: exactly {episodes}. Each has a `title` of a few words and a `logline` of three
   or four sentences in {language}: the goal, the main obstacle, who is new, and the hook
   in the last line.
