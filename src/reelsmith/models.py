@@ -9,6 +9,7 @@ from typing import Literal
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
+from pydantic.json_schema import SkipJsonSchema
 
 SHOT_PADDING = 0.35  # breath after each line so cuts do not clip the last syllable
 SHOT_MIN, SHOT_MAX = 2.0, 8.0
@@ -112,7 +113,8 @@ class Shot(BaseModel):
         default="event",
         description="`event` moves the story on; `breath` lets the event before it land.",
     )
-    seconds: float = Field(default=4.0, ge=2.0, le=8.0)
+    # Set by the voice stage, never by the writer: a model shown this field filled it with inf.
+    seconds: SkipJsonSchema[float] = Field(default=4.0, ge=2.0, le=8.0)
 
 
 class Script(BaseModel):

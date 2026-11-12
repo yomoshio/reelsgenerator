@@ -164,3 +164,10 @@ def test_cost_sums_calls() -> None:
 def test_job_id_is_unique_per_new_job() -> None:
     assert Job.new("a").id != Job.new("a").id
     assert isinstance(uuid4(), type(Job.new("a").id))
+
+
+def test_the_writer_is_never_shown_the_shot_length() -> None:
+    shot = Script.model_json_schema()["$defs"]["Shot"]["properties"]
+
+    assert "seconds" not in shot
+    assert {"line", "role", "wears", "moves"} <= set(shot)
