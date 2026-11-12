@@ -27,7 +27,6 @@ _model: VoxCPM | None = None
 
 class SpeakRequest(BaseModel):
     text: str = Field(min_length=1, max_length=600)
-    control: str = Field(default="", max_length=200)
     voice: str = "narrator"
     cfg: float = 2.0
     steps: int = 10
@@ -53,10 +52,10 @@ def speak(req: SpeakRequest) -> Response:
 
     with _lock:
         model = _loaded()
-        # VoxCPM2 reads a direction in brackets before the text as how to say it.
-        text = f"({req.control.strip()}){req.text}" if req.control.strip() else req.text
+        # Only the line: with a reference clip VoxCPM2 continues the clip and reads a
+        # direction in brackets aloud instead of following it.
         audio = model.generate(
-            text=text,
+            text=req.text,
             prompt_wav_path=str(reference),
             prompt_text=words,
             cfg_value=req.cfg,

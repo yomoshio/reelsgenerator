@@ -7,7 +7,7 @@ import httpx
 from reelsmith.services.voxcpm import VoxNarrator
 
 
-async def test_the_narrator_sends_the_line_its_delivery_and_the_voice_settings(
+async def test_the_narrator_sends_only_the_line_and_the_voice_settings(
     tmp_path: Path,
 ) -> None:
     seen: list[dict[str, Any]] = []
@@ -19,13 +19,12 @@ async def test_the_narrator_sends_the_line_its_delivery_and_the_voice_settings(
     http = httpx.AsyncClient(transport=httpx.MockTransport(handle), base_url="http://tts")
     narrator = VoxNarrator(http, "narrator", cfg=1.8, steps=20)
 
-    out = await narrator.speak("Свет гаснет.", tmp_path / "v.wav", delivery="a tense whisper")
+    out = await narrator.speak("Свет гаснет.", tmp_path / "v.wav")
 
     assert out.read_bytes() == b"RIFF"
     assert seen == [
         {
             "text": "Свет гаснет.",
-            "control": "a tense whisper",
             "voice": "narrator",
             "cfg": 1.8,
             "steps": 20,

@@ -17,10 +17,6 @@ Rules for the fields:
   tells it, not as a text is read: mix short and longer sentences, use "…" for a held
   breath, "—" for a sudden turn, "?" and "!" where the voice rises. Never three flat
   sentences of the same length in a row.
-- `delivery` says in a few English words how the narrator speaks this line: "low, slow,
-  ominous", "fast and breathless", "a tense whisper", "sudden, loud", "quiet relief". It
-  follows the tension: faster in action, slower before a reveal, a whisper when danger is
-  near. Neighbouring shots should rarely share the same delivery.
 - `stress` lists one or two words of `line`, copied exactly as written, that carry the
   point of the shot: the number, the name or the object that matters. They are highlighted
   on screen.

@@ -174,15 +174,20 @@ class FakeAnimator:
 
 @dataclass
 class FakeNarrator:
+    """Leaves what it said next to the file for FakeTranscriber. The first `slips` takes
+    start with `slip`, as a narrator that reads a stage direction aloud."""
+
     suffix: str = ".wav"
     name: str = "fake"
     log: list[str] = field(default_factory=list)
-    deliveries: list[str] = field(default_factory=list)
+    slip: str = ""
+    slips: int = 0
 
-    async def speak(self, text: str, out: Path, delivery: str = "") -> Path:
-        self.deliveries.append(delivery)
+    async def speak(self, text: str, out: Path) -> Path:
         self.log.append(text)
-        return _touch(out)
+        said = f"{self.slip} {text}" if len(self.log) <= self.slips else text
+        _touch(out).with_suffix(".said").write_text(said, encoding="utf-8")
+        return out
 
 
 @dataclass
@@ -224,9 +229,15 @@ class FakeMontage:
 @dataclass
 @dataclass
 class FakeTranscriber:
+    """Hears what FakeNarrator said; `heard` stands in for a recording it did not make."""
+
     heard: list[Word] = field(default_factory=lambda: [Word("line", 0.0, 0.4)])
 
     async def words(self, audio: Path) -> list[Word]:
+        said = audio.with_suffix(".said")
+        if said.exists():
+            text = said.read_text(encoding="utf-8").split()
+            return [Word(w, n * 0.4, n * 0.4 + 0.3) for n, w in enumerate(text)]
         return list(self.heard)
 
 

@@ -230,7 +230,7 @@ class SyntheticNarrator:
     name = "voxcpm"
     suffix = ".wav"
 
-    async def speak(self, text: str, out: Path, delivery: str = "") -> Path:
+    async def speak(self, text: str, out: Path) -> Path:
         seconds = max(1.0, SECONDS_PER_CHAR * len(text))
         await _tone(out, frequency=220, seconds=seconds)
         out.with_suffix(".txt").write_text(text, encoding="utf-8")

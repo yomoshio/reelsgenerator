@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Protocol
 from uuid import UUID
 
-from reelsmith.checks import bare, present, problems, unsaid_plates
+from reelsmith.checks import bare, misspoken, present, problems, unsaid_plates
 from reelsmith.models import (
     Call,
     Job,
@@ -49,6 +49,7 @@ class Gates:
     rewrites: int = 2
     candidates: int = 2
     clip_tries: int = 3
+    voice_tries: int = 3
 
 
 class Llm(Protocol):
@@ -96,7 +97,7 @@ class Narrator(Protocol):
     name: str
     suffix: str
 
-    async def speak(self, text: str, out: Path, delivery: str = "") -> Path: ...
+    async def speak(self, text: str, out: Path) -> Path: ...
 
 
 class Composer(Protocol):
@@ -258,14 +259,20 @@ async def write(job: Job, s: Services) -> None:
 
 
 async def voice(job: Job, s: Services) -> None:
-    """Before pictures on purpose: the spoken line decides how long its shot lasts."""
+    """Before pictures on purpose: the spoken line decides how long its shot lasts. Every
+    take is heard back, and a take with words the line does not have is spoken again."""
     script, files = job.require_script(), Files(s.media, job.id)
     for i, shot in enumerate(script.shots):
-        with metered(
-            job, s.tariff, stage="voice", provider=s.narrator.name, units=len(shot.line), shot=i
-        ):
-            out = files.voice(i, s.narrator.suffix)
-            audio = await s.narrator.speak(shot.line, out, delivery=shot.delivery)
+        for take in range(1, s.gates.voice_tries + 1):
+            with metered(
+                job, s.tariff, stage="voice", provider=s.narrator.name, units=len(shot.line), shot=i
+            ):
+                audio = await s.narrator.speak(shot.line, files.voice(i, s.narrator.suffix))
+            heard = " ".join(w.text for w in await s.transcriber.words(audio))
+            if not (extra := misspoken(shot.line, heard)):
+                break
+            if take == s.gates.voice_tries:
+                raise StageError(f"shot {i + 1}: the narrator adds «{extra}» to the line")
         spoken = await s.montage.seconds(audio)
         shot.seconds = shot_seconds(spoken)
         job.assets.voices[i] = files.relative(audio)
