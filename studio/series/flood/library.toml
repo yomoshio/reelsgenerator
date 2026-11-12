@@ -1,6 +1,11 @@
 # Библиотека серии «Потоп» (studio/series/flood.md) для формата битов.
 # Координаты якорей — доли ширины и высоты кадра 1080 x 1920; сцена — y от 0.094 до 0.6.
 
+# Кого рисует scripts/make_art.py; описания из studio/series/flood.md.
+[art]
+hero = "a man of thirty, short dark hair, light stubble, blue raincoat with the hood down, small flashlight on a cord around his neck"
+companion = "a girl of ten, two dark braids, yellow jacket with the hood down, red toy walkie-talkie in her hand"
+
 [locations.flat]
 about = "Artyom's room on the third floor at dawn: a bed by the wall, a window, the door, knee-deep water."
 [locations.flat.anchors]
