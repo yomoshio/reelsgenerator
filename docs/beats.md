@@ -54,10 +54,10 @@ card_pop = "a short soft pop when a card appears"
 ## Писать сценарии
 
 ```
-make beats FILE=studio/ideas/x.txt SERIES=studio/series/proto
+./run.sh beats studio/ideas/x.txt --series studio/series/proto
 ```
 
-В файле одна идея на строку, как для `make ideas`. На каждую идею писатель пишет сценарий,
+В файле одна идея на строку, как для `./run.sh ideas`. На каждую идею писатель пишет сценарий,
 а код его проверяет. Если проверка что-то нашла, сценарий уходит писателю с замечаниями.
 Так повторяется, пока проверки не пройдут или не кончатся переписывания
 (`REELSMITH_REWRITES`, по умолчанию 2). Готовые сценарии ложатся в `SERIES/scripts/` по

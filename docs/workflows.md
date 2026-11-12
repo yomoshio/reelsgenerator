@@ -4,7 +4,7 @@
 их пишет скрипт:
 
 ```
-make graphs        # то же, что python3 scripts/make_graphs.py
+./run.sh graphs        # то же, что python3 scripts/make_graphs.py
 ```
 
 Схемы повторяют встроенные шаблоны ComfyUI, в формате API:
@@ -12,13 +12,13 @@ make graphs        # то же, что python3 scripts/make_graphs.py
 | Файл | Что делает |
 | --- | --- |
 | `keyframe.json` | Z-Image Turbo, кадр по тексту |
-| `keyframe-edit.json` | Qwen-Image-Edit 2509, кадр по тексту и портрету героя; модель `qwen-edit`, нужны веса `make models ONLY=character OPTIONAL=1` |
+| `keyframe-edit.json` | Qwen-Image-Edit 2509, кадр по тексту и портрету героя; модель `qwen-edit`, нужны веса `./run.sh models character --optional` |
 | `animate.json` | Wan 2.2 14B, клип из кадра; две ускоряющие LoRA lightx2v на 4 шага, затем RIFE удваивает частоту до 32 кадров в секунду |
-| `animate-hd.json` | то же, но перед RIFE Real-ESRGAN увеличивает кадры в четыре раза, и они ужимаются до 1080 × 1920; модель `wan-2.2-hd`, она стоит в `.env.example`; веса Real-ESRGAN качает `make models` |
+| `animate-hd.json` | то же, но перед RIFE Real-ESRGAN увеличивает кадры в четыре раза, и они ужимаются до 1080 × 1920; модель `wan-2.2-hd`, она стоит в `.env.example`; веса Real-ESRGAN качает `./run.sh models` |
 | `score.json` | ACE-Step 1.5 AIO, инструментальная музыка в flac |
 
 Размеры, шаги и длина клипа приходят из `.env` при каждом запуске, поэтому для них
-перегенерировать схемы не нужно: [settings.md](settings.md). `make graphs` нужен, только
+перегенерировать схемы не нужно: [settings.md](settings.md). `./run.sh graphs` нужен, только
 если меняется само устройство схемы: семплер, LoRA, шаг RIFE, новый блок.
 
 ## Слоты
@@ -65,12 +65,12 @@ make graphs        # то же, что python3 scripts/make_graphs.py
 2. Переименуйте блоки, которые должен заполнять конвейер (правый клик → Title), по
    таблице выше.
 3. Меню Рабочий процесс → Экспорт (API), сохраните в `workflows/` под нужным именем.
-4. `make up`.
+4. `./run.sh up`.
 
 ## Черновая модель
 
 `animate-draft.json` это Wan 2.2 TI2V 5B на 24 кадра в секунду, с теми же слотами, что
-`animate.json`. Он пока не генерируется. Веса: `make models ONLY=draft OPTIONAL=1`. Схема
+`animate.json`. Он пока не генерируется. Веса: `./run.sh models draft --optional`. Схема
 собирается в редакторе из шаблона «Wan 2.2 5B» по шагам выше. Когда файл есть, в рецепте
 можно указать модель `wan-5b`: она быстрее и дешевле, удобна для черновиков и
 A/B-сравнений.

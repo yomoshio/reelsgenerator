@@ -127,7 +127,7 @@ def remix(
 
 
 def ideas_file(made: list[Remix], library: Library, style: str, seed: int) -> str:
-    lines = [f"# remix, seed {seed}. One line, one idea: make ideas FILE=..."]
+    lines = [f"# remix, seed {seed}. One line, one idea: ./run.sh ideas ..."]
     for n, item in enumerate(made, 1):
         sources = sorted({library.title_of(p.source) for p in item.parts()})
         lines += [

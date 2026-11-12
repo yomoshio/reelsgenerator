@@ -2,7 +2,7 @@
 location and a figure for every pose, in several takes each. A take becomes the library's
 picture once --pick copies it; graphics.py then draws it in place of its stand-in.
 
-    scripts/remote.sh comfy                          # the server's ComfyUI on localhost:8188
+    ./run.sh server comfy                          # the server's ComfyUI on localhost:8188
     python scripts/make_art.py studio/series/flood --takes 4
     python scripts/make_art.py studio/series/flood --only locations --takes 6
     python scripts/make_art.py studio/series/flood --pick flat=2 stand=1

@@ -1,7 +1,16 @@
 # Установка
 
-Поставить можно на свой компьютер или на арендованный сервер. Команды одинаковые,
-разница только в том, где их набирать.
+Поставить можно на свой компьютер или на арендованный сервер. В корне проекта лежат все
+скрипты для этого:
+
+| Файл | Где | Что делает |
+| --- | --- | --- |
+| `install.sh` | Linux, сервер, WSL, macOS | ставит всё на эту машину и запускает |
+| `install.cmd` | Windows | ставит WSL и Docker Desktop, потом `install.sh` внутри Ubuntu |
+| `run.sh` | Linux, macOS, WSL | все остальные команды; `./run.sh help` печатает список |
+| `run.cmd` | Windows | то же, что `run.sh`: передаёт команду в Ubuntu |
+
+Арендованный сервер ставится с вашего компьютера одной командой: `./run.sh server install`.
 
 ## Что нужно
 
@@ -24,48 +33,55 @@
 ```
 git clone https://github.com/yomoshio/reelsgenerator reelsmith
 cd reelsmith
-sudo scripts/setup-host.sh driver     # драйвер NVIDIA, затем перезагрузка
-sudo scripts/setup-host.sh docker
-sudo scripts/setup-host.sh toolkit    # доступ Docker к видеокарте
-scripts/setup-host.sh check           # должна быть видна карта и свободный диск
+./install.sh
 ```
 
-Если драйвер и Docker уже стоят, первые две команды не нужны. `toolkit` нужен всегда:
-он ещё переключает Docker на драйвер cgroup, без которого контейнер со временем теряет
-видеокарту, и запрещает автообновлениям Ubuntu менять драйвер под работающими
-контейнерами.
+`install.sh` проверяет драйвер NVIDIA, ставит Docker и NVIDIA Container Toolkit, если их
+нет, проверяет, что контейнеры видят карту, собирает образы, качает веса (около 110 ГБ) и
+модель сценариста, делает голос диктора, запускает всё и прогоняет проверку `./run.sh
+smoke`. Повторный запуск пропускает сделанное, поэтому он же служит обновлением после
+`git pull`.
 
-Дальше:
+Если драйвера нет, скрипт остановится и попросит `./install.sh driver`: это ставит драйвер
+на Ubuntu, после него нужна перезагрузка. Toolkit заодно переключает Docker на драйвер
+cgroup, без которого контейнер со временем теряет видеокарту, и запрещает автообновлениям
+Ubuntu менять драйвер под работающими контейнерами.
 
-```
-make setup                # .env и папки
-nano .env                 # минимум REELSMITH_GPU_HOUR_USD, см. ниже
-make build                # 10–20 минут
-make models               # веса, около 90 ГБ
-make llm-model            # Qwen3.5 27B, 17 ГБ
-make voice DESC="A gripping storyteller in his forties, low warm voice, lively intonation, dramatic pauses, building tension, never monotone"
-make up
-make migrate
-```
+Параметры:
 
-Необязательные веса качаются отдельно, когда понадобятся: одинаковые герои
-`make models ONLY=character OPTIONAL=1`, около 30 ГБ.
+| Параметр | Что делает |
+| --- | --- |
+| `--no-models` | не качать веса и не проверять модели, только поставить и собрать |
+| `--voice "описание"` | описание голоса диктора по-английски вместо стандартного |
+
+После установки поправьте в `.env` строку `REELSMITH_GPU_HOUR_USD` и перезапустите
+воркер: `./run.sh restart`. Необязательные веса качаются отдельно, когда понадобятся:
+одинаковые герои `./run.sh models character --optional`, около 30 ГБ.
 
 `REELSMITH_GPU_HOUR_USD` это цена часа работы карты. На арендованном сервере это цена из
 карточки аренды, на своём компьютере можно поставить стоимость электричества за час или
 0. Отчёт переводит GPU-время в деньги по этому числу. Остальные настройки описаны в
 [settings.md](settings.md), их можно не трогать.
 
-`make voice` создаёт голос диктора по описанию и кладёт три варианта в `voices/`. Первый
-сразу становится голосом канала. Как заменить его другим или своей записью, написано в
+Голос диктора создаётся по описанию, три варианта кладутся в `voices/`, первый сразу
+становится голосом канала. Как заменить его другим или своей записью, написано в
 [daily.md](daily.md#голос).
+
+Установка по шагам, если нужно повторить один из них: `./run.sh setup`, `build`, `models`,
+`llm-model`, `voice "описание"`, `up`, `migrate`, `smoke`.
+
+## macOS
+
+Нужен Docker Desktop. Видеокарты NVIDIA на Mac нет, поэтому `./install.sh` только готовит
+папки и `.env`. С Mac удобно управлять арендованным сервером (`./run.sh server ...`) и
+гонять конвейер на заглушках: `./run.sh demo`.
 
 ## Свой компьютер с Windows
 
 Всё работает внутри WSL2: Linux в Windows, Docker Desktop берёт видеокарту из Windows.
 Скорость вычислений почти как в чистом Linux.
 
-**Установщик.** Скачайте проект в любую папку и дважды щёлкните `scripts\windows\install.cmd`.
+**Установщик.** Скачайте проект в любую папку и дважды щёлкните `install.cmd`.
 Он сам попросит права администратора и по шагам:
 
 1. проверит драйвер NVIDIA, видеопамять, оперативную память и место на диске;
@@ -75,10 +91,14 @@ make migrate
 5. поставит Docker Desktop через winget и дождётся его: при первом запуске примите
    соглашение в его окне;
 6. проверит, что Docker видит видеокарту;
-7. скопирует проект в `~/reelsmith` внутри Ubuntu, соберёт образы, скачает веса, сделает
-   голос диктора, запустит всё и прогонит проверку;
+7. скопирует проект в `~/reelsmith` внутри Ubuntu и запустит там `install.sh`: образы,
+   веса, голос диктора, запуск и проверка;
 8. положит на рабочий стол ярлыки «Reelsmith - запустить», «остановить», «ролики»,
    «статус» и откроет ComfyUI.
+
+Потом все команды набираются в той же папке через `run.cmd`: `run.cmd add "идея"`,
+`run.cmd jobs`, `run.cmd help`. Он запускает Docker Desktop, если тот закрыт, и передаёт
+команду в `run.sh` внутри Ubuntu. `run.cmd videos` открывает папку готовых роликов.
 
 Установщик можно запускать сколько угодно раз: сделанное он пропускает. Поэтому он же
 служит обновлением: положите новую версию проекта в ту же папку и запустите его снова,
@@ -115,8 +135,8 @@ make migrate
    integration → Ubuntu-24.04.
 3. В терминале Ubuntu: `docker run --rm --gpus all nvidia/cuda:12.8.1-base-ubuntu24.04 nvidia-smi`
    должен показать карту.
-4. `sudo apt install -y make git python3`, проект в домашнюю папку Ubuntu, не в `/mnt/c`.
-5. Дальше как для Linux, начиная с `make setup`. `scripts/setup-host.sh` в WSL не нужен.
+4. `sudo apt install -y git rsync python3`, проект в домашнюю папку Ubuntu, не в `/mnt/c`.
+5. Дальше как для Linux: `./install.sh`. Docker и toolkit в WSL даёт Docker Desktop.
 
 ## Арендованный сервер на vast.ai
 
@@ -134,26 +154,29 @@ Docker внутри него не поднимется. Нажмите Select Te
 | Internet Download | от 500 Мбит/с |
 | Host Reliability | от 98 % |
 
-Сервером управляют с вашего компьютера через `scripts/remote.sh`. Впишите адрес и порт
-из карточки аренды в `scripts/remote.env` (образец в `scripts/remote.env.example`), затем:
+Сервером управляют с вашего компьютера через `./run.sh server`. Впишите в `.env` адрес из
+карточки аренды и путь к ключу SSH:
 
 ```
-scripts/remote.sh push        # код на сервер
-scripts/remote.sh restore     # голос и .env с этого компьютера
-scripts/remote.sh shell       # дальше команды на сервере
-cd /root/projects/reelsgenerator
-bash scripts/setup-host.sh toolkit
-bash scripts/setup-host.sh check
-make setup
-nano .env                     # цена часа из карточки аренды
-make build models llm-model up migrate
-exit
+SERVER_HOST=root@203.0.113.10
+SERVER_PORT=41377
+SERVER_KEY=~/.ssh/id_ed25519_vast
+VAST_INSTANCE=60216718
 ```
 
-На виртуальной машине vast.ai драйвер и Docker уже стоят, `driver` и `docker` не нужны.
-`restore` переносит голос диктора, поэтому `make voice` на новом сервере не нужен.
-Если прежний сервер оставил недоделанные задачи, верните базу и повторите `restore` после
-`make up`, см. [daily.md](daily.md#выключить-сервер).
+Затем одна команда:
+
+```
+./run.sh server install
+```
+
+Она заливает код, ваш `.env` и голос диктора, запускает на сервере `install.sh` и
+возвращает файлы недоделанных задач из `backups/media/`, если они есть. На виртуальной
+машине vast.ai драйвер уже стоит, Docker и toolkit скрипт поставит сам. Цена часа берётся
+из вашего `.env`: впишите туда цену из карточки аренды до `install`.
+
+Если прежний сервер оставил недоделанные задачи, верните базу, см.
+[daily.md](daily.md#выключить-сервер).
 
 ### Удалить сервер, когда работа кончится
 
@@ -172,13 +195,13 @@ exit
    ограниченное время. Когда он истечёт, скрипт сам попробует обычный ключ: бывает, что vast
    его снова принимает. Если не принял и он, в журнале появится «vast refused the key»,
    очередь скрипт продолжит смотреть, но удалить сервер не сможет: повторите `--login`.
-3. В `scripts/remote.env` впишите `VAST_INSTANCE`, номер инстанса из карточки аренды.
+3. В `.env` впишите `VAST_INSTANCE`, номер инстанса из карточки аренды.
 4. Проверка без удаления: `python3 scripts/autostop.py --dry-run --now` скачает всё и
    напишет, что удалил бы сервер.
-5. Запуск: `scripts/remote.sh autostop`. Он работает в фоне, журнал в `logs/autostop.log`,
+5. Запуск: `./run.sh server autostop`. Он работает в фоне, журнал в `logs/autostop.log`,
    остановить: `pkill -f scripts/autostop.py`. Компьютер не должен засыпать.
 
-`scripts/remote.sh pull` забирает то же самое в любой момент: одобренные ролики из
+`./run.sh server pull` забирает то же самое в любой момент: одобренные ролики из
 `outbox/`, все собранные из `studio/output/reelsmith/videos/`, планы серий, голоса и
 файлы недоделанных задач (кадры, клипы, реплики) в `backups/media/`: с ними и копией базы
 очередь продолжится на новом сервере с того же места.
@@ -186,7 +209,7 @@ exit
 ## Проверка
 
 ```
-make smoke
+./run.sh smoke
 ```
 
 Команда по одному разу вызывает каждую модель в том порядке, в каком их использует
@@ -209,12 +232,12 @@ make smoke
 
 ```
 docker compose exec llm ollama ps     # у модели должно быть 100% GPU
-make add IDEA="Короткая проверка: маяк зажигается сам"
-make logs                     # стадии write, voice, paint… одна за другой
+./run.sh add "Короткая проверка: маяк зажигается сам"
+./run.sh logs                     # стадии write, voice, paint… одна за другой
 ```
 
-На сервере то же самое: `scripts/remote.sh smoke`, `scripts/remote.sh gpu`,
-`scripts/remote.sh add "..."`, `scripts/remote.sh logs`.
+На сервере то же самое: `./run.sh server smoke`, `./run.sh server gpu`,
+`./run.sh server add "..."`, `./run.sh server logs`.
 
 Первый ролик занимает от получаса до часа. Пока он идёт, откройте ComfyUI и посмотрите,
 как появляются кадры и клипы: [comfyui.md](comfyui.md).
@@ -223,9 +246,9 @@ make logs                     # стадии write, voice, paint… одна з�
 
 | Что видно | Что делать |
 | --- | --- |
-| `could not select device driver "" with capabilities: [[gpu]]` | Не стоит NVIDIA Container Toolkit: `sudo scripts/setup-host.sh toolkit`. |
-| `Permission denied` в `hf/`, `models/`, `voices/`, `studio/` | Контейнеры работают от пользователя с uid 1000. `make setup` ещё раз или `chmod a+rwx` на эту папку. |
-| `Failed to initialize NVML: Driver/library version mismatch` | Автообновления Ubuntu поставили новый драйвер, а загружен старый. Уже запущенные контейнеры работают, новые не получат карту. Перезагрузите сервер: `reboot`, контейнеры поднимутся сами. Шаг `toolkit` запрещает автообновлениям трогать драйвер; на машине, где он запускался раньше, повторите его. |
-| Ollama отвечает минутами, `ollama ps` показывает `100% CPU` | Контейнер потерял видеокарту. `sudo scripts/setup-host.sh toolkit`, затем `docker compose up -d --force-recreate`. |
-| Скачивание весов падает или очень медленное | В `.env` раскомментируйте `HF_ENDPOINT=https://hf-mirror.com` и повторите `make models`: уже скачанное пропустится. |
-| `make build` падает на `pip install` | Обычно сеть. Повторите `make build`, готовые слои не пересобираются. |
+| `could not select device driver "" with capabilities: [[gpu]]` | Не стоит NVIDIA Container Toolkit: `./install.sh` ещё раз, он его поставит. |
+| `Permission denied` в `hf/`, `models/`, `voices/`, `studio/` | Контейнеры работают от пользователя с uid 1000. `./run.sh setup` ещё раз или `chmod a+rwx` на эту папку. |
+| `Failed to initialize NVML: Driver/library version mismatch` | Автообновления Ubuntu поставили новый драйвер, а загружен старый. Уже запущенные контейнеры работают, новые не получат карту. Перезагрузите сервер: `reboot`, контейнеры поднимутся сами. `install.sh` запрещает автообновлениям трогать драйвер, когда ставит toolkit. |
+| Ollama отвечает минутами, `ollama ps` показывает `100% CPU` | Контейнер потерял видеокарту: в `/etc/docker/daemon.json` нет `native.cgroupdriver=cgroupfs`. Добавьте, `systemctl restart docker`, затем `docker compose up -d --force-recreate`. |
+| Скачивание весов падает или очень медленное | В `.env` раскомментируйте `HF_ENDPOINT=https://hf-mirror.com` и повторите `./run.sh models`: уже скачанное пропустится. |
+| `./run.sh build` падает на `pip install` | Обычно сеть. Повторите `./run.sh build`, готовые слои не пересобираются. |

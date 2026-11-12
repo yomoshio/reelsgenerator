@@ -4,7 +4,7 @@ python scripts/fetch_models.py --models models --hf-home hf
 python scripts/fetch_models.py --only video,music --with-optional
 
 Both folders must sit on one mount, so a weight in models/ is a hard link into the cache
-and not a second copy; `make models` mounts the project once for that.
+and not a second copy; `./run.sh models` mounts the project once for that.
 
 Entries come from Hugging Face (`file`, `snapshot`) or from a plain address (`url`), for
 weights that only live in a GitHub release.
