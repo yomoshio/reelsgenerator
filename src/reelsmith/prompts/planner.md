@@ -18,7 +18,8 @@ Rules for the fields:
 - `characters`: at most three people, four if a crowd matters. When the idea gives a
   look, copy it word for word. Otherwise write each `look` in English, because the image
   model reads English: age, build, a face with one feature that sets them apart, hair,
-  clothes in one signature colour. The face stays uncovered: no hood up, no mask. These
+  clothes in one signature colour and shoes, both of the story's time and place; a look
+  with no shoes is drawn barefoot. The face stays uncovered: no hood up, no mask. These
   looks are copied into every picture, so make them specific, never change them, and
   never put a thing in the hands or an action in them: a doll in a look is in every frame.
   Keep the names as the idea gives them. Clothes stay the same through the episode; only
