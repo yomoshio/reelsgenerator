@@ -60,6 +60,7 @@ class Settings(BaseSettings):
     candidates: int = Field(default=2, ge=1)
     clip_tries: int = Field(default=3, ge=1)
     voice_tries: int = Field(default=3, ge=1)
+    passage_words: int = Field(default=40, ge=0)
 
     media_root: Path = Path("/data/media")
     outbox: Path = Path("/data/outbox")
@@ -93,6 +94,7 @@ class Settings(BaseSettings):
             candidates=self.candidates,
             clip_tries=self.clip_tries,
             voice_tries=self.voice_tries,
+            passage_words=self.passage_words,
         )
 
     def tariff(self) -> Tariff:

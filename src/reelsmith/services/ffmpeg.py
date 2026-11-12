@@ -360,6 +360,13 @@ class FfmpegMontage:
             made.append(out)
         return made
 
+    async def cut(self, audio: Path, start: float, end: float, out: Path) -> Path:
+        await run(
+            "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+            "-i", str(audio), "-ss", f"{start:.3f}", "-to", f"{end:.3f}", str(out),
+        )  # fmt: skip
+        return out
+
     async def render(self, cut: Cut, out: Path) -> Path:
         await run(*ffmpeg_args(cut, out, music_level=self.music_level))
         return out
