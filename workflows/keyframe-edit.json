@@ -7,6 +7,17 @@
     }
   },
   "2": {
+    "class_type": "LoraLoaderModelOnly",
+    "inputs": {
+      "model": [
+        "1",
+        0
+      ],
+      "lora_name": "Qwen-Image-Edit-2509-Lightning-8steps-V1.0-bf16.safetensors",
+      "strength_model": 1.0
+    }
+  },
+  "3": {
     "class_type": "CLIPLoader",
     "inputs": {
       "clip_name": "qwen_2.5_vl_7b_fp8_scaled.safetensors",
@@ -14,23 +25,23 @@
       "device": "default"
     }
   },
-  "3": {
+  "4": {
     "class_type": "VAELoader",
     "inputs": {
       "vae_name": "qwen_image_vae.safetensors"
     }
   },
-  "4": {
+  "5": {
     "class_type": "ModelSamplingAuraFlow",
     "inputs": {
       "model": [
-        "1",
+        "2",
         0
       ],
       "shift": 3
     }
   },
-  "5": {
+  "6": {
     "class_type": "LoadImage",
     "inputs": {
       "image": "example.png"
@@ -39,20 +50,20 @@
       "title": "@image:image"
     }
   },
-  "6": {
+  "7": {
     "class_type": "TextEncodeQwenImageEditPlus",
     "inputs": {
       "clip": [
-        "2",
+        "3",
         0
       ],
       "prompt": "",
       "vae": [
-        "3",
+        "4",
         0
       ],
       "image1": [
-        "5",
+        "6",
         0
       ]
     },
@@ -60,25 +71,25 @@
       "title": "@prompt:prompt"
     }
   },
-  "7": {
+  "8": {
     "class_type": "TextEncodeQwenImageEditPlus",
     "inputs": {
       "clip": [
-        "2",
+        "3",
         0
       ],
       "prompt": "",
       "vae": [
-        "3",
+        "4",
         0
       ],
       "image1": [
-        "5",
+        "6",
         0
       ]
     }
   },
-  "8": {
+  "9": {
     "class_type": "EmptySD3LatentImage",
     "inputs": {
       "width": 720,
@@ -89,28 +100,28 @@
       "title": "@width:width @height:height"
     }
   },
-  "9": {
+  "10": {
     "class_type": "KSampler",
     "inputs": {
       "model": [
-        "4",
+        "5",
         0
       ],
       "seed": 0,
-      "steps": 20,
-      "cfg": 2.5,
+      "steps": 8,
+      "cfg": 1,
       "sampler_name": "euler",
       "scheduler": "simple",
       "positive": [
-        "6",
-        0
-      ],
-      "negative": [
         "7",
         0
       ],
-      "latent_image": [
+      "negative": [
         "8",
+        0
+      ],
+      "latent_image": [
+        "9",
         0
       ],
       "denoise": 1
@@ -119,24 +130,24 @@
       "title": "@seed:seed @steps:steps"
     }
   },
-  "10": {
+  "11": {
     "class_type": "VAEDecode",
     "inputs": {
       "samples": [
-        "9",
+        "10",
         0
       ],
       "vae": [
-        "3",
+        "4",
         0
       ]
     }
   },
-  "11": {
+  "12": {
     "class_type": "SaveImage",
     "inputs": {
       "images": [
-        "10",
+        "11",
         0
       ],
       "filename_prefix": "reelsmith/frame-edit"

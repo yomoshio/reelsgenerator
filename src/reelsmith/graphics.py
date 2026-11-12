@@ -546,3 +546,24 @@ def reveal_sprites(
         case "prop_stage" if target is not None and stage > 0:
             made = wrap(target[0], hero_at[1], stage, stages, start)
     return made
+
+
+def side_by_side(images: list[Path], out: Path, height: int = 1024) -> Path:
+    """Portraits in one row on white, each scaled to `height`: one reference image for a
+    model that draws several people from it."""
+    tiles = []
+    for path in images:
+        with Image.open(path) as img:
+            width = round(img.width * height / img.height)
+            tiles.append(img.convert("RGB").resize((width, height)))
+    gap = height // 32
+    sheet = Image.new(
+        "RGB", (sum(t.width for t in tiles) + gap * (len(tiles) - 1), height), "white"
+    )
+    x = 0
+    for tile in tiles:
+        sheet.paste(tile, (x, 0))
+        x += tile.width + gap
+    out.parent.mkdir(parents=True, exist_ok=True)
+    sheet.save(out)
+    return out

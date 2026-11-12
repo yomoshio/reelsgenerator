@@ -281,3 +281,14 @@ def test_an_episode_shorter_than_the_style_allows_is_sent_back() -> None:
 
     assert "must last at least 30 s" in " ".join(problems(roles("event", "event", "event"), long))
     assert "must last at least" not in " ".join(problems(roles("event", "event", "event"), style()))
+
+
+def test_an_outfit_must_be_declared_and_worn_by_someone_in_the_frame() -> None:
+    script = flood(shot("Артём идёт."), shot("Артём идёт."), shot("Артём идёт."))
+    script.characters[0].outfits = {"wet": "a soaked grey hoodie"}
+    script.shots[1].wears = {"Артём": "wet"}
+
+    assert "`wears`" not in " ".join(problems(script, style()))
+    script.shots[2].wears = {"Артём": "suit", "Лена": "wet"}
+    found = " ".join(problems(script, style()))
+    assert "shot 3 (Артём in 'suit'), shot 3 (Лена in 'wet')" in found

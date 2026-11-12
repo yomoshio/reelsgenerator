@@ -137,13 +137,21 @@ def animate(width: int = 480, height: int = 848, *, sharp: bool = False) -> Grap
 
 
 def keyframe_edit() -> Graph:
-    """Qwen-Image-Edit 2509: a new frame drawn from a reference portrait, so the character
-    keeps their face and clothes. The encoder scales the reference itself."""
+    """Qwen-Image-Edit 2509 with the lightx2v 8-step Lightning LoRA: a new frame drawn from
+    a reference of the characters' portraits, so they keep their faces and clothes. The
+    encoder scales the reference itself. Lightning runs at cfg 1, so the negative prompt
+    has no effect."""
     g = Graph()
-    unet = g.add(
+    base = g.add(
         "UNETLoader",
         unet_name="qwen_image_edit_2509_fp8_e4m3fn.safetensors",
         weight_dtype="default",
+    )
+    unet = g.add(
+        "LoraLoaderModelOnly",
+        model=out(base),
+        lora_name="Qwen-Image-Edit-2509-Lightning-8steps-V1.0-bf16.safetensors",
+        strength_model=1.0,
     )
     clip = g.add(
         "CLIPLoader", clip_name="qwen_2.5_vl_7b_fp8_scaled.safetensors", type="qwen_image",
@@ -165,7 +173,7 @@ def keyframe_edit() -> Graph:
     )
     sampled = g.add(
         "KSampler", "@seed:seed @steps:steps",
-        model=out(model), seed=0, steps=20, cfg=2.5, sampler_name="euler", scheduler="simple",
+        model=out(model), seed=0, steps=8, cfg=1, sampler_name="euler", scheduler="simple",
         positive=out(positive), negative=out(negative), latent_image=out(latent), denoise=1,
     )  # fmt: skip
     image = g.add("VAEDecode", samples=out(sampled), vae=out(vae))

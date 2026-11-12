@@ -72,6 +72,13 @@ Rules for the fields:
   glasses), hair, clothes in one signature colour. Never a thing in the hands or an
   action: the look is drawn into every frame of that person. The face is always
   uncovered: no hood up, no mask, no goggles.
+- A character's clothes never change by themselves: every frame draws the same face, hair
+  and clothes. Only when the story itself changes them, such as a ball gown for one night
+  or a prison shirt after the arrest, the character gets `outfits`: a short name and the
+  clothes, in English, such as `ball` for "a white silk ball gown with bare shoulders".
+  A shot where they wear it names them and the outfit in `wears`, such as `Матильда` and
+  `ball`; every other shot shows the look's own clothes. Most stories need no outfits at all. Dirt, wet hair or
+  a wound go into the `picture` of the shot, never into an outfit.
 - {shots} shots.
 - `music` is a short brief for a background track: genre, tempo, instruments, mood.
 

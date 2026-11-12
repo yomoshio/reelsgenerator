@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from PIL import Image
+
 from reelsmith.models import (
     Character,
     Job,
@@ -124,8 +126,10 @@ class FakeLlm:
         score = self.scores.pop(0) if len(self.scores) > 1 else self.scores[0]
         return Verdict(score=score, notes="tighten the hook")
 
-    async def pick(self, brief: str, images: list[Path], style: Style) -> int:
-        self.log.append(("pick", images))
+    async def pick(
+        self, brief: str, images: list[Path], style: Style, reference: Path | None = None
+    ) -> int:
+        self.log.append(("pick", [reference, *images] if reference else images))
         return self.picks
 
     async def inspect(self, motion: str, stills: list[Path], style: Style) -> Verdict:
@@ -153,7 +157,9 @@ class FakePainter:
     ) -> Path:
         self.log.append((prompt, seed))
         self.references.append(reference)
-        return _touch(out)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        Image.new("RGB", (9, 16), "gray").save(out, format="PNG")
+        return out
 
 
 @dataclass

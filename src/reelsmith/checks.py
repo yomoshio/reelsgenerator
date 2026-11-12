@@ -181,6 +181,19 @@ def problems(script: Script, style: Style, language: str | None = None) -> list[
         for c in script.characters
         if _CYRILLIC.search(c.look)
     ]
+    outfits = {c.name: c.outfits for c in script.characters}
+    unworn = [
+        f"shot {i + 1} ({name} in '{outfit}')"
+        for i, shot in enumerate(script.shots)
+        for name, outfit in shot.wears.items()
+        if name not in shot.cast or outfit not in outfits.get(name, {})
+    ]
+    if unworn:
+        found.append(
+            f"`wears` names an outfit that is not in that character's `outfits`, or a person "
+            f"not in the frame: {', '.join(unworn)}. Clothes change only into an outfit the "
+            "character declares, and only for someone in `cast`."
+        )
     found += [
         f"The look of {c.name} has them '{held[0].strip()}', so it is drawn into every shot "
         "they are in. A look is age, hair, face and clothes; a thing in the hands goes in the "

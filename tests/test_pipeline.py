@@ -4,9 +4,11 @@ from pathlib import Path
 from uuid import UUID
 
 import pytest
+from PIL import Image
 
 from reelsmith.models import (
     Call,
+    Character,
     Job,
     Metrics,
     Outcome,
@@ -290,7 +292,60 @@ async def test_characters_get_one_portrait_and_their_shots_are_drawn_from_it(
     assert _stages(made).count("cast") == 1
     assert editor.references == [tmp_path / portrait] * 4
     assert plain.references == [None, None, None]
-    assert editor.log[0][0].startswith("The same person as in the reference image, Vera.")
+    assert editor.log[0][0].startswith(
+        "The reference image shows Vera, nurse, 30s, grey cardigan. Draw the same person"
+    )
+
+
+async def test_a_shot_with_two_people_is_drawn_from_both_portraits_side_by_side(
+    tmp_path: Path,
+) -> None:
+    plain, editor = FakePainter("fake"), FakePainter("slow")
+    s = replace(services(tmp_path, painter=plain), painters={"fake": plain, "slow": editor})
+    made = job(status=Status.VOICED, script=script(3), recipe=recipe(cast_image="slow"))
+    told = made.require_script()
+    told.characters.append(Character(name="Lena", look="girl, 10, yellow jacket"))
+    told.shots[2].cast = ["Vera", "Lena"]
+
+    await paint(made, s)
+
+    sheet = editor.references[-1]
+    assert sheet is not None
+    assert sheet.parent == tmp_path / str(made.id) / "cast"
+    assert Image.open(sheet).size == (2 * 576 + 32, 1024)
+    assert (
+        "from left to right: Vera, nurse, 30s, grey cardigan; Lena, girl, 10" in editor.log[-1][0]
+    )
+    assert "the same people" in editor.log[-1][0]
+
+
+async def test_an_outfit_the_story_puts_on_gets_its_own_portrait(tmp_path: Path) -> None:
+    plain, editor = FakePainter("fake"), FakePainter("slow")
+    s = replace(services(tmp_path, painter=plain), painters={"fake": plain, "slow": editor})
+    made = job(status=Status.VOICED, script=script(3), recipe=recipe(cast_image="slow"))
+    told = made.require_script()
+    told.characters[0].outfits = {"ball": "a white silk ball gown"}
+    told.shots[1].wears = {"Vera": "ball"}
+
+    await paint(made, s)
+
+    assert set(made.assets.cast) == {"Vera", "Vera|ball"}
+    assert made.assets.cast["Vera"] != made.assets.cast["Vera|ball"]
+    assert editor.references[2] == tmp_path / made.assets.cast["Vera|ball"]
+    assert editor.references[0] == tmp_path / made.assets.cast["Vera"]
+    assert "wearing a white silk ball gown instead" in editor.log[2][0]
+
+
+async def test_pick_shows_the_judge_the_portraits_of_the_shot(tmp_path: Path) -> None:
+    llm = FakeLlm()
+    made = job(status=Status.PAINTED, script=script(3), recipe=recipe(cast_image="slow"))
+    made.assets.candidates = {i: [f"{made.id}/frames/{i:02d}-0.png"] for i in range(3)}
+    made.assets.cast = {"Vera": "cast/vera.png"}
+
+    await pick(made, services(tmp_path, llm=llm))
+
+    shown = [images for kind, images in llm.log if kind == "pick"]
+    assert all(images[0] == tmp_path / "cast" / "vera.png" for images in shown)
 
 
 async def test_the_same_look_reuses_the_portrait_in_the_next_episode(tmp_path: Path) -> None:
