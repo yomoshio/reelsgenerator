@@ -25,6 +25,12 @@ class Story(BaseModel):
     empty_shots: int = Field(
         default=2, ge=1, description="Most shots in a row with nobody in the frame."
     )
+    moving: float = Field(
+        default=1.0,
+        ge=0,
+        le=1,
+        description="Largest share of shots the video model animates; the rest get a camera move.",
+    )
 
     @model_validator(mode="after")
     def _ordered(self) -> Self:
