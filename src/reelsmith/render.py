@@ -77,15 +77,19 @@ def _tokens(text: str) -> list[str]:
 
 
 def _paced(tokens: list[str], parts: list[list[str]]) -> list[tuple[float, float]]:
+    """Words one after another with a pause after punctuation, the whole stretched to the
+    length the checks expect, so a preview runs as long as the beat will once voiced."""
     out: list[tuple[float, float]] = []
-    t = LEAD
+    t = 0.0
     for token, ps in zip(tokens, parts, strict=True):
         for p in ps:
-            length = max(syllables(p), 1) / PACE
+            length = max(syllables(p), 1)
             out.append((t, t + length))
             t += length
-        t += PAUSES.get(token.rstrip("»\"')")[-1:], 0.0)
-    return out
+        t += PACE * PAUSES.get(token.rstrip("»\"')")[-1:], 0.0)
+    total = sum(max(syllables(p), 1) for ps in parts for p in ps) / PACE
+    scale = total / out[-1][1] if out else 1.0
+    return [(LEAD + a * scale, LEAD + b * scale) for a, b in out]
 
 
 def _heard(flat: list[str], heard: Sequence[Word]) -> list[tuple[float, float]]:

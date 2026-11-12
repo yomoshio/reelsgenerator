@@ -1,0 +1,484 @@
+{
+ "title": "Утро",
+ "part": 1,
+ "hook": "Что делать, если вода уже по колено?",
+ "hud": "ДЕНЬ 1 · 06:10",
+ "beats": [
+  {
+   "location": "flat",
+   "pose": "sit",
+   "lines": [
+    "Что делать, если вода уже по колено?",
+    "Артём просыпается на третьем этаже, и рука свисает прямо в ледяную воду.",
+    "Ночью выше по реке прорвало дамбу."
+   ],
+   "delivery": "low and tense, the question almost a whisper",
+   "reveals": [
+    {
+     "on_word": "вода",
+     "occurrence": 1,
+     "kind": "status",
+     "text": "вода по колено",
+     "target": "hero",
+     "style": "threat",
+     "persist": "beat"
+    },
+    {
+     "on_word": "ледяную",
+     "occurrence": 1,
+     "kind": "prop_stage",
+     "text": "",
+     "target": "water",
+     "style": "neutral",
+     "persist": "beat"
+    },
+    {
+     "on_word": "дамбу",
+     "occurrence": 1,
+     "kind": "hud",
+     "text": "ДЕНЬ 1 · 06:10",
+     "target": "",
+     "style": "neutral",
+     "persist": "beat"
+    }
+   ],
+   "sfx": [
+    "water_slosh",
+    "water_drip",
+    "ui_tick"
+   ]
+  },
+  {
+   "location": "section",
+   "pose": "stand",
+   "lines": [
+    "Вода поднимается на этаж в час.",
+    "Через шесть часов она будет под самой крышей.",
+    "Поэтому первое правило — только вверх."
+   ],
+   "delivery": "calm and clear, a pause before the rule",
+   "reveals": [
+    {
+     "on_word": "час",
+     "occurrence": 1,
+     "kind": "diagram_step",
+     "text": "+1 этаж в час",
+     "target": "floor_6",
+     "style": "threat",
+     "persist": "beat"
+    },
+    {
+     "on_word": "крышей",
+     "occurrence": 1,
+     "kind": "diagram_step",
+     "text": "крыша",
+     "target": "floor_9",
+     "style": "threat",
+     "persist": "beat"
+    },
+    {
+     "on_word": "вверх",
+     "occurrence": 1,
+     "kind": "rule_card",
+     "text": "1. только вверх",
+     "target": "",
+     "style": "neutral",
+     "persist": "episode"
+    }
+   ],
+   "sfx": [
+    "water_slosh",
+    "ui_tick",
+    "card_pop"
+   ]
+  },
+  {
+   "location": "section",
+   "pose": "stand",
+   "lines": [
+    "Цель — мастерская на девятом этаже.",
+    "Это самая высокая комната в доме, и там сухо."
+   ],
+   "delivery": "steady",
+   "reveals": [
+    {
+     "on_word": "мастерская",
+     "occurrence": 1,
+     "kind": "label",
+     "text": "мастерская",
+     "target": "floor_9",
+     "style": "key",
+     "persist": "beat"
+    },
+    {
+     "on_word": "сухо",
+     "occurrence": 1,
+     "kind": "status",
+     "text": "сухо",
+     "target": "floor_9",
+     "style": "solved",
+     "persist": "beat"
+    }
+   ],
+   "sfx": [
+    "card_pop",
+    "ui_confirm"
+   ]
+  },
+  {
+   "location": "stairwell",
+   "pose": "walk",
+   "lines": [
+    "Лифт мёртв, а лестница в доме одна.",
+    "Снизу шумит вода, и с каждой минутой всё громче."
+   ],
+   "delivery": "faster, breathless",
+   "reveals": [
+    {
+     "on_word": "мёртв",
+     "occurrence": 1,
+     "kind": "stamp",
+     "text": "лифта нет",
+     "target": "",
+     "style": "neutral",
+     "persist": "beat"
+    },
+    {
+     "on_word": "шумит",
+     "occurrence": 1,
+     "kind": "status",
+     "text": "вода снизу",
+     "target": "stairs_down",
+     "style": "threat",
+     "persist": "beat"
+    }
+   ],
+   "sfx": [
+    "stamp_hit",
+    "water_slosh"
+   ]
+  },
+  {
+   "location": "stairwell",
+   "pose": "look_down",
+   "lines": [
+    "Между четвёртым и пятым этажом лестницу перегородил упавший шкаф.",
+    "Обойти его негде."
+   ],
+   "delivery": "flat, a dead end",
+   "reveals": [
+    {
+     "on_word": "шкаф",
+     "occurrence": 1,
+     "kind": "label",
+     "text": "шкаф",
+     "target": "shelf",
+     "style": "threat",
+     "persist": "beat"
+    },
+    {
+     "on_word": "негде",
+     "occurrence": 1,
+     "kind": "status",
+     "text": "прохода нет",
+     "target": "hero",
+     "style": "threat",
+     "persist": "beat"
+    }
+   ],
+   "sfx": [
+    "furniture_scrape",
+    "ui_tick"
+   ]
+  },
+  {
+   "location": "stairwell",
+   "pose": "hand_on_shelf",
+   "lines": [
+    "Артём упирается плечом и сдвигает его на ладонь, потом ещё на одну.",
+    "Проход открыт."
+   ],
+   "delivery": "strained, then relief on the last line",
+   "reveals": [
+    {
+     "on_word": "сдвигает",
+     "occurrence": 1,
+     "kind": "prop_stage",
+     "text": "",
+     "target": "shelf",
+     "style": "neutral",
+     "persist": "beat"
+    },
+    {
+     "on_word": "открыт",
+     "occurrence": 1,
+     "kind": "status",
+     "text": "проход открыт",
+     "target": "hero",
+     "style": "solved",
+     "persist": "beat"
+    }
+   ],
+   "sfx": [
+    "furniture_scrape",
+    "ui_confirm"
+   ]
+  },
+  {
+   "location": "landing",
+   "pose": "listen",
+   "lines": [
+    "На пятом этаже из-за двери шипит рация.",
+    "Детский голос говорит: «Приём».",
+    "Это Лена, ей десять лет."
+   ],
+   "delivery": "quiet, surprised",
+   "reveals": [
+    {
+     "on_word": "рация",
+     "occurrence": 1,
+     "kind": "lens",
+     "text": "рация",
+     "target": "door",
+     "style": "neutral",
+     "persist": "beat"
+    },
+    {
+     "on_word": "Приём",
+     "occurrence": 1,
+     "kind": "status",
+     "text": "«приём»",
+     "target": "door",
+     "style": "key",
+     "persist": "beat"
+    },
+    {
+     "on_word": "Лена",
+     "occurrence": 1,
+     "kind": "label",
+     "text": "Лена, 10 лет",
+     "target": "companion",
+     "style": "neutral",
+     "persist": "beat"
+    }
+   ],
+   "sfx": [
+    "radio_static",
+    "radio_voice",
+    "card_pop"
+   ]
+  },
+  {
+   "location": "landing",
+   "pose": "stand",
+   "lines": [
+    "Родители ушли ночью за помощью и не вернулись.",
+    "Её красная рация игрушечная и иногда шипит сама.",
+    "Второе правило — никого не оставлять."
+   ],
+   "delivery": "softer, then firm on the rule",
+   "reveals": [
+    {
+     "on_word": "вернулись",
+     "occurrence": 1,
+     "kind": "status",
+     "text": "родители не вернулись",
+     "target": "companion",
+     "style": "threat",
+     "persist": "beat"
+    },
+    {
+     "on_word": "игрушечная",
+     "occurrence": 1,
+     "kind": "label",
+     "text": "игрушка",
+     "target": "companion",
+     "style": "key",
+     "persist": "beat"
+    },
+    {
+     "on_word": "оставлять",
+     "occurrence": 1,
+     "kind": "rule_card",
+     "text": "2. никого не оставлять",
+     "target": "",
+     "style": "neutral",
+     "persist": "episode"
+    }
+   ],
+   "sfx": [
+    "ui_tick",
+    "radio_static",
+    "card_pop"
+   ]
+  },
+  {
+   "location": "dark_stairs",
+   "pose": "hand_on_railing",
+   "lines": [
+    "На седьмом этаже темно, и фонарик мигает.",
+    "Они идут на ощупь по перилам и вслух считают ступени.",
+    "Третье правило — считать: ступенька, пролёт, этаж."
+   ],
+   "delivery": "slow, counting under the breath",
+   "reveals": [
+    {
+     "on_word": "мигает",
+     "occurrence": 1,
+     "kind": "status",
+     "text": "фонарик садится",
+     "target": "hero",
+     "style": "threat",
+     "persist": "beat"
+    },
+    {
+     "on_word": "ступени",
+     "occurrence": 1,
+     "kind": "label",
+     "text": "18 ступеней",
+     "target": "railing",
+     "style": "key",
+     "persist": "beat"
+    },
+    {
+     "on_word": "считать",
+     "occurrence": 1,
+     "kind": "rule_card",
+     "text": "3. считать ступени",
+     "target": "",
+     "style": "neutral",
+     "persist": "episode"
+    }
+   ],
+   "sfx": [
+    "torch_click",
+    "ui_tick",
+    "card_pop"
+   ]
+  },
+  {
+   "location": "workshop",
+   "pose": "stand",
+   "lines": [
+    "Девятый этаж.",
+    "Дверь мастерской открыта, внутри сухо.",
+    "Лена впервые за утро улыбается."
+   ],
+   "delivery": "relief, warmer",
+   "reveals": [
+    {
+     "on_word": "сухо",
+     "occurrence": 1,
+     "kind": "status",
+     "text": "сухо",
+     "target": "hero",
+     "style": "solved",
+     "persist": "beat"
+    },
+    {
+     "on_word": "улыбается",
+     "occurrence": 1,
+     "kind": "label",
+     "text": "Лена",
+     "target": "companion",
+     "style": "solved",
+     "persist": "beat"
+    }
+   ],
+   "sfx": [
+    "ui_confirm",
+    "card_pop"
+   ]
+  },
+  {
+   "location": "workshop",
+   "pose": "hand_on_window",
+   "lines": [
+    "Из окна видно, что вода уже на шестом этаже.",
+    "Дверь на крышу заперта снаружи на висячий замок.",
+    "И фонарик гаснет совсем."
+   ],
+   "delivery": "tense, each line lower",
+   "reveals": [
+    {
+     "on_word": "шестом",
+     "occurrence": 1,
+     "kind": "status",
+     "text": "вода: 6 этаж",
+     "target": "window",
+     "style": "threat",
+     "persist": "beat"
+    },
+    {
+     "on_word": "замок",
+     "occurrence": 1,
+     "kind": "lens",
+     "text": "замок снаружи",
+     "target": "roof_door",
+     "style": "neutral",
+     "persist": "beat"
+    },
+    {
+     "on_word": "гаснет",
+     "occurrence": 1,
+     "kind": "stamp",
+     "text": "темно",
+     "target": "",
+     "style": "neutral",
+     "persist": "beat"
+    }
+   ],
+   "sfx": [
+    "water_slosh",
+    "lock_rattle",
+    "torch_click"
+   ]
+  },
+  {
+   "location": "workshop",
+   "pose": "stand",
+   "lines": [
+    "В темноте игрушечная рация Лены говорит взрослым женским голосом.",
+    "«Девятый этаж, дверь на крышу не трогайте».",
+    "Голос из игрушки знает, где они."
+   ],
+   "delivery": "a whisper, the last line slow",
+   "reveals": [
+    {
+     "on_word": "голосом",
+     "occurrence": 1,
+     "kind": "status",
+     "text": "чужой голос",
+     "target": "companion",
+     "style": "threat",
+     "persist": "beat"
+    },
+    {
+     "on_word": "трогайте",
+     "occurrence": 1,
+     "kind": "label",
+     "text": "«не трогайте»",
+     "target": "roof_door",
+     "style": "threat",
+     "persist": "beat"
+    },
+    {
+     "on_word": "знает",
+     "occurrence": 1,
+     "kind": "stamp",
+     "text": "она знает",
+     "target": "",
+     "style": "neutral",
+     "persist": "beat"
+    }
+   ],
+   "sfx": [
+    "radio_voice",
+    "radio_static",
+    "stamp_hit"
+   ]
+  }
+ ],
+ "cliffhanger": "КТО НА СВЯЗИ?",
+ "music": "low dark drone, slow pulse, distant water, no melody"
+}

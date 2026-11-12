@@ -1,0 +1,85 @@
+# Библиотека серии «Потоп» (studio/series/flood.md) для формата битов.
+# Координаты якорей — доли ширины и высоты кадра 1080 x 1920; сцена — y от 0.094 до 0.6.
+
+[locations.flat]
+about = "Artyom's room on the third floor at dawn: a bed by the wall, a window, the door, knee-deep water."
+[locations.flat.anchors]
+hero = { x = 0.42, y = 0.54, about = "Artyom, by the feet" }
+bed = { x = 0.22, y = 0.5, about = "the bed against the wall" }
+window = { x = 0.7, y = 0.28, about = "the window onto the flooded yard" }
+door = { x = 0.86, y = 0.42, about = "the door to the stairs" }
+water = { x = 0.5, y = 0.5, about = "the surface of the water in the room" }
+
+[locations.section]
+about = "A cut through the nine-storey block: floors stacked, the stairs inside, water filling the bottom."
+[locations.section.anchors]
+hero = { x = 0.34, y = 0.46, about = "Artyom on his floor" }
+floor_3 = { x = 0.5, y = 0.5, about = "the third floor" }
+floor_6 = { x = 0.5, y = 0.34, about = "the sixth floor" }
+floor_9 = { x = 0.5, y = 0.18, about = "the ninth floor, the workshop under the roof" }
+water = { x = 0.5, y = 0.52, about = "the water line" }
+
+[locations.stairwell]
+about = "The block's only staircase: a flight going up, a metal railing, water noise from below."
+[locations.stairwell.anchors]
+hero = { x = 0.4, y = 0.54 }
+railing = { x = 0.68, y = 0.38 }
+stairs_down = { x = 0.66, y = 0.56, about = "the flight down to the water" }
+shelf = { x = 0.6, y = 0.42, about = "a fallen wardrobe across the flight" }
+
+[locations.landing]
+about = "The fifth-floor landing: a closed flat door with a voice behind it."
+[locations.landing.anchors]
+hero = { x = 0.36, y = 0.54 }
+door = { x = 0.7, y = 0.42, about = "the flat door" }
+companion = { x = 0.56, y = 0.54, about = "where Lena stands, by the feet" }
+
+[locations.dark_stairs]
+about = "The seventh floor in the dark: only the railing and a flicker of a torch."
+[locations.dark_stairs.anchors]
+hero = { x = 0.4, y = 0.54 }
+companion = { x = 0.26, y = 0.54 }
+railing = { x = 0.66, y = 0.38 }
+
+[locations.workshop]
+about = "The workshop on the ninth floor: a workbench, a big window onto the flooded city, the roof door."
+[locations.workshop.anchors]
+hero = { x = 0.4, y = 0.54 }
+companion = { x = 0.24, y = 0.54 }
+window = { x = 0.66, y = 0.28, about = "the window onto the flooded city" }
+roof_door = { x = 0.86, y = 0.42, about = "the door to the roof" }
+table = { x = 0.62, y = 0.5, about = "the workbench" }
+
+[poses]
+stand = "stands still, facing the viewer"
+sit = "sits up in bed, legs down"
+walk = "walks up the stairs"
+listen = "stands with the head tilted, listening"
+look_down = "looks down at the water"
+hold_item = "holds the torch in front of the chest"
+hand_on_shelf = "pushes the wardrobe with a shoulder"
+hand_on_railing = "feels the way along the railing"
+hand_on_window = "stands at the window with a hand on the glass"
+
+[props.water]
+about = "The water in the room or in the cut of the block."
+stages = ["ankle-deep", "knee-deep", "waist-deep"]
+
+[props.shelf]
+about = "The fallen wardrobe across the stairs."
+stages = ["blocking the flight", "pushed aside"]
+
+[sfx]
+water_slosh = "water moving in a flooded room"
+water_drip = "single drops falling into water"
+radio_static = "a toy walkie-talkie hissing"
+radio_voice = "a click and a short burst of a voice through a walkie-talkie"
+furniture_scrape = "heavy furniture dragged over concrete"
+torch_click = "a torch switch clicking"
+door_creak = "a door opening slowly"
+lock_rattle = "a padlock rattling on a door"
+card_pop = "a short soft pop when a card appears"
+ui_tick = "a quiet interface tick"
+ui_confirm = "a short rising two-tone confirmation"
+stamp_hit = "a heavy stamp hitting paper"
+alarm_beep = "three short alarm beeps"
