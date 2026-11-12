@@ -14,9 +14,9 @@ SHOT_PADDING = 0.35  # breath after each line so cuts do not clip the last sylla
 SHOT_MIN, SHOT_MAX = 2.0, 8.0
 
 
-def shot_seconds(spoken: float) -> float:
+def shot_seconds(spoken: float, padding: float = SHOT_PADDING) -> float:
     """How long a shot is held for a line that takes `spoken` seconds to say."""
-    return min(max(spoken + SHOT_PADDING, SHOT_MIN), SHOT_MAX)
+    return min(max(spoken + padding, SHOT_MIN), SHOT_MAX)
 
 
 class Status(enum.StrEnum):

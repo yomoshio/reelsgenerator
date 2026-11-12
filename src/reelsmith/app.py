@@ -248,7 +248,7 @@ def synthetic_services(
     analytics: bool = False,
 ) -> Services:
     """The same model names as the local set, so a synthetic run prices like a real one."""
-    montage = FfmpegMontage()
+    montage = synthetic.SyntheticMontage()
     return Services(
         llm=synthetic.SyntheticLlm(flag=flag, reject=reject),
         painters={

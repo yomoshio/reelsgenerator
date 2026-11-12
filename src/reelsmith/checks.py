@@ -191,12 +191,16 @@ def problems(script: Script, style: Style, language: str | None = None) -> list[
     return found
 
 
+def spoken_words(text: str) -> list[str]:
+    """The words of `text` as they sound, without digits and punctuation."""
+    return [bare(w) for w in _WORD.findall(text)]
+
+
 def misspoken(line: str, heard: str) -> str:
     """Words the narrator said that the line does not have, such as a stage direction read
     aloud; empty when the take is clean. Only additions count: the transcript writes numbers
     in digits and mishears a word now and then, and neither is the narrator's fault."""
-    wanted = [bare(w) for w in _WORD.findall(line)]
-    said = [bare(w) for w in _WORD.findall(heard)]
+    wanted, said = spoken_words(line), spoken_words(heard)
     extra: list[str] = []
     for tag, i1, i2, j1, j2 in SequenceMatcher(a=wanted, b=said, autojunk=False).get_opcodes():
         if tag == "insert":

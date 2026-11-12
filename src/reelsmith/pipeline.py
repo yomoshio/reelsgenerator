@@ -5,6 +5,7 @@ why the judge has stages of its own, `pick` and `check`, between the ComfyUI one
 
 import asyncio
 import hashlib
+import itertools
 import re
 import shutil
 from collections.abc import Awaitable, Callable, Mapping
@@ -15,8 +16,9 @@ from pathlib import Path
 from typing import Protocol
 from uuid import UUID
 
-from reelsmith.checks import bare, misspoken, present, problems, unsaid_plates
+from reelsmith.checks import bare, misspoken, present, problems, spoken_words, unsaid_plates
 from reelsmith.models import (
+    SHOT_PADDING,
     Call,
     Job,
     Metrics,
@@ -50,6 +52,7 @@ class Gates:
     candidates: int = 2
     clip_tries: int = 3
     voice_tries: int = 3
+    passage_words: int = 40
 
 
 class Llm(Protocol):
@@ -113,6 +116,8 @@ class Transcriber(Protocol):
 
 class Montage(Protocol):
     async def seconds(self, media: Path) -> float: ...
+
+    async def cut(self, audio: Path, start: float, end: float, out: Path) -> Path: ...
 
     async def stills(self, video: Path, count: int, out_dir: Path) -> list[Path]: ...
 
@@ -189,6 +194,9 @@ class Files:
     def voice(self, shot: int, suffix: str = ".wav") -> Path:
         return self._file(f"voice/{shot:02d}{suffix}")
 
+    def passage(self, first: int, suffix: str = ".wav") -> Path:
+        return self._file(f"voice/passage-{first:02d}{suffix}")
+
     def frame(self, shot: int, candidate: int = 0) -> Path:
         return self._file(f"frames/{shot:02d}-{candidate}.png")
 
@@ -259,23 +267,91 @@ async def write(job: Job, s: Services) -> None:
 
 
 async def voice(job: Job, s: Services) -> None:
-    """Before pictures on purpose: the spoken line decides how long its shot lasts. Every
-    take is heard back, and a take with words the line does not have is spoken again."""
+    """Before pictures on purpose: the spoken lines decide how long their shots last. The
+    narrator reads several shots in one take, so the voice runs on across the cuts instead
+    of starting afresh on every line, and each take is heard back: a take with words the
+    lines do not have is spoken again. The take is then cut into the shots' lines where the
+    transcript says they meet, and only the last shot of a take gets a breath after it."""
     script, files = job.require_script(), Files(s.media, job.id)
-    for i, shot in enumerate(script.shots):
+    for passage in passages([shot.line for shot in script.shots], s.gates.passage_words):
+        lines = [script.shots[i].line for i in passage]
+        text = " ".join(lines)
         for take in range(1, s.gates.voice_tries + 1):
             with metered(
-                job, s.tariff, stage="voice", provider=s.narrator.name, units=len(shot.line), shot=i
-            ):
-                audio = await s.narrator.speak(shot.line, files.voice(i, s.narrator.suffix))
-            heard = " ".join(w.text for w in await s.transcriber.words(audio))
-            if not (extra := misspoken(shot.line, heard)):
+                job, s.tariff, stage="voice", provider=s.narrator.name, units=len(text),
+                shot=passage[0],
+            ):  # fmt: skip
+                audio = await s.narrator.speak(text, files.passage(passage[0], s.narrator.suffix))
+            heard = await s.transcriber.words(audio)
+            if not (extra := misspoken(text, " ".join(w.text for w in heard))):
                 break
             if take == s.gates.voice_tries:
-                raise StageError(f"shot {i + 1}: the narrator adds «{extra}» to the line")
-        spoken = await s.montage.seconds(audio)
-        shot.seconds = shot_seconds(spoken)
-        job.assets.voices[i] = files.relative(audio)
+                where = ", ".join(str(i + 1) for i in passage)
+                raise StageError(f"shots {where}: the narrator adds «{extra}» to the lines")
+        length = await s.montage.seconds(audio)
+        for i, (start, end) in zip(passage, split(lines, heard, length), strict=True):
+            piece = await s.montage.cut(audio, start, end, files.voice(i, s.narrator.suffix))
+            breath = SHOT_PADDING if i == passage[-1] else 0.0
+            script.shots[i].seconds = shot_seconds(end - start, padding=breath)
+            job.assets.voices[i] = files.relative(piece)
+
+
+def passages(lines: list[str], most: int) -> list[list[int]]:
+    """Neighbouring lines read in one take, at most `most` words each; a longer line is a
+    take of its own, and 0 reads every line alone."""
+    taken: list[list[int]] = []
+    words = 0
+    for i, line in enumerate(lines):
+        count = len(line.split())
+        if taken and most and words + count <= most:
+            taken[-1].append(i)
+            words += count
+        else:
+            taken.append([i])
+            words = count
+    return taken
+
+
+def split(lines: list[str], heard: list[Word], length: float) -> list[tuple[float, float]]:
+    """Where each line starts and ends in one recording of them all: halfway through the
+    pause between one line's last heard word and the next line's first. A line the
+    transcript lost runs from where the line before it ended to where the next one starts;
+    where neither is known, the lines share the time by the length of their text."""
+    owner = [i for i, line in enumerate(lines) for _ in spoken_words(line)]
+    tokens = [(t, w) for w in heard for t in spoken_words(w.text)]
+    matcher = SequenceMatcher(
+        a=[t for line in lines for t in spoken_words(line)],
+        b=[t for t, _ in tokens],
+        autojunk=False,
+    )
+    first: dict[int, float] = {}
+    last: dict[int, float] = {}
+    for a, b, size in matcher.get_matching_blocks():
+        for k in range(size):
+            word = tokens[b + k][1]
+            first.setdefault(owner[a + k], word.start)
+            last[owner[a + k]] = word.end
+    known = {0: 0.0, len(lines): length}
+    for i in range(1, len(lines)):
+        end, start = last.get(i - 1), first.get(i)
+        if end is not None and start is not None:
+            if end <= start:
+                known[i] = (end + start) / 2
+        elif (edge := end if end is not None else start) is not None:
+            known[i] = edge
+    edges = [0]
+    for i in sorted(known)[1:]:
+        if known[i] >= known[edges[-1]] or i == len(lines):
+            edges.append(i)
+    cuts = [0.0] * (len(lines) + 1)
+    for left, right in itertools.pairwise(edges):
+        weights = [len(line) or 1 for line in lines[left:right]]
+        done = 0
+        for k in range(left, right):
+            cuts[k] = known[left] + (known[right] - known[left]) * done / sum(weights)
+            done += weights[k - left]
+    cuts[-1] = length
+    return [(cuts[i], max(cuts[i], cuts[i + 1])) for i in range(len(lines))]
 
 
 async def paint(job: Job, s: Services) -> None:

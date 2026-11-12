@@ -28,10 +28,12 @@ from reelsmith.pipeline import (
     check,
     measure,
     paint,
+    passages,
     pick,
     publish,
     score,
     showcase_name,
+    split,
     voice,
     write,
 )
@@ -144,15 +146,58 @@ async def test_best_draft_is_kept_after_the_last_rewrite(tmp_path: Path) -> None
     assert made.critique.score == 6.5
 
 
-async def test_voice_sets_shot_seconds_from_the_recording(tmp_path: Path) -> None:
-    narrator = FakeNarrator(suffix=".mp3")
+async def test_voice_reads_neighbouring_lines_in_one_take_and_cuts_it_per_shot(
+    tmp_path: Path,
+) -> None:
     made = job(status=Status.SCRIPTED, script=script(3))
+    for shot in made.require_script().shots:
+        shot.line = "раз два три четыре пять шесть"
+    narrator, montage = FakeNarrator(suffix=".mp3"), FakeMontage(8.0)
 
-    await voice(made, services(tmp_path, narrator=narrator, montage=FakeMontage(3.0)))
+    await voice(made, services(tmp_path, narrator=narrator, montage=montage))
 
-    assert [s.seconds for s in made.require_script().shots] == [3.35, 3.35, 3.35]
+    assert narrator.log == [" ".join(["раз два три четыре пять шесть"] * 3)]
+    assert montage.cuts == [(0.0, 2.35), (2.35, 4.75), (4.75, 8.0)]
+    assert [s.seconds for s in made.require_script().shots] == [2.35, 2.4, pytest.approx(3.6)]
     assert made.assets.voices == {i: f"{made.id}/voice/{i:02d}.mp3" for i in range(3)}
-    assert [(c.stage, c.units, c.shot) for c in made.calls] == [("voice", 6, i) for i in range(3)]
+    assert [(c.stage, c.units, c.shot) for c in made.calls] == [("voice", 89, 0)]
+
+
+def test_passages_hold_neighbouring_lines_up_to_the_word_limit() -> None:
+    lines = ["один два три", "четыре пять", "шесть семь восемь девять", "десять"]
+
+    assert passages(lines, 5) == [[0, 1], [2, 3]]
+    assert passages(lines, 3) == [[0], [1], [2], [3]]
+    assert passages(lines, 0) == [[0], [1], [2], [3]]
+    assert passages(lines, 40) == [[0, 1, 2, 3]]
+
+
+def test_a_take_is_cut_halfway_through_the_pause_between_two_lines() -> None:
+    heard = [
+        Word("Петля", 0.0, 0.4),
+        Word("сжимает", 0.45, 0.9),
+        Word("горло.", 0.95, 1.3),
+        Word("Сержант", 1.9, 2.3),
+        Word("сдвигает", 2.35, 2.8),
+        Word("доску.", 2.85, 3.2),
+    ]
+
+    cuts = split(["Петля сжимает горло.", "Сержант сдвигает доску."], heard, 3.5)
+
+    assert cuts == [(0.0, 1.6), (1.6, 3.5)]
+
+
+def test_a_line_the_transcript_lost_shares_the_time_by_its_length() -> None:
+    heard = [Word("Да.", 0.0, 0.3), Word("Нет.", 2.7, 3.0)]
+
+    cuts = split(["Да.", "Совсем другое слово.", "Нет."], heard, 3.0)
+
+    assert cuts == [(0.0, 0.3), (0.3, 2.7), (2.7, 3.0)]
+    assert [round(a, 2) for a, _ in split(["Да.", "Совсем другое слово.", "Нет."], [], 2.7)] == [
+        0.0,
+        0.3,
+        2.3,
+    ]
 
 
 async def test_voice_speaks_again_a_take_with_a_direction_read_aloud(tmp_path: Path) -> None:
@@ -161,16 +206,17 @@ async def test_voice_speaks_again_a_take_with_a_direction_read_aloud(tmp_path: P
 
     await voice(made, services(tmp_path, narrator=narrator))
 
-    lines = [shot.line for shot in made.require_script().shots]
-    assert narrator.log == [lines[0], lines[0], lines[0], lines[1], lines[2]]
-    assert [c.shot for c in made.calls] == [0, 0, 0, 1, 2]
+    text = " ".join(shot.line for shot in made.require_script().shots)
+    assert narrator.log == [text, text, text]
+    assert [c.shot for c in made.calls] == [0, 0, 0]
+    assert len(made.assets.voices) == 3
 
 
-async def test_voice_gives_up_on_a_shot_after_its_tries(tmp_path: Path) -> None:
+async def test_voice_gives_up_on_a_take_after_its_tries(tmp_path: Path) -> None:
     narrator = FakeNarrator(slip="low slow ominous", slips=99)
     made = job(status=Status.SCRIPTED, script=script(3))
 
-    with pytest.raises(StageError, match="shot 1: the narrator adds «low slow ominous»"):
+    with pytest.raises(StageError, match="shots 1, 2, 3: the narrator adds «low slow ominous»"):
         await voice(made, services(tmp_path, narrator=narrator))
 
     assert len(narrator.log) == 3

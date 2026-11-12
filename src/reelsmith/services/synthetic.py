@@ -254,6 +254,19 @@ async def _tone(out: Path, *, frequency: int, seconds: float) -> None:
     )  # fmt: skip
 
 
+class SyntheticMontage(FfmpegMontage):
+    """Real ffmpeg; a cut piece also gets the sidecar text of the words spoken inside it,
+    spread the way SyntheticTranscriber spreads them."""
+
+    async def cut(self, audio: Path, start: float, end: float, out: Path) -> Path:
+        await super().cut(audio, start, end, out)
+        words = audio.with_suffix(".txt").read_text(encoding="utf-8").split()
+        step = await self.seconds(audio) / len(words)
+        inside = [w for n, w in enumerate(words) if start <= (n + 0.5) * step < end]
+        out.with_suffix(".txt").write_text(" ".join(inside) or words[-1], encoding="utf-8")
+        return out
+
+
 class SyntheticTranscriber:
     """Word timings from the narrator's sidecar text, spread evenly over the recording."""
 

@@ -205,11 +205,23 @@ class FakeComposer:
 class FakeMontage:
     seconds_per_file: float = 3.0
     rendered: list[Cut] = field(default_factory=list)
+    cuts: list[tuple[float, float]] = field(default_factory=list)
     moments: list[float] = field(default_factory=list)
     widths: list[int] = field(default_factory=list)
 
     async def seconds(self, media: Path) -> float:
         return self.seconds_per_file
+
+    async def cut(self, audio: Path, start: float, end: float, out: Path) -> Path:
+        """A piece of what FakeNarrator said keeps the words FakeTranscriber hears in it."""
+        self.cuts.append((start, end))
+        said = audio.with_suffix(".said")
+        if said.exists():
+            words = said.read_text(encoding="utf-8").split()
+            inside = [w for n, w in enumerate(words) if start <= n * 0.4 < end]
+            _touch(out).with_suffix(".said").write_text(" ".join(inside), encoding="utf-8")
+            return out
+        return _touch(out)
 
     async def stills(self, video: Path, count: int, out_dir: Path) -> list[Path]:
         return [_touch(out_dir / f"{i:02d}.png") for i in range(count)]
