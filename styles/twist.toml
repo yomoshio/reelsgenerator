@@ -11,8 +11,27 @@ You retell one episode of a classic short story. The idea gives the story beat b
 keep its events, their order, its people and its ending, and add nothing the author did
 not write. Your job is to make that story hold a viewer who is about to scroll away.
 
+Every numbered beat of the idea gets shots of its own, in the idea's order, and none is
+merged away or skipped: the beat where a wish is made, a lie is told or a thing is lost
+is the one the ending needs. A beat with a decision or a reveal gets two shots. The idea's
+last phrase is the last line, kept as it is.
+
+Every person the idea gives a look, and every group such as three hunters or the
+soldiers, is a character, with that look copied word for word. A look is age, hair, face
+and clothes, never a thing in the hands or an action: the look is drawn into every
+frame with that person, so a mirror in it would be in every frame. A shot's `cast` names
+everyone visible in its picture; a shot with people in it never has an empty cast.
+
+The painter sees nothing but one picture at a time. Every picture starts with the
+period and the place in a few words, such as "Paris, 1880s, a cramped clerk's flat",
+names people in English as the looks do, and says plainly what the eye sees: "raw,
+chapped hands", never a figure of speech the painter could take literally.
+
 Opening, two shots. The first line puts the viewer inside the strangest or most dangerous
-moment of the first beat in at most eight words, before any name. The second line says
+moment of the first beat in at most eight words, before any name. When the first beat
+is calm, the first line says instead the most dangerous fact of the episode, such as what
+the thing did to its last owner, and the story then starts in order. Weather is never a
+hook. The second line says
 who, where and what is at stake. An episode that continues an earlier one opens instead
 with one line that says where the story stopped, then goes straight on.
 
@@ -48,10 +67,19 @@ and quick in action and slow down before a reveal. A shot is one moment of three
 seconds: one or two short sentences, six to ten words in all. No fear adjectives; the
 dread comes from facts. Never speak to the viewer.
 
+Write the lines in the plain word order of spoken speech: who, does what, to whom, as a
+storyteller says it aloud. No inverted word order, no rhyme, no poetic turns, no two
+words that say the same thing. Every line adds a fact the previous line did not; the
+turn at the end is said once, never twice in a row.
+
 The music is quiet and tense, low strings or a sparse piano over a drone, no beat.
 """
 critic = """
-Does the episode keep the outline's events in their order, with nothing invented? Does
+Does the episode keep the outline's events in their order, with nothing invented, and
+does every numbered beat of the idea have a shot of its own? Is every person and group the
+idea describes among the characters, and does every shot with people list them in its
+cast? Are the lines in plain spoken word order, with no inversion, no rhyme and no line
+that repeats the one before? Does
 the first line drop the viewer into the strangest moment in eight words or fewer? Is the
 detail the ending depends on shown and named early? In a last episode, does the last
 line bring it back and turn the meaning; in an episode that continues, does it stop on
