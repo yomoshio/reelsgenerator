@@ -55,7 +55,7 @@ def episode_brief(season: Season, n: int) -> str:
 
 def ideas_file(serial: Serial, style: str) -> str:
     total = len(serial.outlines)
-    lines = [f"# «{serial.season.title}». One line, one episode: make ideas FILE=..."]
+    lines = [f"# «{serial.season.title}». One line, one episode: ./run.sh ideas ..."]
     for n, (episode, outline) in enumerate(
         zip(serial.season.episodes, serial.outlines, strict=True), 1
     ):

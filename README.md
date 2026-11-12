@@ -30,33 +30,37 @@
 
 - Видеокарта NVIDIA от 24 ГБ; удобно от 32 ГБ.
 - 64 ГБ оперативной памяти и 250 ГБ на диске.
-- Linux или Windows с WSL2, Docker с доступом к видеокарте.
+- Linux, Windows 10/11 (через WSL2) или арендованный сервер. С macOS можно управлять
+  сервером и гонять конвейер на заглушках.
 
 ## Запуск
 
-```
-make setup          # .env и папки
-make build
-make models         # около 90 ГБ весов
-make llm-model
-make voice DESC="A gripping storyteller in his forties, low warm voice, lively intonation, dramatic pauses, building tension, never monotone"
-make up
-make migrate
-```
+Все скрипты установки и запуска лежат в корне:
+
+| Где | Установка | Команды |
+| --- | --- | --- |
+| Linux, WSL | `./install.sh` | `./run.sh help` |
+| Windows | двойной щелчок по `install.cmd` | `run.cmd help` |
+| Арендованный сервер | `./run.sh server install` с вашего компьютера | `./run.sh server help` |
+| macOS | `./install.sh` (только папки и `.env`) | `./run.sh help` |
+
+`install.sh` ставит Docker и доступ к видеокарте, собирает образы, качает веса, делает
+голос диктора, запускает всё и проверяет каждую модель. Повторный запуск пропускает
+сделанное и служит обновлением. Подробно в [docs/setup.md](docs/setup.md).
 
 Дальше каждый день:
 
 ```
-make add IDEA="Часть 2. Артём находит второй блокнот"
-make jobs                     # статусы и id
-make review ID=<id>           # ролик в review/
-make approve ID=<id>          # готовый ролик в outbox/
+./run.sh add "Часть 2. Артём находит второй блокнот"
+./run.sh jobs                     # статусы и id
+./run.sh review <id>              # ролик в review/
+./run.sh approve <id>             # готовый ролик в outbox/
 ```
 
 Всё это можно делать и без терминала, в ComfyUI на http://localhost:8188: схема
 «Новый ролик» принимает фразу или рассказ, «Новая серия» принимает синопсис, «Статус»
 показывает ход работы, готовые ролики появляются в Ассетах. Подробно в
-[comfyui.md](docs/comfyui.md). `make help` показывает все команды терминала.
+[comfyui.md](docs/comfyui.md). `./run.sh help` показывает все команды терминала.
 
 ## Документация
 
@@ -76,8 +80,8 @@ make approve ID=<id>          # готовый ролик в outbox/
 
 ```
 python3.12 -m venv .venv && . .venv/bin/activate && pip install -e ".[dev,check]"
-make test lint
-make demo           # весь конвейер на заглушках
+./run.sh test && ./run.sh lint
+./run.sh demo           # весь конвейер на заглушках
 ```
 
 Код в `src/reelsmith/`, сервис голоса в `services/tts/`, скрипты в `scripts/`, сверка с

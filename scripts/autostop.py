@@ -6,10 +6,10 @@ the finished videos, the season plans and a database backup are safely on this c
     python3 scripts/autostop.py --login --email  or a code vast sends to the account's email
     python3 scripts/autostop.py --dry-run --once one check, with every step but the destroy
     python3 scripts/autostop.py --dry-run --now  copy everything off now, destroy nothing
-    scripts/remote.sh autostop                   watch in the background, log in logs/autostop.log
+    ./run.sh server autostop                     watch in the background, log in logs/autostop.log
 
 Runs here and not on the server: the files have to be copied off before it is gone. The
-server is in scripts/remote.env (REMOTE_* and VAST_INSTANCE). A stopped vast instance still
+server is in .env (SERVER_* and VAST_INSTANCE). A stopped vast instance still
 bills for its disk, so the server is destroyed, not stopped. If anything fails to copy, or
 vast refuses the key, the server stays and the log says so."""
 
@@ -64,9 +64,7 @@ def main() -> None:
     if args.login:
         _login(email=args.email, code=args.code, secret=args.secret)
         return
-    instance = _remote_env().get("VAST_INSTANCE") or sys.exit(
-        "set VAST_INSTANCE in scripts/remote.env"
-    )
+    instance = _settings().get("VAST_INSTANCE") or sys.exit("set VAST_INSTANCE in .env")
     if args.now:
         _finish(instance, dry=args.dry_run)
         return
@@ -121,9 +119,9 @@ def _read(instance: str) -> Reading:
 def _finish(instance: str, *, dry: bool) -> None:
     """Copies everything off the server, checks the copies, then destroys it."""
     _log("copying videos, season plans and a database backup")
-    subprocess.run([ROOT / "scripts" / "remote.sh", "pull"], cwd=ROOT, check=True)
+    subprocess.run(["bash", ROOT / "run.sh", "server", "pull"], cwd=ROOT, check=True)
     backup = subprocess.run(
-        [ROOT / "scripts" / "remote.sh", "backup"],
+        ["bash", ROOT / "run.sh", "server", "backup"],
         cwd=ROOT,
         check=True,
         capture_output=True,
@@ -228,13 +226,15 @@ def _save(path: Path, value: str) -> None:
 
 
 def _remote(command: str) -> str:
-    env = _remote_env()
-    key = os.path.expanduser(os.path.expandvars(env.get("REMOTE_KEY") or "~/.ssh/id_ed25519"))
+    env = _settings()
+    if not env.get("SERVER_HOST"):
+        sys.exit("set SERVER_HOST in .env")
+    key = os.path.expanduser(os.path.expandvars(env.get("SERVER_KEY") or "~/.ssh/id_ed25519"))
     reply = subprocess.run(
         [
-            "ssh", "-i", key, "-p", env.get("REMOTE_PORT", "22"),
-            "-o", "BatchMode=yes", "-o", "ConnectTimeout=30", env["REMOTE_HOST"],
-            f"cd {env.get('REMOTE_DIR', '/root/projects/reelsgenerator')} && {command}",
+            "ssh", "-i", key, "-p", env.get("SERVER_PORT") or "22",
+            "-o", "BatchMode=yes", "-o", "ConnectTimeout=30", env["SERVER_HOST"],
+            f"cd {env.get('SERVER_DIR') or '/root/reelsmith'} && {command}",
         ],
         check=True,
         capture_output=True,
@@ -246,17 +246,13 @@ def _remote(command: str) -> str:
 
 def _local_price() -> float | None:
     """The hourly price from .env, for a key that may read the balance but not the server."""
+    return float(_settings().get("REELSMITH_GPU_HOUR_USD") or 0) or None
+
+
+def _settings() -> dict[str, str]:
     path = ROOT / ".env"
-    for line in path.read_text().splitlines() if path.exists() else ():
-        if line.startswith("REELSMITH_GPU_HOUR_USD="):
-            return float(line.split("=", 1)[1]) or None
-    return None
-
-
-def _remote_env() -> dict[str, str]:
-    path = ROOT / "scripts" / "remote.env"
     if not path.exists():
-        sys.exit("copy scripts/remote.env.example to scripts/remote.env")
+        sys.exit("no .env: run ./run.sh setup")
     pairs = (line.split("=", 1) for line in path.read_text().splitlines() if "=" in line)
     return {k.strip(): v.strip() for k, v in pairs if not k.lstrip().startswith("#")}
 

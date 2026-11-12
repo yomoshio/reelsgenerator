@@ -52,9 +52,9 @@
 помечены его тегом, поэтому «стена» Замятина не попадёт на остров охотников.
 
 ```
-make remix                       # 12 идей на все темы
-make remix THEME=space COUNT=6   # только космос
-make remix SEED=2026             # та же затравка даёт те же идеи
+./run.sh remix                       # 12 идей на все темы
+./run.sh remix --theme space --count 6   # только космос
+./run.sh remix --seed 2026             # та же затравка даёт те же идеи
 ```
 
 Идеи лягут в `studio/ideas/remix-<затравка>.txt`, над каждой строкой указаны книги,
@@ -75,18 +75,18 @@ make remix SEED=2026             # та же затравка даёт те же
 Сравнить планы, не тратя время на рендер:
 
 ```
-make outline FILE=studio/ideas/batch-01.txt
+./run.sh outline studio/ideas/batch-01.txt
 ```
 
 Модель напишет свой план для каждой идеи в `studio/ideas/batch-01.outlines.md`, в том же
 формате, что и мои. Сравнить готовые ролики: поставить обе пачки и посмотреть рядом.
 
 ```
-make ideas FILE=studio/ideas/batch-01.txt
-make ideas FILE=studio/ideas/batch-01-claude.txt
+./run.sh ideas studio/ideas/batch-01.txt
+./run.sh ideas studio/ideas/batch-01-claude.txt
 ```
 
 ## Серии
 
-Синопсис сезона превращается в серию командой `make series`, подробно в
+Синопсис сезона превращается в серию командой `./run.sh series`, подробно в
 [daily.md](daily.md#идеи). Сквозные герои получают одну внешность на весь сезон.

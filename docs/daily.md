@@ -1,30 +1,30 @@
 # Каждый день
 
 Команды набираются в папке проекта. Если всё стоит на этом компьютере, используйте
-`make`. Если на арендованном сервере, используйте `scripts/remote.sh` с вашего компьютера:
-он делает то же самое на сервере по SSH.
+`./run.sh` (на Windows `run.cmd`). Если на арендованном сервере, добавьте `server`:
+`./run.sh server ...` с вашего компьютера делает то же самое на сервере по SSH.
 
 | Что | Свой компьютер | Сервер |
 | --- | --- | --- |
-| поставить идею | `make add IDEA="..."` | `scripts/remote.sh add "..."` |
-| поставить идеи из файла | `make ideas` | `scripts/remote.sh ideas` |
-| все задачи | `make jobs` | `scripts/remote.sh jobs` |
-| что делает конвейер | `make logs` | `scripts/remote.sh logs` |
-| скачать ролик на просмотр | `make review ID=...` | `scripts/remote.sh review ID` |
-| одобрить | `make approve ID=...` | `scripts/remote.sh approve ID` |
-| отклонить | `make reject ID=... REASON="..."` | `scripts/remote.sh reject ID --reason "..."` |
-| вернуть задачу в работу | `make retry ID=... STATUS=framed` | `scripts/remote.sh retry ID --status framed` |
-| деньги и брак | `make report` | `scripts/remote.sh report` |
-| пауза конвейера | `make pause`, затем `make resume` | `scripts/remote.sh pause`, `resume` |
-| ComfyUI | http://localhost:8188 | `scripts/remote.sh comfy`, затем http://localhost:8188 |
+| поставить идею | `./run.sh add "..."` | `./run.sh server add "..."` |
+| поставить идеи из файла | `./run.sh ideas` | `./run.sh server ideas` |
+| все задачи | `./run.sh jobs` | `./run.sh server jobs` |
+| что делает конвейер | `./run.sh logs` | `./run.sh server logs` |
+| скачать ролик на просмотр | `./run.sh review ID` | `./run.sh server review ID` |
+| одобрить | `./run.sh approve ID` | `./run.sh server approve ID` |
+| отклонить | `./run.sh reject ID --reason "..."` | `./run.sh server reject ID --reason "..."` |
+| вернуть задачу в работу | `./run.sh retry ID --status framed` | `./run.sh server retry ID --status framed` |
+| деньги и брак | `./run.sh report` | `./run.sh server report` |
+| пауза конвейера | `./run.sh pause`, затем `./run.sh resume` | `./run.sh server pause`, `resume` |
+| ComfyUI | http://localhost:8188 | `./run.sh server comfy`, затем http://localhost:8188 |
 
 ## Идеи
 
 Одна идея:
 
 ```
-make add IDEA="Часть 2. Артём находит второй блокнот, и в нём другой почерк"
-make add IDEA="ночная смена в архиве" STYLE=noir
+./run.sh add "Часть 2. Артём находит второй блокнот, и в нём другой почерк"
+./run.sh add "ночная смена в архиве" --style noir
 ```
 
 Идея может быть одной фразой или рассказом на 200 слов. Сначала модель делает из неё
@@ -33,19 +33,19 @@ make add IDEA="ночная смена в архиве" STYLE=noir
 события, поэтому чем подробнее рассказ, тем точнее ролик.
 
 Удобнее вести файл `studio/ideas.txt`: одна идея на строку, строки с `#` пропускаются,
-`[noir]` в начале строки выбирает стиль только для неё. `make ideas` ставит в очередь все
+`[noir]` в начале строки выбирает стиль только для неё. `./run.sh ideas` ставит в очередь все
 новые строки и помечает их в файле решёткой и коротким id, так что второй раз они не уйдут.
 
 Серию из синопсиса делает команда `series`: положите синопсис сезона в файл, например
 `studio/stories/flood.txt`, и выполните
 
 ```
-make series STORY=studio/stories/flood.txt EPISODES=10
+./run.sh series studio/stories/flood.txt --episodes 10
 ```
 
 Через несколько минут появятся `studio/series/flood.md` с миром, героями и событиями
 каждого выпуска и `studio/series/flood.txt`, где одна строка это один выпуск. Прочитайте,
-поправьте и поставьте: `make ideas FILE=studio/series/flood.txt`. В ComfyUI то же самое
+поправьте и поставьте: `./run.sh ideas studio/series/flood.txt`. В ComfyUI то же самое
 делает схема «Новая серия»: [comfyui.md](comfyui.md#ролик-целиком-из-comfyui).
 
 Серию из готового рассказа или целой книги делает команда `adapt`. Она читает `.txt`,
@@ -53,8 +53,8 @@ make series STORY=studio/stories/flood.txt EPISODES=10
 сама история, не больше `EPISODES`:
 
 ```
-make adapt BOOK=studio/input/paw.fb2 EPISODES=5 STYLE=twist
-scripts/remote.sh adapt studio/input/paw.fb2 --episodes 5 --style twist
+./run.sh adapt studio/input/paw.fb2 --episodes 5 --style twist
+./run.sh server adapt studio/input/paw.fb2 --episodes 5 --style twist
 ```
 
 Получатся такие же `studio/series/paw.md` и `paw.txt`. В ComfyUI то же делает схема
@@ -62,17 +62,17 @@ scripts/remote.sh adapt studio/input/paw.fb2 --episodes 5 --style twist
 
 Готовые серии лежат в `studio/series/`: «Потоп» и «Треножники» по 10 выпусков, у каждой
 есть описание мира и героев в `.md` и файл выпусков в `.txt`. Серия целиком ставится так:
-`make ideas FILE=studio/series/flood.txt`. Каждая строка там это подробный план выпуска по
+`./run.sh ideas studio/series/flood.txt`. Каждая строка там это подробный план выпуска по
 битам: модель хорошо раскладывает готовый план на шоты и плохо придумывает связный сюжет
 сама, поэтому чем подробнее план, тем осмысленнее ролик. «Рассказы с поворотом» в
 `twists.txt`: семь классических рассказов, 11 выпусков в стиле `twist`. Заходы для новых
 серий собраны в `studio/series/bank.md`.
 
-Стиль по умолчанию задан в `.env` строкой `REELSMITH_STYLE`. Какие стили есть: `make styles`.
+Стиль по умолчанию задан в `.env` строкой `REELSMITH_STYLE`. Какие стили есть: `./run.sh styles`.
 
 ## Статусы
 
-`make jobs` показывает каждую задачу: id, статус, сколько было попыток, оценку судьи,
+`./run.sh jobs` показывает каждую задачу: id, статус, сколько было попыток, оценку судьи,
 сколько она стоила, стиль, идею и последнюю ошибку.
 
 | Статус | Что уже сделано | Что дальше |
@@ -97,15 +97,15 @@ scripts/remote.sh adapt studio/input/paw.fb2 --episodes 5 --style twist
 ## Просмотр и решение
 
 ```
-make review ID=982ab129-55b4-486d-9ded-1993308be447
+./run.sh review 982ab129-55b4-486d-9ded-1993308be447
 ```
 
-Ролик появится в `review/<id>.mp4`. Если нравится, `make approve ID=...`, и он ляжет в
+Ролик появится в `review/<id>.mp4`. Если нравится, `./run.sh approve ID`, и он ляжет в
 `outbox/<дата>-<id>/video.mp4` вместе с `post.json`, где лежит подпись. Если нет,
-`make reject ID=... REASON="лицо плывёт в третьем шоте"`: все клипы переделаются с новыми
+`./run.sh reject ID --reason "лицо плывёт в третьем шоте"`: все клипы переделаются с новыми
 seed, сценарий, голос и кадры останутся.
 
-С сервера готовые ролики забирает `scripts/remote.sh pull`.
+С сервера готовые ролики забирает `./run.sh server pull`.
 
 ### Сверка с эталоном
 
@@ -144,7 +144,7 @@ TikTok). Другие части эталона пока не измерены. 
 оживляет только первые шоты-хук: ролик выходит примерно за четверть часа. Сократить его можно спокойным движением в стиле (меньше брака),
 порогом судьи или меньшим разрешением клипов: [settings.md](settings.md).
 
-`make report` показывает, сколько потрачено, цену одного годного ролика и какая модель
+`./run.sh report` показывает, сколько потрачено, цену одного годного ролика и какая модель
 сколько GPU-часов съела.
 
 ## Голос
@@ -155,7 +155,7 @@ TikTok). Другие части эталона пока не измерены. 
 поворотом, а в описании голоса прямо сказано, что он живой:
 
 ```
-make voice DESC="A gripping storyteller in his forties, low warm voice, lively intonation, dramatic pauses, building tension, never monotone"
+./run.sh voice "A gripping storyteller in his forties, low warm voice, lively intonation, dramatic pauses, building tension, never monotone"
 ```
 
 Женский голос: `DESC="A young woman storyteller, quiet husky voice, tense whispers and
@@ -164,7 +164,7 @@ sudden rises, never monotone"`.
 В `voices/` появятся `narrator-take1.wav`, `take2`, `take3`, и первый станет голосом
 канала. Послушайте все три. Понравившийся скопируйте поверх `narrator.wav`, его текст
 поверх `narrator.txt`. Своя запись тоже подходит: 10–20 секунд живого рассказа без музыки
-и его точный текст. На сервере после замены: `scripts/remote.sh restore`.
+и его точный текст. На сервере после замены: `./run.sh server restore`.
 
 Диктор получает только текст реплики. Подачу задаёт сам текст: короткие и длинные фразы,
 «…» для паузы, «—» для резкого поворота, «?» и «!» там, где голос поднимается. Ремарки вроде
@@ -179,7 +179,7 @@ sudden rises, never monotone"`.
 Стиль это файл `styles/<имя>.toml`. В нём задано, как писать сценарий, как выглядят
 кадры, движение, субтитры и плашки: [styles.md](styles.md). Правки вступают в силу после
 `docker compose restart worker`, пересобирать ничего не нужно. На сервере:
-`scripts/remote.sh push`, затем `scripts/remote.sh restart`.
+`./run.sh server push`, затем `./run.sh server restart`.
 
 ## Сервер и этот компьютер
 
@@ -187,12 +187,12 @@ sudden rises, never monotone"`.
 
 | Команда | Куда | Что |
 | --- | --- | --- |
-| `scripts/remote.sh push` | на сервер | код, стили, графы, документация |
-| `scripts/remote.sh deploy` | на сервер | то же, плюс пересборка и перезапуск |
-| `scripts/remote.sh restore` | на сервер | голос, `.env`, файлы задач из `backups/media/` |
-| `scripts/remote.sh pull` | сюда | готовые ролики, голос, файлы недоделанных задач |
-| `scripts/remote.sh backup` | сюда | база задач с историей и ценами, в `backups/` |
-| `scripts/remote.sh check` | | какие файлы кода отличаются здесь и там |
+| `./run.sh server push` | на сервер | код, стили, графы, документация |
+| `./run.sh server deploy` | на сервер | то же, плюс пересборка и перезапуск |
+| `./run.sh server restore` | на сервер | голос, `.env`, файлы задач из `backups/media/` |
+| `./run.sh server pull` | сюда | готовые ролики, голос, файлы недоделанных задач |
+| `./run.sh server backup` | сюда | база задач с историей и ценами, в `backups/` |
+| `./run.sh server check` | | какие файлы кода отличаются здесь и там |
 
 То, что поправлено прямо на сервере, следующий `push` перезапишет.
 
@@ -200,29 +200,29 @@ sudden rises, never monotone"`.
 
 | Что видно | Что делать |
 | --- | --- |
-| `failed` в `make jobs` | Причина в колонке `last error`. Исправить причину, затем `make retry ID=... STATUS=framed`: всё сделанное сохранится, переделается только недостающее. Или поставить идею заново. |
-| Задача долго стоит в одном статусе | `make logs`. Если пусто, `docker compose ps`: все пять сервисов должны быть `Up`. |
-| Задача стоит после перезапуска воркера | Воркер держал её в аренде, она сама вернётся через `LEASE_MINUTES` (3 минуты). Сразу: `make retry ID=...`. |
+| `failed` в `./run.sh jobs` | Причина в колонке `last error`. Исправить причину, затем `./run.sh retry ID --status framed`: всё сделанное сохранится, переделается только недостающее. Или поставить идею заново. |
+| Задача долго стоит в одном статусе | `./run.sh logs`. Если пусто, `docker compose ps`: все пять сервисов должны быть `Up`. |
+| Задача стоит после перезапуска воркера | Воркер держал её в аренде, она сама вернётся через `LEASE_MINUTES` (3 минуты). Сразу: `./run.sh retry ID`. |
 | `tts: ReadTimeout` на первой реплике | Голосовая модель грузится до двух минут. Задача повторится сама. |
-| Воркер не стартует и пишет про граф и слот | Граф в `workflows/` испорчен. `make graphs`, затем `make up`. |
+| Воркер не стартует и пишет про граф и слот | Граф в `workflows/` испорчен. `./run.sh graphs`, затем `./run.sh up`. |
 | Ollama отвечает минутами | `docker compose exec llm ollama ps`. Если `100% CPU`, см. [setup.md](setup.md#если-установка-не-идёт). |
 | Кончается диск | `docker system prune` и почистить `studio/output/reelsmith/`, там промежуточные кадры и клипы. |
 
 ## Выключить сервер
 
 ```
-scripts/remote.sh pull
-scripts/remote.sh backup
+./run.sh server pull
+./run.sh server backup
 ```
 
 Затем удалите инстанс на vast.ai кнопкой Destroy: остановленный продолжает брать плату за
 диск. Новый сервер поднимается по [setup.md](setup.md). Историю задач на нём можно
-вернуть после `make up` вместо `make migrate`:
+вернуть после `./run.sh up` вместо `./run.sh migrate`:
 
 ```
-gunzip -c backups/<файл>.sql.gz | scripts/remote.sh shell "cd /root/projects/reelsgenerator && docker compose exec -T db psql -U reelsmith reelsmith"
-scripts/remote.sh restore
+gunzip -c backups/<файл>.sql.gz | ./run.sh server shell "cd /root/reelsmith && docker compose exec -T db psql -U reelsmith reelsmith"
+./run.sh server restore
 ```
 
-`restore` после `make up` возвращает и файлы недоделанных задач из `backups/media/`: задачи
+`restore` после `./run.sh up` возвращает и файлы недоделанных задач из `backups/media/`: задачи
 продолжатся с того шага, где их застало выключение, а не начнутся заново.
