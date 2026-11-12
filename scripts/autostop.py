@@ -33,6 +33,7 @@ SESSION = CONFIG / "vast_tfa_key"  # where the vast CLI keeps the key of a two-f
 ROOT = Path(__file__).resolve().parent.parent
 DONE = ("assembled", "approved", "published", "measured", "failed")
 VIDEOS = "studio/output/reelsmith/videos"
+REFUSED = (401, 403, 404)  # vast answers an expired session with 404
 
 
 @dataclass(frozen=True)
@@ -169,12 +170,25 @@ def _login(*, email: bool, code: str | None, secret: str | None) -> None:
 def _vast(
     method: str, path: str, body: dict[str, object] | None = None, *, key: str | None = None
 ) -> dict[str, Any]:
+    """A refused key passes the call to the next one: a two-factor session expires, and
+    vast may then take the plain key again."""
+    keys = [key] if key else _keys()
+    for candidate in keys[:-1]:
+        try:
+            return _call(method, path, body, candidate)
+        except urllib.error.HTTPError as exc:
+            if exc.code not in REFUSED:
+                raise
+    return _call(method, path, body, keys[-1])
+
+
+def _call(method: str, path: str, body: dict[str, object] | None, key: str) -> dict[str, Any]:
     request = urllib.request.Request(
         API + path,
         method=method,
         data=json.dumps(body).encode() if body is not None else None,
         headers={
-            "Authorization": f"Bearer {key or _key()}",
+            "Authorization": f"Bearer {key}",
             "Content-Type": "application/json",
             "User-Agent": "reelsmith-autostop",
         },
@@ -184,12 +198,17 @@ def _vast(
         return found
 
 
-def _key(only: Path | None = None) -> str:
-    if only is None and (env := os.environ.get("VAST_API_KEY")):
-        return env
-    for path in (only,) if only else (SESSION, KEY):
-        if path.exists() and (key := path.read_text().strip()):
-            return key
+def _keys() -> list[str]:
+    found = [os.environ.get("VAST_API_KEY", "")]
+    found += [path.read_text().strip() for path in (SESSION, KEY) if path.exists()]
+    if keys := list(dict.fromkeys(k for k in found if k)):
+        return keys
+    sys.exit("no Vast API key: run python3 scripts/autostop.py --set-key")
+
+
+def _key(path: Path) -> str:
+    if path.exists() and (key := path.read_text().strip()):
+        return key
     sys.exit("no Vast API key: run python3 scripts/autostop.py --set-key")
 
 

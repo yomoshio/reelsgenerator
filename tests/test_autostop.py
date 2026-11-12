@@ -1,4 +1,6 @@
 import importlib.util
+import io
+import urllib.error
 from pathlib import Path
 from types import ModuleType
 
@@ -36,3 +38,42 @@ def test_the_queue_counts_as_done_only_after_two_quiet_checks_of_a_queue_that_he
     assert autostop.verdict(done, 1, reserve_hours=1.0) is None
     assert autostop.verdict(done, 2, reserve_hours=1.0) == "all 11 jobs are finished"
     assert autostop.verdict(never, 5, reserve_hours=1.0) is None
+
+
+def test_an_expired_session_hands_the_call_to_the_plain_key(
+    autostop: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    (tmp_path / "session").write_text("old-session\n")
+    (tmp_path / "key").write_text("plain-key\n")
+    monkeypatch.setattr(autostop, "SESSION", tmp_path / "session")
+    monkeypatch.setattr(autostop, "KEY", tmp_path / "key")
+    monkeypatch.delenv("VAST_API_KEY", raising=False)
+    tried: list[str] = []
+
+    def urlopen(request: object, timeout: float) -> io.BytesIO:
+        key = request.get_header("Authorization")  # type: ignore[attr-defined]
+        tried.append(key)
+        if key == "Bearer old-session":
+            raise urllib.error.HTTPError("u", 404, "Session expired", {}, None)  # type: ignore[arg-type]
+        return io.BytesIO(b'{"credit": 2.55}')
+
+    monkeypatch.setattr(autostop.urllib.request, "urlopen", urlopen)
+
+    assert autostop._vast("GET", "/users/current/") == {"credit": 2.55}
+    assert tried == ["Bearer old-session", "Bearer plain-key"]
+
+
+def test_a_refusal_of_the_last_key_reaches_the_caller(
+    autostop: ModuleType, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(autostop, "SESSION", tmp_path / "none")
+    monkeypatch.setenv("VAST_API_KEY", "only-key")
+
+    def urlopen(request: object, timeout: float) -> io.BytesIO:
+        raise urllib.error.HTTPError("u", 401, "no", {}, None)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(autostop.urllib.request, "urlopen", urlopen)
+    monkeypatch.setattr(autostop, "KEY", tmp_path / "none")
+
+    with pytest.raises(urllib.error.HTTPError):
+        autostop._vast("GET", "/users/current/")
