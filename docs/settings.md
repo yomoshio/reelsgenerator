@@ -13,7 +13,7 @@
 | `REELSMITH_VOICE` | narrator | голос диктора: `voices/<имя>.wav` и `.txt` |
 | `REELSMITH_IMAGE_MODEL` | z-image | чем рисовать кадры |
 | `REELSMITH_VIDEO_MODEL` | wan-2.2; в `.env.example` стоит wan-2.2-hd | чем оживлять: `still` это медленный наезд камеры без нейросети, не плывёт и считается за секунды; `wan-2.2` настоящая анимация, около минуты на клип; `wan-2.2-hd` то же с апскейлом до 1080 × 1920; `wan-5b`, если есть `workflows/animate-draft.json` |
-| `REELSMITH_CALM_VIDEO_MODEL` | пусто | модель для шотов, где писатель отметил, что ничего не движется; пусто значит та же, что `VIDEO_MODEL` |
+| `REELSMITH_CALM_VIDEO_MODEL` | пусто; в `.env.example` стоит still | модель для спокойных шотов: лица, жесты, разговор, вид места. Писатель отмечает движущимися только действие: бежит, падает, всплеск, взрыв. Пусто значит та же, что `VIDEO_MODEL` |
 | `REELSMITH_HOOK_VIDEO_MODEL` | пусто | модель для первых шотов-хука, кто бы в них ни двигался; пусто значит по общему правилу |
 | `REELSMITH_CAST_IMAGE_MODEL` | пусто | `qwen-edit` включает одинаковых героев: для каждого рисуется портрет, кадры с ним рисуются по портрету; нужны веса `make models ONLY=character OPTIONAL=1` |
 | `REELSMITH_HOOK_SHOTS` | 2 | сколько первых шотов считать хуком |
@@ -63,7 +63,7 @@
 | Строка | Черновик | Качество, в `.env.example` |
 | --- | --- | --- |
 | `REELSMITH_VIDEO_MODEL` | still | wan-2.2-hd |
-| `REELSMITH_CALM_VIDEO_MODEL` | still | пусто, Wan оживляет все шоты |
+| `REELSMITH_CALM_VIDEO_MODEL` | still | still: Wan только для действия, остальное наездом камеры |
 | `REELSMITH_FRAME_WIDTH`, `_HEIGHT` | 720, 1280 | 1088, 1920 |
 | `REELSMITH_CLIP_WIDTH`, `_HEIGHT` | 480, 848 | 720, 1280 |
 | `REELSMITH_CLIP_STEPS` | 4 | 8 |

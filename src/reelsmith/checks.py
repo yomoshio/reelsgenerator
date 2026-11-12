@@ -150,6 +150,13 @@ def problems(script: Script, style: Style, language: str | None = None) -> list[
             f"Camera moves that make the video model invent what is outside the picture: "
             f"{', '.join(moves)}. The camera only holds or pushes in slowly."
         )
+    moving = [i + 1 for i, shot in enumerate(script.shots) if shot.moves]
+    if len(moving) > (most := int(style.story.moving * len(script.shots))):
+        found.append(
+            f"Shots {_list(moving)} are marked as moving, and at most {most} may be. Keep "
+            "`moves` true only where a body travels or falls, or something bursts, breaks, "
+            "splashes or flies; a face, a gesture or talk gets a camera move instead."
+        )
     if run := _empty_run(script, style.story.empty_shots):
         found.append(
             f"Shots {run[0] + 1} to {run[1] + 1} show nobody; at most "

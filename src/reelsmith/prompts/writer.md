@@ -38,16 +38,20 @@ Rules for the fields:
 - Nothing in `picture` may carry writing or numbers: no signs, labels, screens, pages,
   notebooks with notes, maps, clocks, door numbers, posters. The image model cannot write
   and draws nonsense letters. Say "a closed notebook", "a blank door", "a dark screen".
-- `motion` describes, in English and in one sentence, one small movement of something
-  already in the picture: a hand, a flame, a ripple, a door. The camera holds still or
-  pushes in slowly. It never pans, tilts, tracks or follows: the video model would have to
-  invent what lies outside the frame, and it invents people and creatures. No running, no
-  fast zoom, no shaking camera, no violent or churning water: fast motion melts faces and
-  turns water into jelly.
-- `moves` is true when a person or a thing visibly moves in the shot: someone walks,
-  climbs, turns, water rushes in, a door swings. It is false for a still view, a close-up
-  of an object or a pause. Moving shots are animated, still ones get a slow camera move,
-  so mark as moving every shot where the line describes an action.
+- `moves` decides how the shot comes alive. It is true only when something happens that
+  one still picture cannot show: a body travels or falls (runs to the gate, drops from the
+  bridge, collapses), or something bursts, breaks, splashes, flies or catches fire. Such a
+  shot is animated by the video model. It is false for faces, looks, gestures, talk,
+  trembling, a figure standing or sitting, a view of a place or a close-up of an object:
+  those get a slow camera move over the drawn frame, which keeps faces and clothes exactly
+  as drawn. Most shots of a story are false; spend `true` on the moments of action.
+- `motion` describes, in English and in one sentence, what moves. In a moving shot it is
+  the one action, seen whole and inside the frame: "he runs toward the camera along the
+  bridge", "she falls to her knees on the stone floor", "water bursts up around his body".
+  In a still shot it is a slow push-in or a slow drift toward what matters. The camera
+  never pans, tilts, tracks or follows: the video model would have to invent what lies
+  outside the frame, and it invents people and creatures. An action is shown at a distance,
+  never in a face close-up: fast motion melts faces.
 - `cast` lists the names of characters visible in the frame. Whoever the line names is in
   the frame. Keep the main character in most shots: a shot without people shows one detail,
   and the next shot brings a person back.

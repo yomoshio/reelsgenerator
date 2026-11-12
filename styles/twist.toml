@@ -6,6 +6,7 @@ seconds = [50, 90]
 beats = [6, 12]
 words = 10
 empty_shots = 1
+moving = 0.4
 brief = """
 You retell one episode of a classic short story. The idea gives the story beat by beat:
 keep its events, their order, its people and its ending, and add nothing the author did
