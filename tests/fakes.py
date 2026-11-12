@@ -188,9 +188,11 @@ class FakeNarrator:
     log: list[str] = field(default_factory=list)
     slip: str = ""
     slips: int = 0
+    voices: list[str | None] = field(default_factory=list)
 
-    async def speak(self, text: str, out: Path) -> Path:
+    async def speak(self, text: str, out: Path, voice: str | None = None) -> Path:
         self.log.append(text)
+        self.voices.append(voice)
         said = f"{self.slip} {text}" if len(self.log) <= self.slips else text
         _touch(out).with_suffix(".said").write_text(said, encoding="utf-8")
         return out

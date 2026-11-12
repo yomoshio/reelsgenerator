@@ -21,7 +21,7 @@
 # Установка по шагам (./install.sh делает их сам):
 #   ./run.sh setup | build | migrate | llm-model | pin
 #   ./run.sh models [video,music] [--optional]   веса моделей, все или часть
-#   ./run.sh voice "описание голоса"        голос диктора в voices/narrator.wav
+#   ./run.sh voice "описание голоса" [имя]  голос диктора в voices/narrator.wav или voices/имя.wav
 #
 # На арендованном сервере (адрес в .env: SERVER_HOST, SERVER_PORT, SERVER_KEY):
 #   ./run.sh server install                 залить проект на свежий сервер и поставить всё
@@ -91,8 +91,9 @@ here() {
             "${COMPOSE[@]}" up -d llm
             "${COMPOSE[@]}" exec llm ollama pull "$(setting REELSMITH_WRITER_MODEL)" ;;
         voice)
-            "${COMPOSE[@]}" run --rm --no-deps --entrypoint python tts design_voice.py narrator \
-                "${1:?usage: ./run.sh voice \"описание голоса\"}" ;;
+            local description=${1:?usage: ./run.sh voice \"описание голоса\" [имя] [--text \"образец\"]}
+            "${COMPOSE[@]}" run --rm --no-deps --entrypoint python tts design_voice.py \
+                "${2:-narrator}" "$description" "${@:3}" ;;
         up) "${COMPOSE[@]}" up -d ;;
         down) "${COMPOSE[@]}" down ;;
         migrate) "${COMPOSE[@]}" run --rm worker migrate ;;

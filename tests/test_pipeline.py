@@ -41,7 +41,9 @@ from reelsmith.pipeline import (
 )
 from reelsmith.services.ffmpeg import Word
 from reelsmith.services.outbox import OutboxPublisher
+from reelsmith.styles import Styles
 from tests.fakes import (
+    STYLES,
     FakeAnalytics,
     FakeAnimator,
     FakeComposer,
@@ -163,6 +165,20 @@ async def test_voice_reads_neighbouring_lines_in_one_take_and_cuts_it_per_shot(
     assert [s.seconds for s in made.require_script().shots] == [2.35, 2.4, pytest.approx(3.6)]
     assert made.assets.voices == {i: f"{made.id}/voice/{i:02d}.mp3" for i in range(3)}
     assert [(c.stage, c.units, c.shot) for c in made.calls] == [("voice", 89, 0)]
+
+
+async def test_voice_speaks_with_the_styles_own_narrator(tmp_path: Path) -> None:
+    narrator = FakeNarrator()
+    folder = tmp_path / "styles"
+    folder.mkdir()
+    fake = (STYLES.folder / "fake.toml").read_text(encoding="utf-8")
+    (folder / "fake.toml").write_text(f'voice = "deadpan"\n{fake}', encoding="utf-8")
+    s = replace(services(tmp_path, narrator=narrator), styles=Styles(folder))
+    made = job(status=Status.SCRIPTED, script=script(3))
+
+    await voice(made, s)
+
+    assert narrator.voices == ["deadpan"]
 
 
 def test_passages_hold_neighbouring_lines_up_to_the_word_limit() -> None:
