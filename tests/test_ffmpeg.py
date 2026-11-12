@@ -127,7 +127,7 @@ def test_ffmpeg_graph_trims_every_shot_to_its_voice_length() -> None:
     assert "[4:a]aresample=48000,volume=" in graph
     assert "subtitles=filename='/data/media/x/subtitles.ass'" in graph
     assert "concat=n=2:v=0:a=1,highpass=f=70,acompressor=" in graph
-    assert "amix=inputs=2:duration=first:normalize=0,loudnorm=I=-14:TP=-1.5:LRA=11[audio]" in graph
+    assert "normalize=0,loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000," in graph
     assert args[-1] == "out.mp4"
 
 
@@ -182,3 +182,22 @@ def test_stills_args_spaces_frames_over_the_clip() -> None:
     assert args[-1] == "/out/%02d.png"
     wide = stills_args(Path("c.mp4"), 4, 5.0, Path("/out"), width=1080)
     assert wide[wide.index("-vf") + 1] == "fps=1/1.250,scale=1080:-2"
+
+
+@needs_ffmpeg
+async def test_the_video_leaves_with_48k_stereo_sound_from_a_mono_voice(tmp_path: Path) -> None:
+    clip, voice, music, subs = (tmp_path / n for n in ("c.mp4", "v.wav", "m.wav", "s.ass"))
+    lavfi = ("ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi", "-i")
+    await run(*lavfi, "color=c=navy:s=720x1280:d=1", str(clip))
+    await run(*lavfi, "sine=f=220:d=1", "-ac", "1", "-ar", "24000", str(voice))
+    await run(*lavfi, "sine=f=90:d=2", "-ac", "1", "-ar", "44100", str(music))
+    subs.write_text(to_ass(captions([Word("тихо", 0.1, 0.6)]), style()), encoding="utf-8")
+    out = tmp_path / "out.mp4"
+
+    await FfmpegMontage().render(Cut((Segment(clip, voice, 1.0),), music, subs), out)
+
+    probe = await run(
+        "ffprobe", "-v", "error", "-select_streams", "a",
+        "-show_entries", "stream=sample_rate,channels", "-of", "csv=p=0", str(out),
+    )  # fmt: skip
+    assert probe == "48000,2"

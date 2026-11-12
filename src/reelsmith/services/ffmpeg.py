@@ -87,7 +87,8 @@ def ffmpeg_args(cut: Cut, out: Path, *, music_level: float = MUSIC_LEVEL) -> lis
         f"{voice_labels}concat=n={n}:v=0:a=1,{VOICE_CHAIN},asplit=2[voice][key]",
         f"[{music_index}:a]aresample=48000,volume={music_level}[bed]",
         "[bed][key]sidechaincompress=threshold=0.04:ratio=8:attack=20:release=400[ducked]",
-        f"[voice][ducked]amix=inputs=2:duration=first:normalize=0,{LOUDNESS}[audio]",
+        f"[voice][ducked]amix=inputs=2:duration=first:normalize=0,{LOUDNESS},"
+        "aresample=48000,aformat=channel_layouts=stereo[audio]",
     ]
     return [
         "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
@@ -95,7 +96,7 @@ def ffmpeg_args(cut: Cut, out: Path, *, music_level: float = MUSIC_LEVEL) -> lis
         "-filter_complex", ";".join(graph),
         "-map", "[video]", "-map", "[audio]",
         "-c:v", "libx264", "-preset", "medium", "-crf", "19", "-pix_fmt", "yuv420p",
-        "-c:a", "aac", "-b:a", "192k",
+        "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2",
         "-movflags", "+faststart",
         str(out),
     ]  # fmt: skip
