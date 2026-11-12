@@ -233,6 +233,8 @@ def test_a_take_is_misspoken_when_the_narrator_adds_words_to_the_line(
 def test_more_moving_shots_than_the_style_allows_are_refused() -> None:
     strict = style().model_copy(update={"story": style().story.model_copy(update={"moving": 0.4})})
     script = flood(*[shot("Артём идёт.") for _ in range(5)])
+    for moving in script.shots:
+        moving.moves = True
 
     assert "Shots 1, 2, 3, 4, 5 are marked as moving, and at most 2 may be" in " ".join(
         problems(script, strict)
