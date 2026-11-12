@@ -155,14 +155,25 @@ async def test_voice_sets_shot_seconds_from_the_recording(tmp_path: Path) -> Non
     assert [(c.stage, c.units, c.shot) for c in made.calls] == [("voice", 6, i) for i in range(3)]
 
 
-async def test_voice_passes_each_lines_delivery_to_the_narrator(tmp_path: Path) -> None:
-    narrator = FakeNarrator()
+async def test_voice_speaks_again_a_take_with_a_direction_read_aloud(tmp_path: Path) -> None:
+    narrator = FakeNarrator(slip="tense whisper", slips=2)
     made = job(status=Status.SCRIPTED, script=script(3))
-    made.require_script().shots[1].delivery = "a tense whisper"
 
     await voice(made, services(tmp_path, narrator=narrator))
 
-    assert narrator.deliveries == ["", "a tense whisper", ""]
+    lines = [shot.line for shot in made.require_script().shots]
+    assert narrator.log == [lines[0], lines[0], lines[0], lines[1], lines[2]]
+    assert [c.shot for c in made.calls] == [0, 0, 0, 1, 2]
+
+
+async def test_voice_gives_up_on_a_shot_after_its_tries(tmp_path: Path) -> None:
+    narrator = FakeNarrator(slip="low slow ominous", slips=99)
+    made = job(status=Status.SCRIPTED, script=script(3))
+
+    with pytest.raises(StageError, match="shot 1: the narrator adds «low slow ominous»"):
+        await voice(made, services(tmp_path, narrator=narrator))
+
+    assert len(narrator.log) == 3
 
 
 async def test_paint_makes_two_candidates_per_shot_and_skips_done_shots(tmp_path: Path) -> None:

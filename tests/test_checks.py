@@ -1,6 +1,6 @@
 import pytest
 
-from reelsmith.checks import present, problems, spoken_seconds, unsaid_plates
+from reelsmith.checks import misspoken, present, problems, spoken_seconds, unsaid_plates
 from reelsmith.models import Character, Overlay, Script, Shot
 from tests.fakes import style
 
@@ -127,7 +127,7 @@ def test_lines_plates_and_title_in_another_language_are_sent_back() -> None:
 
     assert problems(script, style(), "ru")[0] == (
         "Not in Russian: the title and shots 1, 3. The title, every line and every plate are "
-        "in Russian; only picture, motion, delivery, looks and music stay in English."
+        "in Russian; only picture, motion, looks and music stay in English."
     )
     assert not [p for p in problems(script, style()) if "Not in" in p]
     assert not [p for p in problems(script, style(), "ja") if "Not in" in p]
@@ -186,3 +186,44 @@ def test_a_thing_held_in_a_look_would_be_in_every_frame_and_is_sent_back() -> No
 
 def test_a_signature_thing_that_is_part_of_the_look_stays() -> None:
     assert problems(flood(shot("Раз."), shot("Два."), shot("Три.")), style()) == []
+
+
+@pytest.mark.parametrize(
+    ("line", "heard", "extra"),
+    [
+        (
+            "Петля сжимает горло в тишине.",
+            "Low, Slow, O-. Петля сжимает горло в тишине.",
+            "low slow o",
+        ),
+        (
+            "Плантатор думал поджечь мост врагу.",
+            "Айтенс виспер. Плантатор думал поджечь мост врагу.",
+            "айтенс виспер",
+        ),
+        (
+            "Утром он стоит у ворот дома.",
+            "Урк Quiet Relief. Утром он стоит у ворот дома.",
+            "урк quiet relief",
+        ),
+        (
+            "Сержант сдвигает доску под ногами.",
+            "A sudden. Сержант сдвигает доску под ногами.",
+            "a sudden",
+        ),
+        (
+            "Она берет четыреста франков для нового платья.",
+            "Она берет 400 франков для нового платья.",
+            "",
+        ),
+        ("Её руки красные и грубые от воды.", "Ее руки красные и грубые от воды.", ""),
+        ("В кармане часы тикают всё реже.", "В кармане часы тикают все реже.", ""),
+        ("На балу она сияет до четырёх утра.", "На балу она сияет до 4 утра.", ""),
+        ("Подруга отдаёт ожерелье не глядя.", "Подруга отдаёт ожерелье, не глядя, и", ""),
+        ("Свет гаснет.", "Light. Свет гаснет.", "light"),
+    ],
+)
+def test_a_take_is_misspoken_when_the_narrator_adds_words_to_the_line(
+    line: str, heard: str, extra: str
+) -> None:
+    assert misspoken(line, heard) == extra

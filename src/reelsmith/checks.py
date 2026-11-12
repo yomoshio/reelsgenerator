@@ -9,6 +9,7 @@ The comparison errs toward letting a plate through."""
 
 import re
 from collections.abc import Iterator
+from difflib import SequenceMatcher
 from itertools import groupby
 
 from reelsmith.models import Overlay, Script, Shot, shot_seconds
@@ -64,6 +65,7 @@ LANGUAGES: dict[str, tuple[str, str]] = {
     "en": ("English", "a-z"),
 }
 _WORD = re.compile(r"[^\W\d_]+")
+_LATIN = re.compile(r"[a-z]", re.IGNORECASE)
 _VOWELS = re.compile(r"[аеёиоуыэюяaeiouy]", re.IGNORECASE)  # noqa: RUF001
 # Whisper measured the narrator at 5.4 syllables a second; slower lines before a reveal
 # need the margin.
@@ -109,7 +111,7 @@ def problems(script: Script, style: Style, language: str | None = None) -> list[
         name = language_name(language)
         found.append(
             f"Not in {name}: {wrong}. The title, every line and every plate are in {name}; "
-            "only picture, motion, delivery, looks and music stay in English."
+            "only picture, motion, looks and music stay in English."
         )
     if misfit := style.misfit(script):
         found.append(misfit)
@@ -173,6 +175,22 @@ def problems(script: Script, style: Style, language: str | None = None) -> list[
         if (held := _HELD.search(c.look))
     ]
     return found
+
+
+def misspoken(line: str, heard: str) -> str:
+    """Words the narrator said that the line does not have, such as a stage direction read
+    aloud; empty when the take is clean. Only additions count: the transcript writes numbers
+    in digits and mishears a word now and then, and neither is the narrator's fault."""
+    wanted = [bare(w) for w in _WORD.findall(line)]
+    said = [bare(w) for w in _WORD.findall(heard)]
+    extra: list[str] = []
+    for tag, i1, i2, j1, j2 in SequenceMatcher(a=wanted, b=said, autojunk=False).get_opcodes():
+        if tag == "insert":
+            extra += said[j1:j2]
+        elif tag == "replace" and j2 - j1 > i2 - i1:
+            extra += said[j1 + i2 - i1 : j2]
+    latin = not _LATIN.search(line) and any(_LATIN.search(w) for w in extra)
+    return " ".join(extra) if len(extra) >= 2 or latin else ""
 
 
 def spoken_seconds(script: Script) -> float:
