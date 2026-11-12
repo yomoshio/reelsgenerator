@@ -41,7 +41,11 @@ services:
       context: .
       dockerfile: docker/comfy.Dockerfile
     image: reelsmith/comfy:${COMFYUI_REF:-v0.43.1}
+    # COMFY_ARGS adds flags to the image's own command, e.g. --fast-disk on a box with
+    # less than 64 GB of RAM, where ComfyUI would otherwise keep every model in RAM.
+    command: ["sh", "-c", "exec python main.py --listen 0.0.0.0 --port 8188 --disable-auto-launch --preview-method none --reserve-vram 1.0 $$COMFY_ARGS"]
     environment:
+      COMFY_ARGS: ${COMFY_ARGS:-}
       REELSMITH_STUDIO: /opt/comfy/reelsmith-studio
       REELSMITH_STYLES: /opt/comfy/reelsmith-styles
     volumes:

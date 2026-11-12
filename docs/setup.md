@@ -247,6 +247,7 @@ docker compose exec llm ollama ps     # у модели должно быть 10
 | Что видно | Что делать |
 | --- | --- |
 | `could not select device driver "" with capabilities: [[gpu]]` | Не стоит NVIDIA Container Toolkit: `./install.sh` ещё раз, он его поставит. |
+| ComfyUI перезапускается на первом клипе, в `dmesg` `Out of memory: Killed process ... (python)` | Оперативной памяти меньше 64 ГБ, а ComfyUI держит веса всех моделей в ней. В `.env` строка `COMFY_ARGS=--fast-disk`, затем `./run.sh up`. На сервере можно ещё добавить swap. |
 | `Permission denied` в `hf/`, `models/`, `voices/`, `studio/` | Контейнеры работают от пользователя с uid 1000. `./run.sh setup` ещё раз или `chmod a+rwx` на эту папку. |
 | `Failed to initialize NVML: Driver/library version mismatch` | Автообновления Ubuntu поставили новый драйвер, а загружен старый. Уже запущенные контейнеры работают, новые не получат карту. Перезагрузите сервер: `reboot`, контейнеры поднимутся сами. `install.sh` запрещает автообновлениям трогать драйвер, когда ставит toolkit. |
 | Ollama отвечает минутами, `ollama ps` показывает `100% CPU` | Контейнер потерял видеокарту: в `/etc/docker/daemon.json` нет `native.cgroupdriver=cgroupfs`. Добавьте, `systemctl restart docker`, затем `docker compose up -d --force-recreate`. |
