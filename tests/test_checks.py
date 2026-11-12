@@ -2,6 +2,7 @@ import pytest
 
 from reelsmith.checks import misspoken, present, problems, spoken_seconds, unsaid_plates
 from reelsmith.models import Character, Overlay, Script, Shot
+from reelsmith.styles import Style
 from tests.fakes import style
 
 
@@ -240,3 +241,43 @@ def test_more_moving_shots_than_the_style_allows_are_refused() -> None:
         still.moves = False
     assert "marked as moving" not in " ".join(problems(script, strict))
     assert "marked as moving" not in " ".join(problems(flood(*[shot("Да.")] * 5), style()))
+
+
+def _skeleton_style(events: int, breaths: int, low: int = 1) -> Style:
+    story = style().story.model_copy(
+        update={"events": events, "breaths": breaths, "seconds": (low, 600)}
+    )
+    return style().model_copy(update={"story": story})
+
+
+def roles(*kinds: str) -> Script:
+    script = flood(*[shot("Артём идёт.") for _ in kinds])
+    for s, kind in zip(script.shots, kinds, strict=True):
+        s.role = kind  # type: ignore[assignment]
+    return script
+
+
+def test_every_episode_has_the_styles_count_of_events_and_breaths() -> None:
+    strict = _skeleton_style(events=3, breaths=1)
+
+    found = " ".join(problems(roles("event", "event", "event", "event"), strict))
+    assert "4 event and 0 breath shots; this channel needs exactly 3 events and 1 breaths" in found
+    assert "event and" not in " ".join(problems(roles("event", "event", "breath", "event"), strict))
+
+
+def test_the_opening_two_and_the_last_shot_are_events_and_breaths_never_follow_each_other() -> None:
+    strict = _skeleton_style(events=2, breaths=3)
+
+    found = " ".join(problems(roles("breath", "event", "breath", "breath", "breath"), strict))
+    assert "Shots 1, 5 must be events" in found
+    assert "Shots 4, 5 are breaths right after a breath" in found
+    loose = " ".join(problems(roles("event", "breath", "breath"), style()))
+    assert "Shots 3 are breaths right after a breath" in loose
+    assert "must be events" not in loose
+
+
+def test_an_episode_shorter_than_the_style_allows_is_sent_back() -> None:
+    long = _skeleton_style(events=3, breaths=0, low=30)
+
+    assert "must last at least 30 s" in " ".join(problems(roles("event", "event", "event"), long))
+    assert "must last at least" not in " ".join(problems(roles("event", "event", "event"), style()))

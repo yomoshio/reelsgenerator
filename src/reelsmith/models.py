@@ -5,6 +5,7 @@ from __future__ import annotations
 import enum
 from collections.abc import Iterable
 from dataclasses import dataclass, field, replace
+from typing import Literal
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
@@ -92,6 +93,10 @@ class Shot(BaseModel):
     overlays: list[Overlay] = Field(default_factory=list)
     moves: bool = Field(
         default=True, description="Whether a person or a thing visibly moves in this shot."
+    )
+    role: Literal["event", "breath"] = Field(
+        default="event",
+        description="`event` moves the story on; `breath` lets the event before it land.",
     )
     seconds: float = Field(default=4.0, ge=2.0, le=8.0)
 

@@ -7,8 +7,8 @@ Every episode will be written with this approach:
 
 Split the events where the story itself turns. A short story with one turn is one
 episode. A story told in parts takes one episode per part. Never stretch: fewer full
-episodes are better than thin ones, and an episode of {seconds} seconds holds about eight
-to twelve events. An episode that does not end the story stops on a moment of suspense.
+episodes are better than thin ones, and an episode of {seconds} seconds holds {beats}
+events. An episode that does not end the story stops on a moment of suspense.
 
 Rules for the fields:
 

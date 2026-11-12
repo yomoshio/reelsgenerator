@@ -4,7 +4,7 @@ about = "A style for tests."
 brief = "Be brief."
 critic = "Is it brief?"
 shots = [3, 10]
-seconds = [10, 60]
+seconds = [1, 60]
 words = 18
 
 [look]

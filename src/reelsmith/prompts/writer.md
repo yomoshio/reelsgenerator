@@ -52,6 +52,11 @@ Rules for the fields:
   never pans, tilts, tracks or follows: the video model would have to invent what lies
   outside the frame, and it invents people and creatures. An action is shown at a distance,
   never in a face close-up: fast motion melts faces.
+- `role` is `event` when the shot moves the story on: a fact, an action, a decision or a
+  reveal the viewer has not seen yet. It is `breath` when the shot lets the event before
+  it land: a face reacting, a sensory detail, the place, the silence after. A breath
+  shows something new to see and feel; it is never scenery for its own sake and never
+  repeats a line. {skeleton}
 - `cast` lists the names of characters visible in the frame. Whoever the line names is in
   the frame. Keep the main character in most shots: a shot without people shows one detail,
   and the next shot brings a person back.
