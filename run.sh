@@ -132,6 +132,9 @@ here() {
 
 final() { "${COMPOSE[@]}" run --rm --no-deps -T --entrypoint cat worker "/data/media/$1/final.mp4"; }
 
+# Arguments quoted for the remote shell; nothing at all when there are none.
+quoted() { (($#)) && printf '%q ' "$@"; true; }
+
 server() {
     local host port key dir
     host=$(setting SERVER_HOST)
@@ -152,7 +155,7 @@ server() {
         --exclude studio --exclude .env --exclude backups)
     # -n: without it ssh swallows the rest of stdin and breaks `while read ...; do ./run.sh`.
     there() { "${ssh[@]}" -n "$host" "cd $dir && $*"; }
-    run_there() { there "bash run.sh $(printf '%q ' "$@")"; }
+    run_there() { there "bash run.sh $(quoted "$@")"; }
     send() { "${ssh[@]}" -n "$host" "mkdir -p $dir/$(dirname "$1")"; "${rsync[@]}" "$1" "$host:$dir/$1"; }
     media_there() { there "docker volume inspect -f '{{.Mountpoint}}' reelsmith_media 2>/dev/null || true"; }
 
@@ -163,7 +166,7 @@ server() {
             push
             "${rsync[@]}" .env "$host:$dir/.env"
             [[ -d voices ]] && "${rsync[@]}" voices/ "$host:$dir/voices/"
-            "${ssh[@]}" -t "$host" "cd $dir && bash install.sh $(printf '%q ' "$@")"
+            "${ssh[@]}" -t "$host" "cd $dir && bash install.sh $(quoted "$@")"
             restore_media ;;
         push) push ;;
         deploy) push && there "docker compose build worker tts && docker compose up -d" ;;
