@@ -115,6 +115,7 @@ class OllamaLlm:
             _prompt("adapt"),
             brief=story.brief.strip(),
             seconds=f"{story.seconds[0]} to {story.seconds[1]}",
+            beats=f"{story.beats[0]} to {story.beats[1]}",
             most=most,
             language=self._language,
         )
@@ -189,6 +190,7 @@ class OllamaLlm:
             shots=f"{story.shots[0]} to {story.shots[1]}",
             words=story.words,
             overlays=style.menu(),
+            skeleton=story.skeleton(),
         )
 
     def _eye(self, style: Style) -> str:

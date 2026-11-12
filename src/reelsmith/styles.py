@@ -31,12 +31,35 @@ class Story(BaseModel):
         le=1,
         description="Largest share of shots the video model animates; the rest get a camera move.",
     )
+    events: int | None = Field(
+        default=None, ge=1, description="Exactly this many event shots in every episode."
+    )
+    breaths: int | None = Field(
+        default=None, ge=0, description="Exactly this many breath shots in every episode."
+    )
 
     @model_validator(mode="after")
     def _ordered(self) -> Self:
         if any(low > high for low, high in (self.shots, self.beats, self.seconds)):
             raise ValueError("ranges are written low first")
+        if (self.events is None) != (self.breaths is None):
+            raise ValueError("events and breaths are set together")
+        if self.events is not None and self.breaths is not None:
+            total = self.events + self.breaths
+            if not self.shots[0] <= total <= self.shots[1]:
+                raise ValueError(f"events and breaths make {total} shots, outside `shots`")
         return self
+
+    def skeleton(self) -> str:
+        """The share of story and of air, for the writer."""
+        if self.events is None or self.breaths is None:
+            return "Two breaths never follow each other."
+        return (
+            f"Every episode of this channel has exactly {self.events} event shots and "
+            f"{self.breaths} breath shots, {self.events + self.breaths} in all, so each one "
+            "carries the same amount of story. The first two shots and the last are events, "
+            "and two breaths never follow each other."
+        )
 
 
 class Look(BaseModel):

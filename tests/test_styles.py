@@ -86,3 +86,14 @@ def test_defaults_fill_in_what_a_style_leaves_out(tmp_path: Path) -> None:
     assert made.story.shots == (6, 9)
     assert made.captions.font == "Montserrat ExtraBold"
     assert made.overlays == {}
+
+
+def test_a_style_with_a_skeleton_tells_the_writer_the_count_and_it_must_fit_the_shots() -> None:
+    twist = Styles(REPO_STYLES).get("twist-graphic").story
+
+    assert twist.skeleton().startswith("Every episode of this channel has exactly 10 event shots")
+    assert style().story.skeleton() == "Two breaths never follow each other."
+    with pytest.raises(ValueError, match="events and breaths make 20 shots"):
+        twist.model_validate({**twist.model_dump(), "events": 15})
+    with pytest.raises(ValueError, match="set together"):
+        twist.model_validate({**twist.model_dump(), "breaths": None})

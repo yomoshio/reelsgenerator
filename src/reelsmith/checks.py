@@ -115,12 +115,19 @@ def problems(script: Script, style: Style, language: str | None = None) -> list[
         )
     if misfit := style.misfit(script):
         found.append(misfit)
-    limit = style.story.seconds[1]
+    shortest, limit = style.story.seconds
     if (runs := spoken_seconds(script)) > limit:
         found.append(
             f"Read aloud, the episode runs about {runs:.0f} s and must stay under {limit} s. "
             "Cut whole shots or words until it fits; keep the opening and the last line."
         )
+    elif runs < shortest:
+        found.append(
+            f"Read aloud, the episode runs about {runs:.0f} s and must last at least "
+            f"{shortest} s. Give the lines their full {style.story.words} words with what the "
+            "viewer needs to feel the moment; do not add events the outline does not have."
+        )
+    found += _skeleton(script, style)
     early: dict[str, list[int]] = {}
     for i, overlay in unsaid_plates(script):
         early.setdefault(overlay.text, []).append(i + 1)
@@ -271,6 +278,32 @@ def _number_in(number: int, heard: list[str]) -> bool:
 
 def _words(text: str) -> list[str]:
     return [w for w in (bare(t) for t in re.split(r"[\s\-\u2013\u2014]+", text)) if w]
+
+
+def _skeleton(script: Script, style: Style) -> list[str]:
+    """The share of events and breaths, and their order."""
+    roles = [shot.role for shot in script.shots]
+    found = []
+    events, breaths = style.story.events, style.story.breaths
+    if events is not None and breaths is not None:
+        have = (roles.count("event"), roles.count("breath"))
+        if have != (events, breaths):
+            found.append(
+                f"The episode has {have[0]} event and {have[1]} breath shots; this channel "
+                f"needs exactly {events} events and {breaths} breaths."
+            )
+        edges = [i + 1 for i in (0, 1, len(roles) - 1) if i < len(roles) and roles[i] != "event"]
+        if edges:
+            found.append(
+                f"Shots {_list(sorted(set(edges)))} must be events: the opening two and the last."
+            )
+    doubled = [i + 1 for i in range(1, len(roles)) if roles[i] == roles[i - 1] == "breath"]
+    if doubled:
+        found.append(
+            f"Shots {_list(doubled)} are breaths right after a breath; a breath always "
+            "follows an event."
+        )
+    return found
 
 
 def _empty_run(script: Script, most: int) -> tuple[int, int] | None:

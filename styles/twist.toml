@@ -1,10 +1,12 @@
-about = "Classic short stories with a turn at the end, retold faithfully on detailed flat 2D graphics, 50 to 90 seconds an episode; a story takes as many episodes as its own parts."
+about = "Classic short stories with a turn at the end, retold faithfully on detailed flat 2D graphics, 60 to 90 seconds an episode; a story takes as many episodes as its own parts."
 
 [story]
-shots = [14, 20]
-seconds = [50, 90]
-beats = [6, 12]
-words = 10
+shots = [15, 15]
+events = 10
+breaths = 5
+seconds = [60, 90]
+beats = [8, 10]
+words = 12
 empty_shots = 1
 moving = 0.4
 brief = """
@@ -37,7 +39,8 @@ who, where and what is at stake. An episode that continues an earlier one opens 
 with one line that says where the story stopped, then goes straight on.
 
 Middle. Every two or three shots something changes: a new fact, a decision, a sound, a
-person at the door. Join the shots with "so", "but", "then". The idea names the detail the
+person at the door. After each turn give the viewer one breath, the face, the detail or
+the silence that lets it land, and then move on. Join the shots with "so", "but", "then". The idea names the detail the
 ending depends on; show it early in a shot of its own and name it plainly, so the viewer
 remembers it without being told why it matters.
 
@@ -64,8 +67,8 @@ what the others see on a face.
 
 Voice: present tense, third person, plain words. The narrator is a storyteller inside
 the story, not someone reading it out: tension builds toward each turn, lines get short
-and quick in action and slow down before a reveal. A shot is one moment of three or four
-seconds: one or two short sentences, six to ten words in all. No fear adjectives; the
+and quick in action and slow down before a reveal. A shot is one moment of four or five
+seconds: one or two sentences, eight to twelve words in all. No fear adjectives; the
 dread comes from facts. Never speak to the viewer.
 
 Write the lines in the plain word order of spoken speech: who, does what, to whom, as a
