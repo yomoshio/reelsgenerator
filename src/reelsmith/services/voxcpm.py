@@ -18,8 +18,8 @@ class VoxNarrator:
         self._http = http
         self._request = {"voice": voice, "cfg": cfg, "steps": steps}
 
-    async def speak(self, text: str, out: Path) -> Path:
-        body = {"text": text, **self._request}
+    async def speak(self, text: str, out: Path, voice: str | None = None) -> Path:
+        body = {"text": text, **self._request} | ({"voice": voice} if voice else {})
         try:
             reply = await self._http.post("/speak", json=body, timeout=300)
             reply.raise_for_status()

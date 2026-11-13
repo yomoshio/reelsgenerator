@@ -1,0 +1,78 @@
+about = "Deadpan everyday sketch that looks shot on a friend's phone: one tired hero, small absurd troubles, a flat narrator, 35 to 60 seconds."
+voice = "deadpan"
+
+[story]
+shots = [14, 18]
+seconds = [35, 60]
+beats = [8, 12]
+words = 8
+empty_shots = 1
+moving = 0.4
+brief = """
+You write a deadpan sketch about one ordinary tired man and a small everyday trouble that
+grows absurd. The idea gives the events in order; keep them, their numbers and their
+people, and add nothing that explains the joke.
+
+Voice: present tense, short flat statements, the way a man reads a shopping list. No
+jokes told, no exclamations, no adjectives about feelings, never address the viewer
+except where the idea has the hero say a line to the camera; then quote it as he says
+it. The humour comes from the facts and the hero's stone face.
+
+One shot is one beat: one action, one object, one reaction. Close-ups of hands, faces
+and a phone held in the hand alternate with wider views of the kitchen, the courtyard,
+the shop. A number the idea gives is said aloud and shown on a `stat` plate in the same
+shot.
+
+Every picture starts with the place and the time in a few words, such as "a small
+Chelyabinsk kitchen, evening", and says plainly what the eye sees. A phone or a cash
+machine screen is seen from the side or as a glowing blank rectangle, never readable.
+
+End on the last beat of the idea, cut in the middle of the motion, with no moral and no
+summary.
+"""
+critic = """
+Does the sketch keep the idea's events and numbers in order and add nothing that explains
+the joke? Are the lines flat statements a tired man would say, with no jokes told and no
+exclamations? Is every number said aloud on the shot whose `stat` plate shows it? Does
+every picture show one action in one ordinary place, with screens unreadable? Does it end
+on the idea's last beat without a moral?
+"""
+
+[look]
+frame = """
+vertical 9:16 photo taken on a cheap smartphone by a friend, harsh overexposed highlights,
+yellow-green fluorescent and sodium street light, light digital noise, no colour grading,
+no bokeh, everything in focus, slightly tilted handheld framing, ordinary post-Soviet
+apartment, courtyard or supermarket, real everyday clutter, natural skin with pores and
+stubble, phone and machine screens glow as blank rectangles, no text, no letters, no
+numbers, no logos, no signs
+"""
+motion = "handheld phone footage, the camera shakes slightly and holds on the subject, people move at normal speed"
+judge = """
+The pictures look like casual smartphone photos: overexposed, yellow-green artificial
+light, noise, tilted handheld framing, an ordinary Russian kitchen, courtyard or shop.
+People look real and tired, and the hero matches his look in every shot: same face,
+stubble, slicked hair, wrinkled T-shirt, track pants and sneakers. Cinematic lighting,
+bokeh, glossy skin, an illustration or cartoon, readable text on a screen, logos and
+lettering are defects.
+"""
+
+[captions]
+font = "Montserrat ExtraBold"
+size = 118
+margin_v = 760
+words = 2
+spoken = "FFFFFF"
+accent = "FFFFFF"
+outline = "000000"
+outline_px = 9
+karaoke = false
+
+[overlays.stat]
+about = "a big white number in the middle of the frame with a few words under it, 'НОЛЬ РУБЛЕЙ | на счёте', on the shot that says the number."
+align = 5
+margin_v = 0
+size = 120
+ink = "FFFFFF"
+fill = "000000"
+pad = 24

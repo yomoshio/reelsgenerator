@@ -108,6 +108,10 @@ class Plate(BaseModel):
 class Style(BaseModel):
     name: str = ""
     about: str = ""
+    voice: str | None = Field(
+        default=None,
+        description="The narrator for this style, voices/NAME.wav; none means REELSMITH_VOICE.",
+    )
     story: Story
     look: Look
     captions: Captions = Captions()

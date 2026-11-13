@@ -103,7 +103,7 @@ class Narrator(Protocol):
     name: str
     suffix: str
 
-    async def speak(self, text: str, out: Path) -> Path: ...
+    async def speak(self, text: str, out: Path, voice: str | None = None) -> Path: ...
 
 
 class Composer(Protocol):
@@ -276,6 +276,7 @@ async def voice(job: Job, s: Services) -> None:
     lines do not have is spoken again. The take is then cut into the shots' lines where the
     transcript says they meet, and only the last shot of a take gets a breath after it."""
     script, files = job.require_script(), Files(s.media, job.id)
+    narrator = s.styles.get(job.recipe.style).voice
     for passage in passages([shot.line for shot in script.shots], s.gates.passage_words):
         lines = [script.shots[i].line for i in passage]
         text = " ".join(lines)
@@ -284,7 +285,8 @@ async def voice(job: Job, s: Services) -> None:
                 job, s.tariff, stage="voice", provider=s.narrator.name, units=len(text),
                 shot=passage[0],
             ):  # fmt: skip
-                audio = await s.narrator.speak(text, files.passage(passage[0], s.narrator.suffix))
+                out = files.passage(passage[0], s.narrator.suffix)
+                audio = await s.narrator.speak(text, out, voice=narrator)
             heard = await s.transcriber.words(audio)
             if not (extra := misspoken(text, " ".join(w.text for w in heard))):
                 break
