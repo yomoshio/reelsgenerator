@@ -159,7 +159,7 @@ def problems(
         found.append(
             f"Shots {_list(moving)} are marked as moving, and at most {most} may be. Keep "
             "`moves` true only where a body travels or falls, or something bursts, breaks, "
-            "splashes or flies; a face, a gesture or talk gets a camera move instead."
+            "splashes or flies; a face, a gesture or talk moves only a little instead."
         )
     if run := _empty_run(script, style.story.empty_shots):
         found.append(
