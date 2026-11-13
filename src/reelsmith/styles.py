@@ -50,6 +50,11 @@ class Story(BaseModel):
                 raise ValueError(f"events and breaths make {total} shots, outside `shots`")
         return self
 
+    def narration_words(self) -> tuple[int, int]:
+        """How many words a voiceover of this length holds: the narrator says about 2.4
+        words a second, pauses included, and the top is kept a little under that."""
+        return round(self.seconds[0] * 2.4), round(self.seconds[1] * 2.3)
+
     def skeleton(self) -> str:
         """The share of story and of air, for the writer."""
         if self.events is None or self.breaths is None:

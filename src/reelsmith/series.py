@@ -13,7 +13,7 @@ from reelsmith.styles import Style
 class Planner(Protocol):
     async def season(self, synopsis: str, style: Style, episodes: int) -> Season: ...
 
-    async def plan(self, idea: str, style: Style) -> Outline: ...
+    async def plan(self, idea: str, style: Style, notes: str | None = None) -> Outline: ...
 
 
 @dataclass(frozen=True)
@@ -85,10 +85,14 @@ def bible(serial: Serial) -> str:
 
 def outline_markdown(outline: Outline) -> str:
     people = "\n".join(f"- {c.name}: {c.look}" for c in outline.characters)
+    people += "".join(f"\n- {p.name}: {p.look}" for p in outline.places)
     beats = "\n".join(f"{n}. {beat}" for n, beat in enumerate(outline.beats, 1))
+    if outline.premise:
+        beats = f"{outline.premise}\n\n{beats}"
+    told = f"\nNarration: {outline.narration}\n" if outline.narration else ""
     return (
         f"**{outline.title}**\n\n{people}\n\n{beats}\n\n"
-        f"Detail planted early: {outline.planted}\n\nLast line: {outline.ending}\n"
+        f"Detail planted early: {outline.planted}\n\nLast line: {outline.ending}\n{told}"
     )
 
 

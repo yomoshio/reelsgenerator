@@ -18,9 +18,10 @@ Judge, in this order:
 
 Then: does the script tell the outline's beats in order, without events the outline does
 not have; does every shot follow from the one before, so the story makes sense to someone who
-only listens; does every `picture` show exactly what its `line` says, with no object that
-carries writing or numbers; is every `motion` one action seen whole inside the frame in a
-moving shot and a slow push-in in a still one; does every `breath` show something new to
+only listens; does every `picture` show exactly what its `line` says, in the place the shot
+names, with no object that carries writing or numbers; is every `motion` one action seen
+whole inside the frame in a moving shot and small natural movement with a slow push-in in
+a calm one; does every `breath` show something new to
 see and feel instead of repeating the event before it; do the `overlays` repeat what
 is spoken in their shot and use only these kinds: {kinds}; are the lines spoken language of
 at most {words} words.

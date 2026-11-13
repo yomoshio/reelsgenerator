@@ -417,6 +417,39 @@ async def test_animate_routes_hook_shots_and_skips_done_shots(tmp_path: Path) ->
     }
 
 
+async def test_a_shot_that_continues_is_not_drawn_and_starts_from_the_clip_before(
+    tmp_path: Path,
+) -> None:
+    painter, animator, montage = FakePainter(), FakeAnimator("fast"), FakeMontage()
+    made = job(status=Status.VOICED, recipe=recipe(video="fast"), script=script(3))
+    shots = made.require_script().shots
+    shots[1].continues = True
+    shots[0].seconds = 4.2
+    s = services(tmp_path, painter=painter, animators={"fast": animator}, montage=montage)
+
+    await paint(made, s)
+    await pick(made, s)
+    await animate(made, s)
+
+    assert set(made.assets.candidates) == {0, 2}
+    assert set(made.assets.clips) == {0, 1, 2}
+    assert montage.frames_at == [("00.mp4", 4.2)]
+    assert made.assets.frames[1] == f"{made.id}/frames/01-0.png"
+    started = [frame.name for frame, _, _, _ in animator.log]
+    assert started == [Path(made.assets.frames[i]).name for i in range(3)]
+
+
+async def test_a_flagged_clip_takes_the_shots_that_continue_it_along(tmp_path: Path) -> None:
+    llm = FakeLlm(flag={0})
+    made = _animated(3)
+    made.require_script().shots[1].continues = True
+
+    with pytest.raises(Rewind):
+        await check(made, services(tmp_path, llm=llm))
+
+    assert set(made.assets.clips) == {2}
+
+
 async def test_animate_seeds_change_with_the_attempt(tmp_path: Path) -> None:
     animator = FakeAnimator("fast")
     made = _framed(3)

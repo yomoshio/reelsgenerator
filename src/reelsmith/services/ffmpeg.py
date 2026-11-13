@@ -360,6 +360,15 @@ class FfmpegMontage:
             made.append(out)
         return made
 
+    async def frame_at(self, video: Path, at: float, out: Path) -> Path:
+        """The frame shown at `at` seconds, or the last one when the video is shorter."""
+        at = min(at, await self.seconds(video)) - 1 / FPS
+        await run(
+            "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
+            "-ss", f"{max(at, 0):.3f}", "-i", str(video), "-frames:v", "1", str(out),
+        )  # fmt: skip
+        return out
+
     async def cut(self, audio: Path, start: float, end: float, out: Path) -> Path:
         await run(
             "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",

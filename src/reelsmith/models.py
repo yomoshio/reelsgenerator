@@ -5,14 +5,25 @@ from __future__ import annotations
 import enum
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field, replace
-from typing import Literal
+from typing import Any, Literal
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from pydantic.json_schema import SkipJsonSchema
 
 SHOT_PADDING = 0.35  # breath after each line so cuts do not clip the last syllable
 SHOT_MIN, SHOT_MAX = 2.0, 8.0
+
+
+def required(*names: str) -> ConfigDict:
+    """Fields the model must write although a stored record may lack them: the schema the
+    model fills lists them as required, while loading an older record falls back to the
+    default."""
+
+    def extra(schema: dict[str, Any]) -> None:
+        schema["required"] = [*schema.get("required", []), *names]
+
+    return ConfigDict(json_schema_extra=extra)
 
 
 def shot_seconds(spoken: float, padding: float = SHOT_PADDING) -> float:
@@ -88,6 +99,14 @@ class Character(BaseModel):
         return self.look
 
 
+class Place(BaseModel):
+    name: str
+    look: str = Field(
+        description="In English: the period, the kind of place, its light and the things "
+        "that stand in it. Repeated verbatim in every shot set there."
+    )
+
+
 class Overlay(BaseModel):
     """A graphic drawn over the picture: a rule banner, a label on an object, a name card."""
 
@@ -97,6 +116,8 @@ class Overlay(BaseModel):
 
 
 class Shot(BaseModel):
+    model_config = required("place", "continues")
+
     line: str = Field(description="Voiceover for this shot, one or two short sentences.")
     picture: str = Field(description="What the still frame shows. No camera moves here.")
     motion: str = Field(description="What moves during the shot and how the camera behaves.")
@@ -114,6 +135,12 @@ class Shot(BaseModel):
         default_factory=dict,
         description="A character in frame and the outfit they wear here; others wear their look.",
     )
+    place: str = Field(default="", description="The name of the place the shot is set in.")
+    continues: bool = Field(
+        default=False,
+        description="The shot goes on from the one before in one take: its clip starts "
+        "from the last frame of that shot's clip, and nothing is drawn for it.",
+    )
     role: Literal["event", "breath"] = Field(
         default="event",
         description="`event` moves the story on; `breath` lets the event before it land.",
@@ -123,10 +150,13 @@ class Shot(BaseModel):
 
 
 class Script(BaseModel):
+    model_config = required("places")
+
     title: str
     hook: str = Field(description="What the viewer sees and hears in the first two seconds.")
     hook_kind: str = Field(description="One word: question, threat, promise, secret, countdown.")
     characters: list[Character]
+    places: list[Place] = Field(default_factory=list, description="Copied from the outline.")
     shots: list[Shot] = Field(min_length=3, max_length=40)
     music: str = Field(description="Genre, tempo and mood for the background track.")
 
@@ -137,30 +167,63 @@ class Script(BaseModel):
     def character(self, name: str) -> Character:
         return next(c for c in self.characters if c.name == name)
 
+    def continued(self, i: int) -> bool:
+        """Whether shot `i` is animated on from the shot before instead of from a picture."""
+        return 0 < i < len(self.shots) and self.shots[i].continues
+
+    def take(self, i: int) -> list[int]:
+        """Shot `i` and the shots that continue it, which all start from its clip."""
+        end = i + 1
+        while self.continued(end):
+            end += 1
+        return list(range(i, end))
+
+    def setting(self, shot: Shot) -> str:
+        """The look of the place the shot is set in, or nothing for a place not listed."""
+        return next((p.look for p in self.places if p.name == shot.place), "")
+
     @property
     def seconds(self) -> float:
         return sum(s.seconds for s in self.shots)
 
 
 class Outline(BaseModel):
-    """The episode before it becomes shots: who is in it and what happens, beat by beat."""
+    """The episode before it becomes shots: what it is about, who is in it, where it
+    happens, what happens beat by beat, and the whole voiceover told as one story."""
+
+    model_config = required("premise", "places", "narration")
 
     title: str
+    premise: str = Field(
+        default="", description="What the story is about: the thought the ending leaves."
+    )
     characters: list[Character] = Field(min_length=1, max_length=4)
+    places: list[Place] = Field(default_factory=list, max_length=5)
     beats: list[str] = Field(
         min_length=4, max_length=16, description="One concrete event each, in order."
     )
     planted: str = Field(description="The small detail shown early that the ending brings back.")
     ending: str = Field(description="The last line of the episode, a statement.")
+    narration: str = Field(default="", description="The whole voiceover, told as one story.")
 
     def as_brief(self) -> str:
         """The outline as the writer and the critic read it."""
         people = "; ".join(f"{c.name}: {c.look}" for c in self.characters)
+        places = "; ".join(f"{p.name}: {p.look}" for p in self.places)
         beats = " ".join(f"{n}) {beat}" for n, beat in enumerate(self.beats, 1))
-        return (
-            f"{self.title}. Characters: {people}. Beats: {beats} "
-            f"Planted detail: {self.planted} Last line: {self.ending}"
-        )
+        parts = [
+            f"{self.title}.",
+            f"Premise: {self.premise}" if self.premise else "",
+            f"Characters: {people}.",
+            f"Places: {places}." if places else "",
+            f"Beats: {beats}",
+            f"Planted detail: {self.planted}",
+            f"Last line: {self.ending}",
+            f"Narration, to be cut into shots word for word: {self.narration}"
+            if self.narration
+            else "",
+        ]
+        return " ".join(p for p in parts if p)
 
 
 class EpisodeIdea(BaseModel):
