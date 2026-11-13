@@ -13,6 +13,7 @@ from reelsmith.models import (
     Metrics,
     Outcome,
     Overlay,
+    Place,
     Post,
     Rewind,
     StageError,
@@ -309,8 +310,29 @@ async def test_characters_get_one_portrait_and_their_shots_are_drawn_from_it(
     assert editor.references == [tmp_path / portrait] * 4
     assert plain.references == [None, None, None]
     assert editor.log[0][0].startswith(
-        "The reference image shows Vera, nurse, 30s, grey cardigan. Draw the same person"
+        "Picture 1 shows Vera, nurse, 30s, grey cardigan. Draw the same person"
     )
+
+
+async def test_every_place_gets_a_picture_and_its_shots_are_drawn_in_it(tmp_path: Path) -> None:
+    plain, editor = FakePainter("fake"), FakePainter("slow")
+    s = replace(services(tmp_path, painter=plain), painters={"fake": plain, "slow": editor})
+    made = job(status=Status.VOICED, script=script(3), recipe=recipe(cast_image="slow"))
+    told = made.require_script()
+    told.places = [Place(name="Кухня", look="a small kitchen, 1990s, a gas stove by the window")]
+    for shot in told.shots:
+        shot.place = "Кухня"
+    told.shots[1].cast = []
+
+    await paint(made, s)
+
+    plate = tmp_path / made.assets.places["Кухня"]
+    assert plate.name.startswith("place-")
+    assert plain.log[1][0].startswith("a small kitchen, 1990s, a gas stove by the window. Nobody")
+    assert editor.places == [plate, plate, None, None, plate, plate]
+    assert editor.references[2:4] == [plate, plate]
+    assert "Picture 2 shows the place: a small kitchen" in editor.log[0][0]
+    assert editor.log[2][0].startswith("Picture 1 shows the place: a small kitchen")
 
 
 async def test_a_shot_with_two_people_is_drawn_from_both_portraits_side_by_side(

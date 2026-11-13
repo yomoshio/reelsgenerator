@@ -90,7 +90,13 @@ class Painter(Protocol):
     name: str
 
     async def paint(
-        self, prompt: str, *, seed: int, out: Path, reference: Path | None = None
+        self,
+        prompt: str,
+        *,
+        seed: int,
+        out: Path,
+        reference: Path | None = None,
+        place: Path | None = None,
     ) -> Path: ...
 
 
@@ -379,12 +385,15 @@ def split(lines: list[str], heard: list[Word], length: float) -> list[tuple[floa
 async def paint(job: Job, s: Services) -> None:
     """Candidate frames for every shot; `pick` chooses among them in the next stage. With a
     `cast_image` model every character first gets a portrait in each outfit the story puts
-    them in, and a shot with people is drawn from the portraits of up to three of them side
-    by side, so faces, hair, clothes and the drawing hold from shot to shot."""
+    them in, and every place a picture of its own with nobody in it. A shot with people is
+    drawn from the portraits of up to three of them side by side and from the picture of
+    its place, so faces, clothes, the room and the drawing hold from shot to shot; a shot
+    with nobody in it is drawn from the place alone."""
     script, files = job.require_script(), Files(s.media, job.id)
     style = s.styles.get(job.recipe.style)
     painter = s.painter(job.recipe.image)
     portraits = await _portraits(job, s, style) if job.recipe.cast_image else {}
+    plates = await _places(job, s, style) if job.recipe.cast_image else {}
     for i, shot in enumerate(script.shots):
         if i in job.assets.candidates or script.continued(i):
             continue
@@ -395,19 +404,41 @@ async def paint(job: Job, s: Services) -> None:
             for p in (where, script.looks_of(cast, shot.wears), shot.picture, style.look.frame)
             if p
         )
-        artist, reference = painter, None
+        artist, reference, place = painter, None, None
+        plate = files.resolve(plates[shot.place]) if shot.place in plates else None
         if job.recipe.cast_image and (drawn := _drawn(shot, cast, portraits)):
             artist = s.painter(job.recipe.cast_image)
-            reference = await _reference(files, drawn, portraits)
-            place = f" The place: {where}." if where else ""
-            prompt = f"{_who(script, shot, drawn)}{place} {shot.picture}. {style.look.frame}"
+            reference, place = await _reference(files, drawn, portraits), plate
+            setting = _set_in(where, plate is not None)
+            prompt = f"{_who(script, shot, drawn)}{setting} {shot.picture}. {style.look.frame}"
+        elif job.recipe.cast_image and plate is not None:
+            artist, reference = s.painter(job.recipe.cast_image), plate
+            prompt = (
+                f"Picture 1 shows the place: {where}. Draw the same place with the same things "
+                f"where they stand, in the same drawing style, in a new picture: "
+                f"{shot.picture}. {style.look.frame}"
+            )
         made: list[Path] = []
         for k in range(s.gates.candidates):
             seed = seed_for(job.id, 1000 + i * 10 + k)
             with metered(job, s.tariff, stage="frame", provider=artist.name, shot=i):
                 out = files.frame(i, k)
-                made.append(await artist.paint(prompt, seed=seed, out=out, reference=reference))
+                made.append(
+                    await artist.paint(prompt, seed=seed, out=out, reference=reference, place=place)
+                )
         job.assets.candidates[i] = [files.relative(p) for p in made]
+
+
+def _set_in(where: str, shown: bool) -> str:
+    """Where the people of a shot drawn from their portraits stand."""
+    if not where:
+        return ""
+    if shown:
+        return (
+            f" Picture 2 shows the place: {where}. Put them in this place, with its walls, "
+            "light and things exactly as in Picture 2, seen from where the shot needs:"
+        )
+    return f" The place: {where}."
 
 
 def dressed_key(name: str, outfit: str | None) -> str:
@@ -430,17 +461,18 @@ async def _reference(files: Files, keys: list[str], portraits: Mapping[str, str]
 
 
 def _who(script: Script, shot: Shot, keys: list[str]) -> str:
-    """What the reference image shows, for a prompt that asks for the same people."""
+    """What Picture 1, the portraits, shows, for a prompt that asks for the same people.
+    The edit model's encoder names its reference images Picture 1, Picture 2."""
     people = [key.split("|")[0] for key in keys]
     looks = [f"{n}, {script.character(n).dressed(shot.wears.get(n))}" for n in people]
     if len(looks) == 1:
-        shown, same = f"The reference image shows {looks[0]}.", "the same person"
+        shown, same = f"Picture 1 shows {looks[0]}.", "the same person"
     else:
-        shown = f"The reference image shows, from left to right: {'; '.join(looks)}."
+        shown = f"Picture 1 shows, from left to right: {'; '.join(looks)}."
         same = "the same people"
     return (
         f"{shown} Draw {same} with exactly the same faces, hair and clothes, in the same "
-        "drawing style, in a new picture:"
+        "drawing style, in a new picture, never as a sheet of portraits or a row of figures:"
     )
 
 
@@ -471,6 +503,29 @@ async def _portraits(job: Job, s: Services, style: Style) -> dict[str, str]:
                     await painter.paint(prompt, seed=int(digest, 16) % 2**31, out=portrait)
             job.assets.cast[key] = files.relative(portrait)
     return job.assets.cast
+
+
+async def _places(job: Job, s: Services, style: Style) -> dict[str, str]:
+    """One picture of every place with nobody in it, drawn by the frame model. Like a
+    portrait, the file is named after the look and the style, so a place that comes back in
+    the next episode of a serial looks the same."""
+    script = job.require_script()
+    painter = s.painter(job.recipe.image)
+    for place in script.places:
+        if place.name in job.assets.places:
+            continue
+        digest = hashlib.sha1(f"{style.name}|place|{place.look}".encode()).hexdigest()[:12]
+        picture = s.media / "cast" / f"place-{digest}.png"
+        if not picture.exists():
+            picture.parent.mkdir(parents=True, exist_ok=True)
+            prompt = (
+                f"{place.look}. Nobody in the picture: the empty place in a wide shot at eye "
+                f"level from inside it, everything in it in view. {style.look.frame}"
+            )
+            with metered(job, s.tariff, stage="cast", provider=painter.name):
+                await painter.paint(prompt, seed=int(digest, 16) % 2**31, out=picture)
+        job.assets.places[place.name] = Files(s.media, job.id).relative(picture)
+    return job.assets.places
 
 
 async def pick(job: Job, s: Services) -> None:

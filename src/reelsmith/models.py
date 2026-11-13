@@ -303,6 +303,7 @@ class Assets(BaseModel):
 
     voices: dict[int, str] = Field(default_factory=dict)
     cast: dict[str, str] = Field(default_factory=dict)
+    places: dict[str, str] = Field(default_factory=dict)
     candidates: dict[int, list[str]] = Field(default_factory=dict)
     frames: dict[int, str] = Field(default_factory=dict)
     clips: dict[int, str] = Field(default_factory=dict)
