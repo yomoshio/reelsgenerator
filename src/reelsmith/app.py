@@ -175,7 +175,13 @@ def local_services(
     adds the `wan-5b` model when present."""
     llm = ollama_llm(settings, ollama)
     client = ComfyClient(comfy)
-    narrator = VoxNarrator(tts, settings.voice, cfg=settings.voice_cfg, steps=settings.voice_steps)
+    narrator = VoxNarrator(
+        tts,
+        settings.voice,
+        cfg=settings.voice_cfg,
+        steps=settings.voice_steps,
+        name=settings.tts_engine,
+    )
 
     def graph(file: str) -> Workflow:
         path = settings.workflows / file

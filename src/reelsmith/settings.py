@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     ollama_url: str = "http://llm:11434"
     comfy_url: str = "http://comfy:8188"
     tts_url: str = "http://tts:8000"
+    tts_engine: Literal["voxcpm", "qwen3-tts"] = "voxcpm"
 
     services: Literal["local", "synthetic"] = "local"
     writer_model: str = "qwen3.5:27b"

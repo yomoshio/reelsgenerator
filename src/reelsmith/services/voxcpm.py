@@ -7,14 +7,21 @@ from reelsmith.models import StageError
 
 
 class VoxNarrator:
-    """Client for services/tts, a thin HTTP wrapper around VoxCPM2."""
+    """Client for services/tts, a thin HTTP wrapper around VoxCPM2 or Qwen3-TTS: both answer
+    the same API, and `name` says which one the bill is for."""
 
-    name = "voxcpm"
     suffix = ".wav"
 
     def __init__(
-        self, http: httpx.AsyncClient, voice: str, *, cfg: float = 2.0, steps: int = 10
+        self,
+        http: httpx.AsyncClient,
+        voice: str,
+        *,
+        cfg: float = 2.0,
+        steps: int = 10,
+        name: str = "voxcpm",
     ) -> None:
+        self.name = name
         self._http = http
         self._request = {"voice": voice, "cfg": cfg, "steps": steps}
 
