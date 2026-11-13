@@ -101,9 +101,19 @@ host_linux() {
             || fail "Контейнеры так и не видят видеокарту."
     fi
     note "Docker видит видеокарту."
-    local free
+    local free ram
     free=$(df -BG --output=avail . | tail -1 | tr -dc 0-9)
     ((free >= 250)) || note "Свободно ${free} ГБ, а весам и образам нужно около 250 ГБ."
+    ram=$(free -g | awk '/^Mem:/ {print $2}')
+    if ((ram < 60)) && ! grep -q '^COMFY_ARGS=.*--fast-disk' .env 2>/dev/null; then
+        note "Памяти ${ram} ГБ: ComfyUI не удержит все модели в RAM. В .env ставлю COMFY_ARGS=--fast-disk."
+        [[ -f .env ]] || cp .env.example .env
+        if grep -q '^COMFY_ARGS=' .env; then
+            sed -i 's/^COMFY_ARGS=.*/COMFY_ARGS=--fast-disk/' .env
+        else
+            echo 'COMFY_ARGS=--fast-disk' >> .env
+        fi
+    fi
 }
 
 while (($#)); do

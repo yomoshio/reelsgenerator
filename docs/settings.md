@@ -134,4 +134,5 @@ character --optional`. Граф работает с ускорением Lightni
 | `REELSMITH_STUDIO` | /data/studio | папка `studio/` внутри воркера: заявки блоков ComfyUI, статус, копии готовых роликов для Ассетов |
 | `POSTGRES_PASSWORD` | change-me | пароль базы; меняйте до первого `./run.sh up` |
 | `OLLAMA_TAG`, `COMFYUI_REF` | latest, v0.43.1 | версии образов; `./run.sh pin` печатает точные |
+| `COMFY_ARGS` | пусто | дополнительные флаги ComfyUI. На машине меньше чем с 64 ГБ памяти нужен `--fast-disk`: иначе ComfyUI держит веса всех моделей в RAM, и система убивает его на первом клипе |
 | `HF_ENDPOINT` | не задан | зеркало Hugging Face для скачивания весов |
