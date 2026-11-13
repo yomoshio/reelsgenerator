@@ -293,10 +293,11 @@ def still_args(frame: Path, seconds: float, seed: int, out: Path) -> list[str]:
         ("1.08", f"(iw-iw/zoom)*on/{frames}", "ih/2-(ih/zoom/2)"),
     )
     zoom, x, y = moves[seed % len(moves)]
-    # zoompan jitters on a frame its own size; working on a doubled frame keeps the move smooth.
+    # zoompan moves its window by whole pixels, so on a frame its own size the move stutters:
+    # every few frames one repeats. On a frame four times larger a step is a quarter pixel.
     graph = (
-        f"scale={2 * WIDTH}:{2 * HEIGHT}:force_original_aspect_ratio=increase,"
-        f"crop={2 * WIDTH}:{2 * HEIGHT},"
+        f"scale={4 * WIDTH}:{4 * HEIGHT}:force_original_aspect_ratio=increase,"
+        f"crop={4 * WIDTH}:{4 * HEIGHT},"
         f"zoompan=z='{zoom}':x='{x}':y='{y}':d={frames}:s={WIDTH}x{HEIGHT}:fps={FPS}"
     )
     return [
