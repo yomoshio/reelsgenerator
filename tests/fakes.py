@@ -151,12 +151,20 @@ class FakePainter:
     name: str = "fake"
     log: list[tuple[str, int]] = field(default_factory=list)
     references: list[Path | None] = field(default_factory=list)
+    places: list[Path | None] = field(default_factory=list)
 
     async def paint(
-        self, prompt: str, *, seed: int, out: Path, reference: Path | None = None
+        self,
+        prompt: str,
+        *,
+        seed: int,
+        out: Path,
+        reference: Path | None = None,
+        place: Path | None = None,
     ) -> Path:
         self.log.append((prompt, seed))
         self.references.append(reference)
+        self.places.append(place)
         out.parent.mkdir(parents=True, exist_ok=True)
         Image.new("RGB", (9, 16), "gray").save(out, format="PNG")
         return out

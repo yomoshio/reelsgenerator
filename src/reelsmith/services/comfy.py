@@ -203,22 +203,34 @@ class ComfyPainter:
         width: int = 720,
         height: int = 1280,
         steps: int = 8,
+        placed: Workflow | None = None,
     ) -> None:
         self.name = name
         self._client = client
         self._workflow = workflow.require("prompt", "seed")
+        self._placed = placed.require("prompt", "seed", "image", "place") if placed else None
         self._knobs = workflow.supported(width=width, height=height, steps=steps)
 
     async def paint(
-        self, prompt: str, *, seed: int, out: Path, reference: Path | None = None
+        self,
+        prompt: str,
+        *,
+        seed: int,
+        out: Path,
+        reference: Path | None = None,
+        place: Path | None = None,
     ) -> Path:
-        """A graph with an `image` slot draws from `reference`; others ignore it."""
-        extra: dict[str, object] = {}
-        if reference is not None and "image" in self._workflow.slots:
+        """A graph with an `image` slot draws from `reference`; others ignore it. With a
+        `place` as well, the `placed` graph draws from both, when there is one."""
+        workflow, extra = self._workflow, {}
+        if reference is not None and "image" in workflow.slots:
             extra["image"] = await self._client.upload(reference)
-        graph = self._workflow.bind(prompt=prompt, seed=seed, **self._knobs, **extra)
+            if place is not None and self._placed is not None:
+                workflow = self._placed
+                extra["place"] = await self._client.upload(place)
+        graph = workflow.bind(prompt=prompt, seed=seed, **self._knobs, **extra)
         outputs = await self._client.run(graph, limit=180)
-        return await self._client.download(_first(outputs, (".png",), self._workflow.name), out)
+        return await self._client.download(_first(outputs, (".png",), workflow.name), out)
 
 
 class ComfyAnimator:

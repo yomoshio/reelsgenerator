@@ -91,16 +91,16 @@ license = "MIT"
 
 [[file]]
 stage = "character"
-repo = "Comfy-Org/Qwen-Image-Edit_ComfyUI"
-path = "split_files/diffusion_models/qwen_image_edit_2509_fp8_e4m3fn.safetensors"
+repo = "lightx2v/Qwen-Image-Edit-2511-Lightning"
+path = "qwen_image_edit_2511_fp8_e4m3fn_scaled.safetensors"
 into = "diffusion_models"
 license = "Apache-2.0"
 optional = true
 
 [[file]]
 stage = "character"
-repo = "lightx2v/Qwen-Image-Lightning"
-path = "Qwen-Image-Edit-2509/Qwen-Image-Edit-2509-Lightning-8steps-V1.0-bf16.safetensors"
+repo = "lightx2v/Qwen-Image-Edit-2511-Lightning"
+path = "Qwen-Image-Edit-2511-Lightning-8steps-V1.0-bf16.safetensors"
 into = "loras"
 license = "Apache-2.0"
 optional = true

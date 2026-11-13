@@ -2,7 +2,7 @@
   "1": {
     "class_type": "UNETLoader",
     "inputs": {
-      "unet_name": "qwen_image_edit_2509_fp8_e4m3fn.safetensors",
+      "unet_name": "qwen_image_edit_2511_fp8_e4m3fn_scaled.safetensors",
       "weight_dtype": "default"
     }
   },
@@ -13,7 +13,7 @@
         "1",
         0
       ],
-      "lora_name": "Qwen-Image-Edit-2509-Lightning-8steps-V1.0-bf16.safetensors",
+      "lora_name": "Qwen-Image-Edit-2511-Lightning-8steps-V1.0-bf16.safetensors",
       "strength_model": 1.0
     }
   },
@@ -72,6 +72,16 @@
     }
   },
   "8": {
+    "class_type": "FluxKontextMultiReferenceLatentMethod",
+    "inputs": {
+      "conditioning": [
+        "7",
+        0
+      ],
+      "reference_latents_method": "index_timestep_zero"
+    }
+  },
+  "9": {
     "class_type": "TextEncodeQwenImageEditPlus",
     "inputs": {
       "clip": [
@@ -89,7 +99,17 @@
       ]
     }
   },
-  "9": {
+  "10": {
+    "class_type": "FluxKontextMultiReferenceLatentMethod",
+    "inputs": {
+      "conditioning": [
+        "9",
+        0
+      ],
+      "reference_latents_method": "index_timestep_zero"
+    }
+  },
+  "11": {
     "class_type": "EmptySD3LatentImage",
     "inputs": {
       "width": 720,
@@ -100,7 +120,7 @@
       "title": "@width:width @height:height"
     }
   },
-  "10": {
+  "12": {
     "class_type": "KSampler",
     "inputs": {
       "model": [
@@ -113,15 +133,15 @@
       "sampler_name": "euler",
       "scheduler": "simple",
       "positive": [
-        "7",
-        0
-      ],
-      "negative": [
         "8",
         0
       ],
+      "negative": [
+        "10",
+        0
+      ],
       "latent_image": [
-        "9",
+        "11",
         0
       ],
       "denoise": 1
@@ -130,11 +150,11 @@
       "title": "@seed:seed @steps:steps"
     }
   },
-  "11": {
+  "13": {
     "class_type": "VAEDecode",
     "inputs": {
       "samples": [
-        "10",
+        "12",
         0
       ],
       "vae": [
@@ -143,11 +163,11 @@
       ]
     }
   },
-  "12": {
+  "14": {
     "class_type": "SaveImage",
     "inputs": {
       "images": [
-        "11",
+        "13",
         0
       ],
       "filename_prefix": "reelsmith/frame-edit"

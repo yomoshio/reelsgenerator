@@ -4,7 +4,8 @@ python scripts/make_graphs.py [--out workflows]
 
 The graphs follow ComfyUI's own templates (Z-Image Turbo, Wan 2.2 14B image to video with
 the lightx2v 4-step LoRAs, ACE-Step 1.5) in API format. `keyframe-edit.json` draws a frame
-from a character's portrait with Qwen-Image-Edit 2509. `animate-hd.json` is the same clip
+from a character's portrait with Qwen-Image-Edit 2511, and `keyframe-edit-place.json` from
+the portrait and a picture of the place. `animate-hd.json` is the same clip
 upscaled to 1080x1920 by Real-ESRGAN before the frame interpolation.
 
 A node whose title starts with `@` is a slot the worker fills: `@prompt:text` means "put
@@ -136,21 +137,24 @@ def animate(width: int = 480, height: int = 848, *, sharp: bool = False) -> Grap
     return g
 
 
-def keyframe_edit() -> Graph:
-    """Qwen-Image-Edit 2509 with the lightx2v 8-step Lightning LoRA: a new frame drawn from
-    a reference of the characters' portraits, so they keep their faces and clothes. The
-    encoder scales the reference itself. Lightning runs at cfg 1, so the negative prompt
-    has no effect."""
+def keyframe_edit(*, place: bool = False) -> Graph:
+    """Qwen-Image-Edit 2511 with the lightx2v 8-step Lightning LoRA: a new frame drawn from
+    a reference of the characters' portraits, so they keep their faces and clothes, and with
+    `place` from a picture of the place as well, so the room keeps its walls and furniture.
+    The encoder scales the references itself and names them Picture 1 and Picture 2 to the
+    model. 2511 reads its references by the index_timestep_zero method, which ComfyUI's
+    template for it sets on both conditionings. Lightning runs at cfg 1, so the negative
+    prompt has no effect."""
     g = Graph()
     base = g.add(
         "UNETLoader",
-        unet_name="qwen_image_edit_2509_fp8_e4m3fn.safetensors",
+        unet_name="qwen_image_edit_2511_fp8_e4m3fn_scaled.safetensors",
         weight_dtype="default",
     )
     unet = g.add(
         "LoraLoaderModelOnly",
         model=out(base),
-        lora_name="Qwen-Image-Edit-2509-Lightning-8steps-V1.0-bf16.safetensors",
+        lora_name="Qwen-Image-Edit-2511-Lightning-8steps-V1.0-bf16.safetensors",
         strength_model=1.0,
     )
     clip = g.add(
@@ -159,15 +163,23 @@ def keyframe_edit() -> Graph:
     )  # fmt: skip
     vae = g.add("VAELoader", vae_name="qwen_image_vae.safetensors")
     model = g.add("ModelSamplingAuraFlow", model=out(unet), shift=3)
-    reference = g.add("LoadImage", "@image:image", image="example.png")
-    positive = g.add(
-        "TextEncodeQwenImageEditPlus", "@prompt:prompt",
-        clip=out(clip), prompt="", vae=out(vae), image1=out(reference),
-    )  # fmt: skip
-    negative = g.add(
-        "TextEncodeQwenImageEditPlus",
-        clip=out(clip), prompt="", vae=out(vae), image1=out(reference),
-    )  # fmt: skip
+    images = {"image1": out(g.add("LoadImage", "@image:image", image="example.png"))}
+    if place:
+        images["image2"] = out(g.add("LoadImage", "@place:image", image="example.png"))
+    conditions = []
+    for title in ("@prompt:prompt", ""):
+        encoded = g.add(
+            "TextEncodeQwenImageEditPlus", title,
+            clip=out(clip), prompt="", vae=out(vae), **images,
+        )  # fmt: skip
+        conditions.append(
+            g.add(
+                "FluxKontextMultiReferenceLatentMethod",
+                conditioning=out(encoded),
+                reference_latents_method="index_timestep_zero",
+            )
+        )
+    positive, negative = conditions
     latent = g.add(
         "EmptySD3LatentImage", "@width:width @height:height", width=720, height=1280, batch_size=1
     )
@@ -214,6 +226,7 @@ def main() -> None:
     graphs = {
         "keyframe": keyframe(),
         "keyframe-edit": keyframe_edit(),
+        "keyframe-edit-place": keyframe_edit(place=True),
         "animate": animate(),
         "animate-hd": animate(sharp=True),
         "score": score(),

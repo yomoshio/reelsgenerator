@@ -194,6 +194,7 @@ def local_services(
     )
     painters: dict[str, Painter] = {"z-image": painter}
     if (settings.workflows / "keyframe-edit.json").exists():
+        placed = settings.workflows / "keyframe-edit-place.json"
         painters["qwen-edit"] = ComfyPainter(
             client,
             graph("keyframe-edit.json"),
@@ -201,6 +202,7 @@ def local_services(
             width=settings.frame_width,
             height=settings.frame_height,
             steps=settings.edit_steps,
+            placed=Workflow.load(placed) if placed.exists() else None,
         )
     animators: dict[str, Animator] = {"still": StillAnimator()}
     for name, (file, fps) in WAN_GRAPHS.items():

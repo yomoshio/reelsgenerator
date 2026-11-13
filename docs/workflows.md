@@ -12,7 +12,8 @@
 | Файл | Что делает |
 | --- | --- |
 | `keyframe.json` | Z-Image Turbo, кадр по тексту |
-| `keyframe-edit.json` | Qwen-Image-Edit 2509, кадр по тексту и портрету героя; модель `qwen-edit`, нужны веса `./run.sh models character --optional` |
+| `keyframe-edit.json` | Qwen-Image-Edit 2511 с Lightning на 8 шагов, кадр по тексту и портретам героев (Picture 1); модель `qwen-edit`, нужны веса `./run.sh models character --optional` |
+| `keyframe-edit-place.json` | то же, плюс картинка места (Picture 2): комната, свет и вещи на своих местах; `qwen-edit` берёт его сам, если файл есть |
 | `animate.json` | Wan 2.2 14B, клип из кадра; две ускоряющие LoRA lightx2v на 4 шага, затем RIFE удваивает частоту до 32 кадров в секунду |
 | `animate-hd.json` | то же, но перед RIFE Real-ESRGAN увеличивает кадры в четыре раза, и они ужимаются до 1080 × 1920; модель `wan-2.2-hd`, она стоит в `.env.example`; веса Real-ESRGAN качает `./run.sh models` |
 | `score.json` | ACE-Step 1.5 AIO, инструментальная музыка в flac |
@@ -35,6 +36,7 @@
 | keyframe-edit | `@prompt:prompt` | TextEncodeQwenImageEditPlus с промптом |
 | keyframe-edit | `@image:image` | Load Image с портретом |
 | keyframe-edit | `@width:width @height:height`, `@seed:seed @steps:steps` | как у keyframe |
+| keyframe-edit-place | те же слоты и `@place:image` | второй Load Image, с картинкой места |
 | animate | `@image:image` | Load Image |
 | animate | `@prompt:text` | текст промпта |
 | animate | `@length:length @width:width @height:height` | WanImageToVideo |

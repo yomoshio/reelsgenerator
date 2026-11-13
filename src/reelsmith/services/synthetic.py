@@ -198,9 +198,15 @@ class SyntheticPainter:
         self.name = name
 
     async def paint(
-        self, prompt: str, *, seed: int, out: Path, reference: Path | None = None
+        self,
+        prompt: str,
+        *,
+        seed: int,
+        out: Path,
+        reference: Path | None = None,
+        place: Path | None = None,
     ) -> Path:
-        colour = _colour(rng(prompt, seed, reference or ""))
+        colour = _colour(rng(prompt, seed, reference or "", place or ""))
         await run(
             "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
             "-f", "lavfi", "-i", f"color=c={colour}:s=720x1280", "-frames:v", "1", str(out),
