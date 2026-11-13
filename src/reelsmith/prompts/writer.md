@@ -69,8 +69,9 @@ Rules for the fields:
 - At most three characters. Each `look` is written once, in English even when the lines
   are not, and must be specific enough that two artists would draw the same person: age,
   build, face with one feature that sets them apart (freckles, stubble, a scar, round
-  glasses), hair, clothes in one signature colour. Never a thing in the hands or an
-  action: the look is drawn into every frame of that person. The face is always
+  glasses), hair, clothes in one signature colour and shoes, both of the story's time and
+  place: a portrait is drawn head to feet, and a look with no shoes comes out barefoot.
+  Never a thing in the hands or an action: the look is drawn into every frame of that person. The face is always
   uncovered: no hood up, no mask, no goggles.
 - A character's clothes never change by themselves: every frame draws the same face, hair
   and clothes. Only when the story itself changes them, such as a ball gown for one night

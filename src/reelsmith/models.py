@@ -72,7 +72,10 @@ class Recipe(BaseModel):
 
 class Character(BaseModel):
     name: str
-    look: str = Field(description="Face, age, hair, clothes. Repeated verbatim in every shot.")
+    look: str = Field(
+        description="Face, age, hair, clothes and shoes of the story's period. Repeated "
+        "verbatim in every shot."
+    )
     outfits: dict[str, str] = Field(
         default_factory=dict,
         description="Clothes the story itself changes into, by a short name. Usually empty.",

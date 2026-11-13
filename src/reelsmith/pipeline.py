@@ -443,8 +443,8 @@ async def _portraits(job: Job, s: Services, style: Style) -> dict[str, str]:
             if not portrait.exists():
                 portrait.parent.mkdir(parents=True, exist_ok=True)
                 prompt = (
-                    f"{look}. Full figure, standing, facing the viewer, plain background, "
-                    f"character reference. {style.look.frame}"
+                    f"{look}. Full figure from head to feet, standing, facing the viewer, "
+                    f"plain background, character reference. {style.look.frame}"
                 )
                 with metered(job, s.tariff, stage="cast", provider=painter.name):
                     await painter.paint(prompt, seed=int(digest, 16) % 2**31, out=portrait)
