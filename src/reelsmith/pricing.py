@@ -37,6 +37,7 @@ RATES: Mapping[str, Rate] = {
     "wan-2.2-hd": Rate(Unit.SECOND, 18),
     "wan-5b": Rate(Unit.SECOND, 6),
     "voxcpm": Rate(Unit.CHAR, 0.07),
+    "qwen3-tts": Rate(Unit.CHAR, 0.07),
     "still": Rate(Unit.SECOND, 0),
     "ace-step": Rate(Unit.SECOND, 2),
 }

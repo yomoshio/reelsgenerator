@@ -43,6 +43,7 @@ ignore = ["PLR2004", "PLR0913"]
 "src/reelsmith/beats.py" = ["RUF001"]
 "scripts/make_graphs.py" = ["RUF001"]
 "services/tts/design_voice.py" = ["RUF001"]
+"services/tts/qwen/design_voice.py" = ["RUF001"]
 # ComfyUI calls block methods with one keyword per input, and the labels are Russian.
 "comfy_nodes/*/__init__.py" = ["PLR0917", "RUF001"]
 

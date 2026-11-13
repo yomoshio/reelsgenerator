@@ -135,6 +135,20 @@ stage = "voice"
 repo = "openbmb/VoxCPM2"
 license = "Apache-2.0"
 
+# Qwen3-TTS, for REELSMITH_TTS_ENGINE=qwen3-tts: Base clones the narrator's clip,
+# VoiceDesign makes the clip from a description.
+[[snapshot]]
+stage = "voice"
+repo = "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
+license = "Apache-2.0"
+optional = true
+
+[[snapshot]]
+stage = "voice"
+repo = "Qwen/Qwen3-TTS-12Hz-1.7B-VoiceDesign"
+license = "Apache-2.0"
+optional = true
+
 [[snapshot]]
 stage = "subtitles"
 repo = "mobiuslabsgmbh/faster-whisper-large-v3-turbo"

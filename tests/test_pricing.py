@@ -36,6 +36,7 @@ def test_default_tariff_covers_the_local_stack() -> None:
         "wan-5b",
         "still",
         "voxcpm",
+        "qwen3-tts",
         "ace-step",
     }
     assert DEFAULT.gpu_seconds("wan-2.2", 5) == 70
