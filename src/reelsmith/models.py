@@ -103,7 +103,9 @@ class Shot(BaseModel):
     )
     overlays: list[Overlay] = Field(default_factory=list)
     moves: bool = Field(
-        default=True, description="Whether a person or a thing visibly moves in this shot."
+        default=False,
+        description="True only for an action the video model animates: a body travels or "
+        "falls, something bursts, splashes or flies. Without it the shot gets a camera move.",
     )
     wears: dict[str, str] = Field(
         default_factory=dict,

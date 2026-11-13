@@ -494,7 +494,8 @@ async def test_check_skips_clips_that_are_a_camera_move_over_the_chosen_frame(
 
 async def test_animate_sends_still_shots_to_the_calm_model(tmp_path: Path) -> None:
     made = job(status=Status.FRAMED, script=script(3), recipe=recipe(calm_video="slow"))
-    made.require_script().shots[1].moves = False
+    made.require_script().shots[0].moves = True
+    made.require_script().shots[2].moves = True
     made.assets.frames = {i: f"x/frames/{i:02d}-0.png" for i in range(3)}
 
     await animate(made, services(tmp_path))

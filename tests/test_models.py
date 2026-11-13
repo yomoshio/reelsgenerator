@@ -171,3 +171,9 @@ def test_the_writer_is_never_shown_the_shot_length() -> None:
 
     assert "seconds" not in shot
     assert {"line", "role", "wears", "moves"} <= set(shot)
+
+
+def test_a_shot_is_calm_unless_the_writer_marks_an_action() -> None:
+    assert (
+        Shot(line="Тишина.", picture="p", motion="slow push-in", stress=["Тишина"]).moves is False
+    )
