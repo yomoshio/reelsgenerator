@@ -17,6 +17,7 @@ from typing import Protocol
 from uuid import UUID
 
 from reelsmith.checks import bare, misspoken, present, problems, spoken_words, unsaid_plates
+from reelsmith.graphics import side_by_side
 from reelsmith.models import (
     SHOT_PADDING,
     Call,
@@ -64,7 +65,9 @@ class Llm(Protocol):
 
     async def review(self, script: Script, style: Style, outline: str = "") -> Verdict: ...
 
-    async def pick(self, brief: str, images: list[Path], style: Style) -> int: ...
+    async def pick(
+        self, brief: str, images: list[Path], style: Style, reference: Path | None = None
+    ) -> int: ...
 
     async def inspect(self, motion: str, stills: list[Path], style: Style) -> Verdict: ...
 
@@ -356,8 +359,9 @@ def split(lines: list[str], heard: list[Word], length: float) -> list[tuple[floa
 
 async def paint(job: Job, s: Services) -> None:
     """Candidate frames for every shot; `pick` chooses among them in the next stage. With a
-    `cast_image` model, every character first gets a portrait, and shots with a character
-    are drawn from the portrait of the first one in frame, so faces and clothes hold."""
+    `cast_image` model every character first gets a portrait in each outfit the story puts
+    them in, and a shot with people is drawn from the portraits of up to three of them side
+    by side, so faces, hair, clothes and the drawing hold from shot to shot."""
     script, files = job.require_script(), Files(s.media, job.id)
     style = s.styles.get(job.recipe.style)
     painter = s.painter(job.recipe.image)
@@ -366,12 +370,14 @@ async def paint(job: Job, s: Services) -> None:
         if i in job.assets.candidates:
             continue
         cast = present(shot, script)
-        prompt = ". ".join(p for p in (script.looks_of(cast), shot.picture, style.look.frame) if p)
-        lead = next((name for name in cast if name in portraits), None)
+        prompt = ". ".join(
+            p for p in (script.looks_of(cast, shot.wears), shot.picture, style.look.frame) if p
+        )
         artist, reference = painter, None
-        if lead is not None and job.recipe.cast_image:
-            artist, reference = s.painter(job.recipe.cast_image), files.resolve(portraits[lead])
-            prompt = f"The same person as in the reference image, {lead}. {prompt}"
+        if job.recipe.cast_image and (drawn := _drawn(shot, cast, portraits)):
+            artist = s.painter(job.recipe.cast_image)
+            reference = await _reference(files, drawn, portraits)
+            prompt = f"{_who(script, shot, drawn)} {shot.picture}. {style.look.frame}"
         made: list[Path] = []
         for k in range(s.gates.candidates):
             seed = seed_for(job.id, 1000 + i * 10 + k)
@@ -381,38 +387,84 @@ async def paint(job: Job, s: Services) -> None:
         job.assets.candidates[i] = [files.relative(p) for p in made]
 
 
+def dressed_key(name: str, outfit: str | None) -> str:
+    """How `assets.cast` names a character's portrait in one outfit."""
+    return f"{name}|{outfit}" if outfit else name
+
+
+def _drawn(shot: Shot, cast: list[str], portraits: Mapping[str, str]) -> list[str]:
+    """The keys of the portraits a shot is drawn from: its first three people that have one."""
+    keys = [dressed_key(name, shot.wears.get(name)) for name in cast]
+    return [key for key in keys if key in portraits][:3]
+
+
+async def _reference(files: Files, keys: list[str], portraits: Mapping[str, str]) -> Path:
+    paths = [files.resolve(portraits[key]) for key in keys]
+    if len(paths) == 1:
+        return paths[0]
+    name = hashlib.sha1("|".join(map(str, paths)).encode()).hexdigest()[:12]
+    return await asyncio.to_thread(side_by_side, paths, files.base / "cast" / f"{name}.png")
+
+
+def _who(script: Script, shot: Shot, keys: list[str]) -> str:
+    """What the reference image shows, for a prompt that asks for the same people."""
+    people = [key.split("|")[0] for key in keys]
+    looks = [f"{n}, {script.character(n).dressed(shot.wears.get(n))}" for n in people]
+    if len(looks) == 1:
+        shown, same = f"The reference image shows {looks[0]}.", "the same person"
+    else:
+        shown = f"The reference image shows, from left to right: {'; '.join(looks)}."
+        same = "the same people"
+    return (
+        f"{shown} Draw {same} with exactly the same faces, hair and clothes, in the same "
+        "drawing style, in a new picture:"
+    )
+
+
 async def _portraits(job: Job, s: Services, style: Style) -> dict[str, str]:
-    """One full-figure portrait per character. The file is named after the look and the
-    style, so the same character described the same way gets the same portrait in every
-    episode of a serial, and is painted only once."""
+    """One full-figure portrait per character and outfit. The file is named after the look,
+    the outfit and the style, so the same character described the same way gets the same
+    portrait in every episode of a serial, and is painted only once."""
     script, files = job.require_script(), Files(s.media, job.id)
     painter = s.painter(job.recipe.image)
+    worn = {(name, outfit) for shot in script.shots for name, outfit in shot.wears.items()}
     for character in script.characters:
-        if character.name in job.assets.cast:
-            continue
-        key = hashlib.sha1(f"{style.name}|{character.look}".encode()).hexdigest()[:12]
-        portrait = s.media / "cast" / f"{key}.png"
-        if not portrait.exists():
-            portrait.parent.mkdir(parents=True, exist_ok=True)
-            prompt = (
-                f"{character.look}. Full figure, standing, facing the viewer, plain background, "
-                f"character reference. {style.look.frame}"
-            )
-            with metered(job, s.tariff, stage="cast", provider=painter.name):
-                await painter.paint(prompt, seed=int(key, 16) % 2**31, out=portrait)
-        job.assets.cast[character.name] = files.relative(portrait)
+        for outfit in (None, *sorted(o for n, o in worn if n == character.name)):
+            if outfit is not None and outfit not in character.outfits:
+                continue
+            key = dressed_key(character.name, outfit)
+            if key in job.assets.cast:
+                continue
+            look = character.dressed(outfit)
+            digest = hashlib.sha1(f"{style.name}|{look}".encode()).hexdigest()[:12]
+            portrait = s.media / "cast" / f"{digest}.png"
+            if not portrait.exists():
+                portrait.parent.mkdir(parents=True, exist_ok=True)
+                prompt = (
+                    f"{look}. Full figure, standing, facing the viewer, plain background, "
+                    f"character reference. {style.look.frame}"
+                )
+                with metered(job, s.tariff, stage="cast", provider=painter.name):
+                    await painter.paint(prompt, seed=int(digest, 16) % 2**31, out=portrait)
+            job.assets.cast[key] = files.relative(portrait)
     return job.assets.cast
 
 
 async def pick(job: Job, s: Services) -> None:
+    """The judge picks one candidate per shot. A shot drawn from portraits shows the judge
+    those portraits too, and a candidate that changes a person or the drawing loses."""
     script, files = job.require_script(), Files(s.media, job.id)
     style = s.styles.get(job.recipe.style)
     for i, shot in enumerate(script.shots):
         if i in job.assets.frames:
             continue
         images = [files.resolve(p) for p in job.assets.candidates[i]]
+        drawn = (
+            _drawn(shot, present(shot, script), job.assets.cast) if job.recipe.cast_image else []
+        )
+        reference = await _reference(files, drawn, job.assets.cast) if drawn else None
         with metered(job, s.tariff, stage="pick", provider=s.llm.name, shot=i):
-            chosen = await s.llm.pick(shot.picture, images, style)
+            chosen = await s.llm.pick(shot.picture, images, style, reference=reference)
         job.assets.frames[i] = job.assets.candidates[i][chosen]
 
 

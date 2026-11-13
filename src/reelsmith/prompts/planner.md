@@ -21,7 +21,9 @@ Rules for the fields:
   clothes in one signature colour. The face stays uncovered: no hood up, no mask. These
   looks are copied into every picture, so make them specific, never change them, and
   never put a thing in the hands or an action in them: a doll in a look is in every frame.
-  Keep the names as the idea gives them.
+  Keep the names as the idea gives them. Clothes stay the same through the episode; only
+  when the story itself changes them, such as a ball gown for one night, add `outfits`:
+  a short name and the clothes in English. Most episodes have none.
 - `beats`: {beats} beats in order, in {language}. Each beat is one concrete event the
   viewer can see and hear, one or two sentences, with exact places and numbers. Every beat
   follows from the one before; nothing happens without a cause the viewer already saw.

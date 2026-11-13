@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import enum
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass, field, replace
 from typing import Literal
 from uuid import UUID, uuid4
@@ -72,6 +72,16 @@ class Recipe(BaseModel):
 class Character(BaseModel):
     name: str
     look: str = Field(description="Face, age, hair, clothes. Repeated verbatim in every shot.")
+    outfits: dict[str, str] = Field(
+        default_factory=dict,
+        description="Clothes the story itself changes into, by a short name. Usually empty.",
+    )
+
+    def dressed(self, outfit: str | None = None) -> str:
+        """The look in one of the outfits, or in the look's own clothes."""
+        if outfit in self.outfits:
+            return f"{self.look}; in this scene wearing {self.outfits[outfit]} instead"
+        return self.look
 
 
 class Overlay(BaseModel):
@@ -94,6 +104,10 @@ class Shot(BaseModel):
     moves: bool = Field(
         default=True, description="Whether a person or a thing visibly moves in this shot."
     )
+    wears: dict[str, str] = Field(
+        default_factory=dict,
+        description="A character in frame and the outfit they wear here; others wear their look.",
+    )
     role: Literal["event", "breath"] = Field(
         default="event",
         description="`event` moves the story on; `breath` lets the event before it land.",
@@ -109,9 +123,12 @@ class Script(BaseModel):
     shots: list[Shot] = Field(min_length=3, max_length=40)
     music: str = Field(description="Genre, tempo and mood for the background track.")
 
-    def looks_of(self, names: Iterable[str]) -> str:
-        wanted = set(names)
-        return " ".join(c.look for c in self.characters if c.name in wanted)
+    def looks_of(self, names: Iterable[str], wears: Mapping[str, str] | None = None) -> str:
+        wanted, wears = set(names), wears or {}
+        return " ".join(c.dressed(wears.get(c.name)) for c in self.characters if c.name in wanted)
+
+    def character(self, name: str) -> Character:
+        return next(c for c in self.characters if c.name == name)
 
     @property
     def seconds(self) -> float:

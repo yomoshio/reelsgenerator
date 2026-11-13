@@ -155,16 +155,31 @@ class OllamaLlm:
         )
         return await self._chat(self._writer, system, draft, Verdict, temperature=self._heat[1])
 
-    async def pick(self, brief: str, images: list[Path], style: Style) -> int:
-        ask = (
-            f"Pick the frame that best shows: {brief}. "
-            f"Answer with its index, counting from 0 to {len(images) - 1}."
-        )
+    async def pick(
+        self, brief: str, images: list[Path], style: Style, reference: Path | None = None
+    ) -> int:
+        """With a `reference`, the judge sees it first as image 0 and the candidates after."""
+        if reference is None:
+            ask = (
+                f"Pick the frame that best shows: {brief}. "
+                f"Answer with its index, counting from 0 to {len(images) - 1}."
+            )
+        else:
+            ask = (
+                "Image 0 shows the people of this story as they look in every shot. "
+                f"Images 1 to {len(images)} are candidate frames. Pick the candidate that "
+                f"best shows: {brief}, with the same people as image 0: the same faces, "
+                "hair, clothes and drawing style. A candidate that changes a person, their "
+                "clothes or the drawing is wrong even when it shows the scene well. Answer "
+                f"with its index, counting from 1 to {len(images)}."
+            )
+            images = [reference, *images]
         system = self._eye(style)
         chosen = await self._chat(
             self._judge, system, ask, Pick, images=images, temperature=self._heat[2]
         )
-        return min(max(chosen.index, 0), len(images) - 1)
+        first = 0 if reference is None else 1
+        return min(max(chosen.index - first, 0), len(images) - 1 - first)
 
     async def inspect(self, motion: str, stills: list[Path], style: Style) -> Verdict:
         ask = f"Inspect this clip. It should show: {motion}."

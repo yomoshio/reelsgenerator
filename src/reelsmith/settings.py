@@ -38,7 +38,7 @@ class Settings(BaseSettings):
     frame_width: int = Field(default=720, multiple_of=16)
     frame_height: int = Field(default=1280, multiple_of=16)
     frame_steps: int = Field(default=8, ge=1)
-    edit_steps: int = Field(default=20, ge=1)
+    edit_steps: int = Field(default=8, ge=1)
     clip_width: int = Field(default=480, multiple_of=16)
     clip_height: int = Field(default=848, multiple_of=16)
     clip_steps: int = Field(default=4, ge=2)

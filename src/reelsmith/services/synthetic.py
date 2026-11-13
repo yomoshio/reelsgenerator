@@ -172,7 +172,9 @@ class SyntheticLlm:
         score = round(5 + 4.9 * rng(script.model_dump_json()).random(), 1)
         return Verdict(score=score, notes="tighten the hook, cut the last line")
 
-    async def pick(self, brief: str, images: list[Path], style: Style) -> int:
+    async def pick(
+        self, brief: str, images: list[Path], style: Style, reference: Path | None = None
+    ) -> int:
         return rng(brief, *images).randrange(len(images))
 
     async def inspect(self, motion: str, stills: list[Path], style: Style) -> Verdict:
