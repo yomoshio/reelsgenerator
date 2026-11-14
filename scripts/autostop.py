@@ -1,5 +1,6 @@
-"""Destroys the rented vast.ai server once the queue is done or the balance runs low, after
-the finished videos, the season plans and a database backup are safely on this computer.
+"""Destroys the rented vast.ai server once the queue is done, the box has sat idle, or the
+balance runs low, after the finished videos, the season plans and a database backup are
+safely on this computer.
 
     python3 scripts/autostop.py --set-key        store the API key from cloud.vast.ai/manage-keys
     python3 scripts/autostop.py --login          with two-factor login on: a code from the app
@@ -15,6 +16,7 @@ vast refuses the key, the server stays and the log says so."""
 
 import argparse
 import getpass
+import gzip
 import json
 import os
 import subprocess
@@ -34,25 +36,41 @@ ROOT = Path(__file__).resolve().parent.parent
 DONE = ("assembled", "approved", "published", "measured", "failed")
 VIDEOS = "studio/output/reelsmith/videos"
 REFUSED = (401, 403, 404)  # vast answers an expired session with 404
+BUSY = 10  # percent of the card in use that counts as work
 
 
 @dataclass(frozen=True)
 class Reading:
-    unfinished: int
-    total: int
+    """One look at the server. `unfinished` and `total` are None when the queue could not be
+    read, as before the database is up; `busy` says whether the card is working."""
+
+    unfinished: int | None
+    total: int | None
     credit: float | None
     usd_per_hour: float | None
+    busy: bool = False
+
+    @property
+    def idle(self) -> bool:
+        """Nothing left to do and nothing running on the card."""
+        return not self.unfinished and not self.busy
 
 
-def verdict(reading: Reading, quiet_checks: int, reserve_hours: float) -> str | None:
+def verdict(
+    reading: Reading, quiet_checks: int, reserve_hours: float, idle_checks: int = 0, most: int = 0
+) -> str | None:
     """Why the server should go now, if it should. The queue counts as done only when it
     held jobs and stayed empty for two checks in a row, so a batch being queued is not
-    mistaken for the end. Without a balance from vast only the queue decides."""
+    mistaken for the end. A box that has sat with no work for `most` checks in a row goes
+    too: a queue that was never filled, or an install nobody followed up, bills by the
+    hour all the same. Without a balance from vast only the queue decides."""
     credit, price = reading.credit, reading.usd_per_hour
     if credit is not None and price and credit / price < reserve_hours:
         return f"the balance ${credit:.2f} lasts {credit / price:.1f} h at this server's price"
     if reading.total and quiet_checks >= 2:
         return f"all {reading.total} jobs are finished"
+    if most and idle_checks >= most:
+        return f"nothing has run for {idle_checks} checks in a row"
     return None
 
 
@@ -68,18 +86,25 @@ def main() -> None:
     if args.now:
         _finish(instance, dry=args.dry_run)
         return
-    quiet = 0
+    quiet = idle = 0
+    most = round(args.idle_minutes * 60 / args.every) if args.idle_minutes else 0
     while True:
         reading = _read(instance)
         quiet = quiet + 1 if reading.total and not reading.unfinished else 0
-        reason = verdict(reading, quiet, args.reserve_hours)
+        idle = idle + 1 if reading.idle else 0
+        reason = verdict(reading, quiet, args.reserve_hours, idle, most)
         money = (
             f"balance ${reading.credit:.2f}, ${reading.usd_per_hour or 0:.3f}/h"
             if reading.credit is not None
             else "balance unknown"
         )
+        jobs = (
+            f"jobs left {reading.unfinished} of {reading.total}"
+            if reading.total is not None
+            else "queue unreadable"
+        )
         _log(
-            f"jobs left {reading.unfinished} of {reading.total}, {money}"
+            f"{jobs}, {money}, card {'busy' if reading.busy else 'idle'}"
             + (f"; stopping: {reason}" if reason else "")
         )
         if reason:
@@ -91,14 +116,29 @@ def main() -> None:
 
 
 def _read(instance: str) -> Reading:
-    counts = _remote(
-        "docker compose exec -T db psql -U reelsmith reelsmith -tAc "
-        '"select status, count(*) from jobs group by status"'
-    )
-    by_status = {
-        status: int(n)
-        for status, n in (line.split("|") for line in counts.splitlines() if "|" in line)
-    }
+    """The queue, the card and the balance. A queue that cannot be read, while the database
+    is still coming up, leaves the balance to decide instead of stopping the watch."""
+    unfinished = total = None
+    busy = False
+    try:
+        counts = _remote(
+            "docker compose exec -T db psql -U reelsmith reelsmith -tAc "
+            '"select status, count(*) from jobs group by status"'
+        )
+        by_status = {
+            status: int(n)
+            for status, n in (line.split("|") for line in counts.splitlines() if "|" in line)
+        }
+        unfinished = sum(n for status, n in by_status.items() if status not in DONE)
+        total = sum(by_status.values())
+    except subprocess.CalledProcessError as exc:
+        _log(f"queue unreadable: {exc}")
+    try:
+        load = _remote("nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits")
+        busy = any(int(n) >= BUSY for n in load.split())
+    except (subprocess.CalledProcessError, ValueError) as exc:
+        _log(f"card unreadable: {exc}")
+        busy = True
     credit = price = None
     try:
         credit = float(_vast("GET", "/users/current/").get("credit") or 0)
@@ -108,12 +148,7 @@ def _read(instance: str) -> Reading:
         _log(f"vast refused the key ({exc.code}): {_why(exc)}")
     if credit is not None and not price:
         price = _local_price()
-    return Reading(
-        unfinished=sum(n for status, n in by_status.items() if status not in DONE),
-        total=sum(by_status.values()),
-        credit=credit,
-        usd_per_hour=price,
-    )
+    return Reading(unfinished=unfinished, total=total, credit=credit, usd_per_hour=price, busy=busy)
 
 
 def _finish(instance: str, *, dry: bool) -> None:
@@ -127,8 +162,8 @@ def _finish(instance: str, *, dry: bool) -> None:
         capture_output=True,
         text=True,
     ).stdout.split()[-1]
-    if (ROOT / backup).stat().st_size < 1000:
-        sys.exit(f"the backup {backup} is too small; the server stays")
+    if not dumped(ROOT / backup):
+        sys.exit(f"the backup {backup} is cut short; the server stays")
     there = set(_remote(f"ls -1 {VIDEOS} 2>/dev/null || true").splitlines())
     here = {p.name for p in (ROOT / VIDEOS).glob("*")}
     if missing := there - here:
@@ -145,6 +180,16 @@ def _finish(instance: str, *, dry: bool) -> None:
             f"({exc.code}: {_why(exc)}). Destroy it at cloud.vast.ai/instances."
         )
     _log(f"instance {instance} destroyed")
+
+
+def dumped(backup: Path) -> bool:
+    """Whether pg_dump finished the backup: it ends every complete dump with this line. A
+    size limit took the dump of an empty queue for a failed one and kept a box billing."""
+    try:
+        with gzip.open(backup, "rt", encoding="utf-8", errors="replace") as dump:
+            return "PostgreSQL database dump complete" in dump.read()
+    except (OSError, EOFError):
+        return False
 
 
 def _login(*, email: bool, code: str | None, secret: str | None) -> None:
@@ -268,6 +313,12 @@ def _parse() -> argparse.Namespace:
     parser.add_argument("--every", type=float, default=300, help="seconds between checks")
     parser.add_argument(
         "--reserve-hours", type=float, default=1.0, help="stop when the balance lasts less"
+    )
+    parser.add_argument(
+        "--idle-minutes",
+        type=float,
+        default=60,
+        help="stop after this long with no unfinished job and the card idle; 0 never",
     )
     parser.add_argument("--dry-run", action="store_true", help="copy everything, destroy nothing")
     parser.add_argument("--once", action="store_true", help="one check, then exit")
