@@ -12,7 +12,7 @@ from collections.abc import Iterator
 from difflib import SequenceMatcher
 from itertools import groupby
 
-from reelsmith.models import Overlay, Script, Shot, shot_seconds
+from reelsmith.models import SHOT_PADDING, Overlay, Script, Shot, shot_seconds
 from reelsmith.styles import Style
 
 # Stems of numerals in Russian and English, cardinal and ordinal.
@@ -71,6 +71,7 @@ _VOWELS = re.compile(r"[аеёиоуыэюяaeiouy]", re.IGNORECASE)  # noqa: RU
 # need the margin.
 PACE = 5.0
 _ENUMERATOR = re.compile(r"^\s*\d+\.\s*")
+_SENTENCE = re.compile(r"[.!?…]+")
 
 
 def _in_another_language(script: Script, language: str) -> str:
@@ -104,9 +105,15 @@ def foreign(text: str, language: str) -> bool:
     return 2 * sum(1 for w in words if not own.search(w)) > len(words)
 
 
-def problems(script: Script, style: Style, language: str | None = None) -> list[str]:
-    """Each kind of problem as one instruction to the writer. Shots are counted from 1."""
+def problems(
+    script: Script, style: Style, language: str | None = None, narration: str = ""
+) -> list[str]:
+    """Each kind of problem as one instruction to the writer. Shots are counted from 1.
+    `narration` is the outline's voiceover, which the lines must cut up word for word."""
     found: list[str] = []
+    if narration and (changed := retold(script, narration)):
+        found.append(changed)
+    found += _places(script)
     if language and (wrong := _in_another_language(script, language)):
         name = language_name(language)
         found.append(
@@ -115,18 +122,8 @@ def problems(script: Script, style: Style, language: str | None = None) -> list[
         )
     if misfit := style.misfit(script):
         found.append(misfit)
-    shortest, limit = style.story.seconds
-    if (runs := spoken_seconds(script)) > limit:
-        found.append(
-            f"Read aloud, the episode runs about {runs:.0f} s and must stay under {limit} s. "
-            "Cut whole shots or words until it fits; keep the opening and the last line."
-        )
-    elif runs < shortest:
-        found.append(
-            f"Read aloud, the episode runs about {runs:.0f} s and must last at least "
-            f"{shortest} s. Give the lines their full {style.story.words} words with what the "
-            "viewer needs to feel the moment; do not add events the outline does not have."
-        )
+    if not narration:
+        found += _length(script, style)
     found += _skeleton(script, style)
     early: dict[str, list[int]] = {}
     for i, overlay in unsaid_plates(script):
@@ -319,6 +316,104 @@ def _skeleton(script: Script, style: Style) -> list[str]:
         found.append(
             f"Shots {_list(doubled)} are breaths right after a breath; a breath always "
             "follows an event."
+        )
+    return found
+
+
+def _length(script: Script, style: Style) -> list[str]:
+    """An episode that, read aloud, runs outside the channel's length."""
+    shortest, limit = style.story.seconds
+    if (runs := spoken_seconds(script)) > limit:
+        return [
+            f"Read aloud, the episode runs about {runs:.0f} s and must stay under {limit} s. "
+            "Cut whole shots or words until it fits; keep the opening and the last line."
+        ]
+    if runs < shortest:
+        return [
+            f"Read aloud, the episode runs about {runs:.0f} s and must last at least "
+            f"{shortest} s. Give the lines their full {style.story.words} words with what the "
+            "viewer needs to feel the moment; do not add events the outline does not have."
+        ]
+    return []
+
+
+def told_length(narration: str, style: Style) -> str:
+    """What is wrong with the length of an outline's voiceover, or nothing when it fits.
+    An outline without one, from before voiceovers were planned, leaves the lines to the
+    writer as before."""
+    if not narration.strip():
+        return ""
+    runs = len(_VOWELS.findall(narration)) / PACE + SHOT_PADDING * len(_SENTENCE.findall(narration))
+    shortest, limit = style.story.seconds
+    least, most = style.story.narration_words()
+    words = len(spoken_words(narration))
+    if runs > limit:
+        return (
+            f"The narration has {words} words and runs about {runs:.0f} s read aloud; it must "
+            f"stay under {limit} s, {most} words at most. Tell the same beats more tightly."
+        )
+    if runs < shortest:
+        return (
+            f"The narration has {words} words and runs only about {runs:.0f} s read aloud; it "
+            f"must last at least {shortest} s, {least} to {most} words. Tell each beat fully: "
+            "what the hero sees, does and feels, and what it costs them; add no new events."
+        )
+    return ""
+
+
+def retold(script: Script, narration: str) -> str:
+    """What the lines change in the narration they were cut from, or nothing when they
+    keep it word for word, near enough that a stray particle does not send them back."""
+    told = spoken_words(narration)
+    said = [w for shot in script.shots for w in spoken_words(shot.line)]
+    matcher = SequenceMatcher(a=told, b=said, autojunk=False)
+    if matcher.ratio() >= 0.95:
+        return ""
+    for tag, a0, a1, b0, b1 in matcher.get_opcodes():
+        if tag == "equal":
+            continue
+        lost, extra = " ".join(told[a0:a1][:12]), " ".join(said[b0:b1][:12])
+        change = (
+            f"«{lost}» became «{extra}»"
+            if lost and extra
+            else f"«{lost}» is missing"
+            if lost
+            else f"«{extra}» was added"
+        )
+        break
+    return (
+        "The lines must be the outline's narration cut into shots, word for word, with "
+        f"nothing added, dropped or reworded; here {change}."
+    )
+
+
+def _places(script: Script) -> list[str]:
+    """Shots set in a place the script does not list, and takes that cannot go on."""
+    found = []
+    names = {p.name for p in script.places}
+    if names:
+        stray = [i + 1 for i, s in enumerate(script.shots) if s.place not in names]
+        if stray:
+            found.append(
+                f"Shots {_list(stray)} name a place that is not in `places`; `place` is "
+                f"one of: {', '.join(sorted(names))}."
+            )
+    shots = script.shots
+    jumped = [
+        i + 1
+        for i in range(len(shots))
+        if shots[i].continues and (i == 0 or shots[i].place != shots[i - 1].place)
+    ]
+    if jumped:
+        found.append(
+            f"Shots {_list(jumped)} continue, but there is no shot before them in the same "
+            "place to go on from; the first shot in a place never continues."
+        )
+    long = [i + 1 for i in range(2, len(shots)) if all(s.continues for s in shots[i - 2 : i + 1])]
+    if long:
+        found.append(
+            f"Shots {_list(long)} make a take of more than three shots; at most two "
+            "continuations follow each other, then the picture cuts."
         )
     return found
 

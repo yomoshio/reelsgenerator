@@ -134,7 +134,7 @@ class SyntheticLlm:
             music="low drone, slow pulse",
         )
 
-    async def plan(self, idea: str, style: Style) -> Outline:
+    async def plan(self, idea: str, style: Style, notes: str | None = None) -> Outline:
         return Outline(
             title=idea.split(".", maxsplit=1)[0][:60],
             characters=[Character(name="Vera", look="nurse, 30s, tired eyes, grey cardigan")],

@@ -1,41 +1,53 @@
-about = "Deadpan everyday sketch that looks shot on a friend's phone: one tired hero, small absurd troubles, a flat narrator, 35 to 60 seconds."
+about = "Dry comic everyday story that looks shot on a friend's phone: one tired hero, small troubles that grow absurd, a straight-faced storyteller, 45 to 75 seconds."
 voice = "deadpan"
 
 [story]
-shots = [14, 18]
-seconds = [35, 60]
-beats = [8, 12]
-words = 8
+shots = [12, 18]
+seconds = [45, 75]
+beats = [8, 10]
+words = 20
 empty_shots = 1
 moving = 0.4
 brief = """
-You write a deadpan sketch about one ordinary tired man and a small everyday trouble that
+You tell a dry comic story about one ordinary tired man and a small everyday trouble that
 grows absurd. The idea gives the events in order; keep them, their numbers and their
 people, and add nothing that explains the joke.
 
-Voice: present tense, short flat statements, the way a man reads a shopping list. No
-jokes told, no exclamations, no adjectives about feelings, never address the viewer
-except where the idea has the hero say a line to the camera; then quote it as he says
-it. The humour comes from the facts and the hero's stone face.
+The story is one thread: the same man in two or three ordinary places that stay the same,
+each trouble caused by the one before, so the viewer follows him like a friend telling
+what happened to him yesterday. Things stand where they would in life: the cash machine
+he argues with is the one in the shop where the cashier shrugs, never one out in the
+street.
 
-One shot is one beat: one action, one object, one reaction. Close-ups of hands, faces
-and a phone held in the hand alternate with wider views of the kitchen, the courtyard,
-the shop. A number the idea gives is said aloud and shown on a `stat` plate in the same
-shot.
+Opening. The first sentence is the most absurd moment of the story, said flatly, such as
+«Иван кричит на банкомат», before anything is explained. Then go back and tell how it came
+to this.
 
-Every picture starts with the place and the time in a few words, such as "a small
-Chelyabinsk kitchen, evening", and says plainly what the eye sees. A phone or a cash
-machine screen is seen from the side or as a glowing blank rectangle, never readable.
+Middle. Each new trouble is a little worse than the last and follows from it. Comic timing:
+a plain setup, a beat of silence «…», then the fact that makes it absurd. The hero's
+reaction is small and tired: a sigh, a look, one dry line he says to the camera, quoted as
+he says it.
 
-End on the last beat of the idea, cut in the middle of the motion, with no moral and no
-summary.
+Ending. The last line is the dry punchline that turns the whole trouble around, said as
+calmly as everything else, with no moral and no summary after it.
+
+Voice: a dry ironic storyteller with a straight face, present tense, living spoken
+Russian: short and longer sentences, small observations, a pause before each punchline.
+The humour comes from the facts and the hero's stone face; never laugh at your own joke,
+never explain it. A number the idea gives is said aloud and shown on a `stat` plate in the
+same shot.
+
+Every picture says plainly what the eye sees. A phone or a cash machine screen is seen
+from the side or as a glowing blank rectangle, never readable. Close-ups of hands, faces
+and a phone held in the hand alternate with wider views of the same kitchen, courtyard or
+shop; where the action goes on, the next shot `continues` it.
 """
 critic = """
-Does the sketch keep the idea's events and numbers in order and add nothing that explains
-the joke? Are the lines flat statements a tired man would say, with no jokes told and no
-exclamations? Is every number said aloud on the shot whose `stat` plate shows it? Does
-every picture show one action in one ordinary place, with screens unreadable? Does it end
-on the idea's last beat without a moral?
+Does the script cut the outline's narration into shots word for word, one moment per
+shot? Does every shot name one of the outline's places, and do the things the story uses
+stand where they would in life, the same in every shot? Is every number said aloud on the
+shot whose `stat` plate shows it? Does every picture show one action in one ordinary
+place, with screens unreadable? Does it end on the punchline without a moral?
 """
 
 [look]

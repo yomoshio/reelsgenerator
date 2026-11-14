@@ -1,9 +1,17 @@
 import pytest
 
-from reelsmith.checks import misspoken, present, problems, spoken_seconds, unsaid_plates
-from reelsmith.models import Character, Overlay, Script, Shot
-from reelsmith.styles import Style
-from tests.fakes import style
+from reelsmith.checks import (
+    misspoken,
+    present,
+    problems,
+    retold,
+    spoken_seconds,
+    told_length,
+    unsaid_plates,
+)
+from reelsmith.models import Character, Overlay, Place, Script, Shot
+from reelsmith.styles import Style, Styles
+from tests.fakes import REPO_STYLES, style
 
 
 def flood(*shots: Shot) -> Script:
@@ -294,3 +302,42 @@ def test_an_outfit_must_be_declared_and_worn_by_someone_in_the_frame() -> None:
     script.shots[2].wears = {"Артём": "suit", "Лена": "wet"}
     found = " ".join(problems(script, style()))
     assert "shot 3 (Артём in 'suit'), shot 3 (Лена in 'wet')" in found
+
+
+def test_lines_must_cut_the_narration_word_for_word() -> None:
+    told = "Она смотрит в окно. Там никого нет… Только ветер. Он стихает."
+    kept = flood(
+        shot("Она смотрит в окно."), shot("Там никого нет… Только ветер."), shot("Он стихает.")
+    )
+    changed = flood(shot("Она глядит в окно."), shot("Там никого нет."), shot("Он стихает."))
+
+    assert retold(kept, told) == ""
+    assert "«смотрит» became «глядит»" in retold(changed, told)
+    assert any("word for word" in p for p in problems(changed, style(), narration=told))
+
+
+def test_a_shot_names_a_listed_place_and_a_take_goes_on_in_it() -> None:
+    made = flood(shot("Раз."), shot("Два."), shot("Три."), shot("Четыре."))
+    made.places = [Place(name="Кухня", look="a kitchen"), Place(name="Двор", look="a yard")]
+    for s, (place, continues) in zip(
+        made.shots,
+        [("Кухня", True), ("Кухня", True), ("Двор", True), ("Подвал", False)],
+        strict=True,
+    ):
+        s.place, s.continues = place, continues
+
+    found = " ".join(problems(made, style()))
+
+    assert "Shots 4 name a place that is not in `places`" in found
+    assert "Shots 1, 3 continue" in found
+    made.shots[2].place = made.shots[3].place = "Кухня"
+    made.shots[3].continues = True
+    assert "Shots 3, 4 make a take of more than three shots" in " ".join(problems(made, style()))
+
+
+def test_a_voiceover_too_short_for_the_channel_is_sent_back() -> None:
+    twist = Styles(REPO_STYLES).get("twist")
+    short = "Он ушёл. Она ждала."
+
+    assert "runs only about" in told_length(short, twist)
+    assert told_length("", twist) == ""

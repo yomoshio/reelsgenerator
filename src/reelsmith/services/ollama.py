@@ -82,16 +82,19 @@ class OllamaLlm:
             side -= 1
         return max(side * PATCH, NARROWEST)
 
-    async def plan(self, idea: str, style: Style) -> Outline:
+    async def plan(self, idea: str, style: Style, notes: str | None = None) -> Outline:
         story = style.story
+        least, most = story.narration_words()
         system = fill(
             _prompt("planner"),
             brief=story.brief.strip(),
             seconds=f"{story.seconds[0]} to {story.seconds[1]}",
             beats=f"{story.beats[0]} to {story.beats[1]}",
+            words=f"{least} to {most}",
             language=self._language,
         )
-        return await self._chat(self._writer, system, idea, Outline, temperature=self._heat[0])
+        ask = idea if notes is None else f"{idea}\n\nPlan it again. The checks found: {notes}"
+        return await self._chat(self._writer, system, ask, Outline, temperature=self._heat[0])
 
     async def season(self, synopsis: str, style: Style, episodes: int) -> Season:
         story = style.story

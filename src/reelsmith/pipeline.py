@@ -16,7 +16,15 @@ from pathlib import Path
 from typing import Protocol
 from uuid import UUID
 
-from reelsmith.checks import bare, misspoken, present, problems, spoken_words, unsaid_plates
+from reelsmith.checks import (
+    bare,
+    misspoken,
+    present,
+    problems,
+    spoken_words,
+    told_length,
+    unsaid_plates,
+)
 from reelsmith.graphics import side_by_side
 from reelsmith.models import (
     SHOT_PADDING,
@@ -59,7 +67,7 @@ class Gates:
 class Llm(Protocol):
     name: str
 
-    async def plan(self, idea: str, style: Style) -> Outline: ...
+    async def plan(self, idea: str, style: Style, notes: str | None = None) -> Outline: ...
 
     async def write(self, idea: str, style: Style, notes: str | None = None) -> Script: ...
 
@@ -123,6 +131,8 @@ class Montage(Protocol):
     async def cut(self, audio: Path, start: float, end: float, out: Path) -> Path: ...
 
     async def stills(self, video: Path, count: int, out_dir: Path) -> list[Path]: ...
+
+    async def frame_at(self, video: Path, at: float, out: Path) -> Path: ...
 
     async def stills_at(
         self, video: Path, times: list[float], out_dir: Path, *, widest: int
@@ -239,14 +249,21 @@ def seed_for(job_id: UUID, salt: int = 0) -> int:
 
 
 async def write(job: Job, s: Services) -> None:
-    """The idea, a sentence or a whole story, first becomes a beat-by-beat outline; the
-    model follows an outline far better than it invents a plot while writing shots. Then
-    writer and critic go round until the script passes or the rewrites are spent. A script
-    with a problem `checks` can see cannot pass. The best draft is kept either way."""
+    """The idea, a sentence or a whole story, first becomes an outline with the whole
+    voiceover told as one story; an outline whose voiceover would run outside the
+    channel's length is planned again. The writer then only cuts that voiceover into shots
+    and draws them, so the story keeps one voice from start to end. Writer and critic go
+    round until the script passes or the rewrites are spent. A script with a problem
+    `checks` can see cannot pass. The best draft is kept either way."""
     style = s.styles.get(job.recipe.style)
     if job.outline is None:
-        with metered(job, s.tariff, stage="plan", provider=s.llm.name):
-            job.outline = await s.llm.plan(job.idea, style)
+        planned: str | None = None
+        for _ in range(s.gates.rewrites + 1):
+            with metered(job, s.tariff, stage="plan", provider=s.llm.name):
+                job.outline = await s.llm.plan(job.idea, style, planned)
+            if not (planned := told_length(job.outline.narration, style)):
+                break
+    assert job.outline is not None
     brief = job.outline.as_brief()
     best: tuple[Script, Verdict] | None = None
     notes: str | None = None
@@ -255,7 +272,7 @@ async def write(job: Job, s: Services) -> None:
             script = await s.llm.write(brief, style, notes)
         with metered(job, s.tariff, stage="critic", provider=s.llm.name):
             verdict = await s.llm.review(script, style, brief)
-        if found := problems(script, style, s.language):
+        if found := problems(script, style, s.language, job.outline.narration):
             verdict = Verdict(
                 score=min(verdict.score, s.gates.script_pass - 1),
                 notes=" ".join([*found[:6], verdict.notes]),
@@ -369,17 +386,21 @@ async def paint(job: Job, s: Services) -> None:
     painter = s.painter(job.recipe.image)
     portraits = await _portraits(job, s, style) if job.recipe.cast_image else {}
     for i, shot in enumerate(script.shots):
-        if i in job.assets.candidates:
+        if i in job.assets.candidates or script.continued(i):
             continue
         cast = present(shot, script)
+        where = script.setting(shot)
         prompt = ". ".join(
-            p for p in (script.looks_of(cast, shot.wears), shot.picture, style.look.frame) if p
+            p
+            for p in (where, script.looks_of(cast, shot.wears), shot.picture, style.look.frame)
+            if p
         )
         artist, reference = painter, None
         if job.recipe.cast_image and (drawn := _drawn(shot, cast, portraits)):
             artist = s.painter(job.recipe.cast_image)
             reference = await _reference(files, drawn, portraits)
-            prompt = f"{_who(script, shot, drawn)} {shot.picture}. {style.look.frame}"
+            place = f" The place: {where}." if where else ""
+            prompt = f"{_who(script, shot, drawn)}{place} {shot.picture}. {style.look.frame}"
         made: list[Path] = []
         for k in range(s.gates.candidates):
             seed = seed_for(job.id, 1000 + i * 10 + k)
@@ -458,7 +479,7 @@ async def pick(job: Job, s: Services) -> None:
     script, files = job.require_script(), Files(s.media, job.id)
     style = s.styles.get(job.recipe.style)
     for i, shot in enumerate(script.shots):
-        if i in job.assets.frames:
+        if i in job.assets.frames or script.continued(i):
             continue
         images = [files.resolve(p) for p in job.assets.candidates[i]]
         drawn = (
@@ -471,13 +492,19 @@ async def pick(job: Job, s: Services) -> None:
 
 
 async def animate(job: Job, s: Services) -> None:
-    """One clip per shot from its chosen frame. Shots that already have a clip are skipped,
-    so a rewind redoes only what `check` or QA threw away; the seed moves with the attempt."""
+    """One clip per shot from its chosen frame. A shot that continues the one before starts
+    from the frame that shot's clip ends on, so the two play as one take. Shots that already
+    have a clip are skipped, so a rewind redoes only what `check` or QA threw away; the seed
+    moves with the attempt."""
     script, files = job.require_script(), Files(s.media, job.id)
     style = s.styles.get(job.recipe.style)
     for i, shot in enumerate(script.shots):
         if i in job.assets.clips:
             continue
+        if script.continued(i):
+            before = files.resolve(job.assets.clips[i - 1])
+            start = await s.montage.frame_at(before, script.shots[i - 1].seconds, files.frame(i))
+            job.assets.frames[i] = files.relative(start)
         guard = _nobody_new(present(shot, script))
         motion = ". ".join(m for m in (shot.motion, guard, style.look.motion) if m)
         animator = s.animator(job.recipe.video_for(i, shot.moves))
@@ -524,7 +551,8 @@ async def check(job: Job, s: Services) -> None:
         if len(made) < s.gates.clip_tries:
             redo.append(i)
     for i in redo:
-        del job.assets.clips[i]
+        for j in script.take(i):
+            job.assets.clips.pop(j, None)
     if redo:
         raise Rewind(Status.FRAMED, f"clips flagged for shots {redo}")
 
@@ -600,7 +628,8 @@ async def assemble(job: Job, s: Services) -> None:
     job.qa = verdict
     if verdict.score < s.gates.qa_pass:
         for i in verdict.bad_shots or list(job.assets.clips):
-            job.assets.clips.pop(i, None)
+            for j in script.take(i):
+                job.assets.clips.pop(j, None)
         job.assets.final = None
         raise Rewind(Status.FRAMED, verdict.notes or "the cut did not pass QA")
 

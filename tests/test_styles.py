@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from reelsmith.models import StageError
-from reelsmith.styles import Style, Styles
+from reelsmith.styles import Story, Style, Styles
 from tests.fakes import REPO_STYLES, script, style
 
 GOOD = """
@@ -90,7 +90,7 @@ def test_defaults_fill_in_what_a_style_leaves_out(tmp_path: Path) -> None:
 
 
 def test_a_style_with_a_skeleton_tells_the_writer_the_count_and_it_must_fit_the_shots() -> None:
-    twist = Styles(REPO_STYLES).get("twist-graphic").story
+    twist = Story(brief="b", shots=(15, 15), events=10, breaths=5)
 
     assert twist.skeleton().startswith("Every episode of this channel has exactly 10 event shots")
     assert style().story.skeleton() == "Two breaths never follow each other."

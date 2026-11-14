@@ -111,7 +111,7 @@ class FakeLlm:
     inspected: int = 0
     log: list[tuple[str, list[Path]]] = field(default_factory=list)
 
-    async def plan(self, idea: str, style: Style) -> Outline:
+    async def plan(self, idea: str, style: Style, notes: str | None = None) -> Outline:
         self.planned.append(idea)
         return outline(idea)
 
@@ -216,9 +216,14 @@ class FakeMontage:
     cuts: list[tuple[float, float]] = field(default_factory=list)
     moments: list[float] = field(default_factory=list)
     widths: list[int] = field(default_factory=list)
+    frames_at: list[tuple[str, float]] = field(default_factory=list)
 
     async def seconds(self, media: Path) -> float:
         return self.seconds_per_file
+
+    async def frame_at(self, video: Path, at: float, out: Path) -> Path:
+        self.frames_at.append((video.name, at))
+        return _touch(out)
 
     async def cut(self, audio: Path, start: float, end: float, out: Path) -> Path:
         """A piece of what FakeNarrator said keeps the words FakeTranscriber hears in it."""
