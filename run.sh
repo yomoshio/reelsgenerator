@@ -153,7 +153,8 @@ server() {
     local code=(--exclude .venv --exclude __pycache__ --exclude .mypy_cache --exclude .ruff_cache
         --exclude .pytest_cache --exclude demo --exclude preview --exclude review --exclude .git
         --exclude logs --exclude models --exclude hf --exclude outbox --exclude voices
-        --exclude studio --exclude .env --exclude backups)
+        --exclude studio --exclude .env --exclude backups --exclude '*.zip' --exclude '*.tar'
+        --exclude '*.tar.gz')
     # -n: without it ssh swallows the rest of stdin and breaks `while read ...; do ./run.sh`.
     there() { "${ssh[@]}" -n "$host" "cd $dir && $*"; }
     run_there() { there "bash run.sh $(quoted "$@")"; }
