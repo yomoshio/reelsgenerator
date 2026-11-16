@@ -574,7 +574,8 @@ async def write(job: Job, folder: Path, ctx: Context) -> None:
     job.note("plan", model=ctx.settings.planner, note=outline.title)
     ep, left = await cut(ctx, style, outline)
     ep = await cast(ctx, style, ep)
-    catalog = ctx.catalog() if ctx.catalog else Catalog()
+    looks = " ".join([*(p.look for p in outline.places), *(c.look for c in outline.characters)])
+    catalog = ctx.catalog(looks) if ctx.catalog else Catalog()
     ep, staging_left = await direct(ctx, style, ep, outline.narration, catalog)
     left += staging_left
     if left:

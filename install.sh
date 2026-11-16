@@ -59,6 +59,10 @@ pipeline() {
     .venv/bin/python -m pip --version >/dev/null 2>&1 || .venv/bin/python -m ensurepip --upgrade
     .venv/bin/python -m pip install --quiet --upgrade pip
     .venv/bin/python -m pip install --quiet -e ".[check]"
+    if [[ ! -f library/things/index.json ]]; then
+        note "Библиотека вещей: силуэты game-icons.net"
+        .venv/bin/python scripts/import_icons.py
+    fi
     note "Настройки: $PWD/.env"
 }
 

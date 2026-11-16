@@ -128,7 +128,10 @@ async def assemble(job: Job, folder: Path, ctx: Context) -> None:
     found = await measure(final, folder / "check.json")
     failed = [c["name"] for c in found.get("checks", []) if not c.get("ok")]  # type: ignore[attr-defined]
     job.note("assemble", note=f"reference check failed: {', '.join(failed)}" if failed else "")
-    (folder / "post.txt").write_text(f"{ep.title}\n\n{ep.premise}\n", encoding="utf-8")
+    code = " ".join(p.read_text(encoding="utf-8") for p in (folder / "scenes").glob("*.js"))
+    named = runtime.credits(ctx.settings, code)
+    thanks = f"\nIcons: {', '.join(named)}\n" if named else ""
+    (folder / "post.txt").write_text(f"{ep.title}\n\n{ep.premise}\n{thanks}", encoding="utf-8")
     for leftover in (folder / "clips").glob("*"):
         if leftover.suffix in {".mp4", ".wav"}:
             leftover.unlink()

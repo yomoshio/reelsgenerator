@@ -90,6 +90,31 @@ def test_the_catalog_lists_library_things(tmp_path: Path) -> None:
     library = tmp_path / "library"
     library.mkdir()
     (library / "carriage.svg").write_text("<svg/>")
-    found = runtime.catalog(_settings(tmp_path))
+    found = runtime.catalog(_settings(tmp_path), "a black carriage at the door")
     assert "carriage" in found.things
     assert "atm" in found.things
+
+
+def test_the_catalog_offers_only_library_things_the_story_names(tmp_path: Path) -> None:
+    library = tmp_path / "library"
+    library.mkdir()
+    for name in ("pearl_necklace", "grand_piano", "spaceship", "necklace"):
+        (library / f"{name}.svg").write_text("<svg/>")
+    found = runtime.catalog(
+        _settings(tmp_path), "a poor clerk's wife in a ball gown, a pearl necklace"
+    )
+    assert "pearl_necklace" in found.things
+    assert "necklace" in found.things
+    assert "spaceship" not in found.things
+    assert "grand_piano" not in found.things
+
+
+def test_credits_name_the_authors_of_library_things_on_stage(tmp_path: Path) -> None:
+    library = tmp_path / "library"
+    library.mkdir()
+    (library / "index.json").write_text(json.dumps({
+        "grand_piano": {"about": "grand piano", "author": "delapouite", "license": "CC BY 3.0", "source": "game-icons.net"},
+        "skull": {"about": "skull", "author": "zeromancer", "license": "CC0", "source": "game-icons.net"},
+    }))  # fmt: skip
+    code = 's.thing("grand_piano", { x: 0.7 }); s.thing("skull"); s.thing("bed");'
+    assert runtime.credits(_settings(tmp_path), code) == ["delapouite (game-icons.net, CC BY 3.0)"]

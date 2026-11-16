@@ -34,10 +34,14 @@ const win = s.thing("window", { x: 0.72 });       // wall things hang at their o
 s.thing("water", { state: 0 });                   // fills the room from the floor
 s.thing("lamp", { x: 0.5, state: 1 });            // hangs from the ceiling; state 0 is off
 const shelf = s.thing("shelf", { x: 0.8, front: true });  // drawn in front of people
+const table = s.thing("table", { x: 0.3 });
+s.thing("candle_holder", { on: table, scale: 0.5 });      // stands on the table's top
 ```
 
 Options: `x`, `scale` (1 is natural), `flip`, `state`, `front`, `level` (the floor of a
-section). Things stand on the ground by themselves; never give a y.
+section), `on` (another thing with a top or a seat to stand on). Things stand on the
+ground by themselves; never give a y. Small things from the library, such as a candle, a
+phone or a necklace, usually stand `on` a table, a counter or a shelf, at `scale` 0.3–0.6.
 
 - `atm.state(2, { at: "ошибка" })`: change state, eased over a second. Water: 0 ankle,
   1 knee, 2 waist, 3 chest. Atm: 0 idle, 1 lit, 2 red error. Door: 0 shut, 1 open.

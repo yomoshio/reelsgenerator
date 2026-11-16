@@ -8,6 +8,7 @@ start no processes. The code itself runs in a `vm` context without require or pr
 
 import asyncio
 import json
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -117,12 +118,44 @@ async def keys(settings: Settings, data: dict[str, Any]) -> Report:
     )
 
 
-def catalog(settings: Settings) -> Catalog:
-    """The default catalog and every thing in the library."""
+LIBRARY_MOST = 40  # library things the director sees at once
+
+
+def library_index(settings: Settings) -> dict[str, dict[str, str]]:
+    index = settings.library / "index.json"
+    if index.is_file():
+        found: dict[str, dict[str, str]] = json.loads(index.read_text(encoding="utf-8"))
+        return found
+    return {p.stem: {"about": p.stem.replace("_", " ")} for p in settings.library.glob("*.svg")}
+
+
+def catalog(settings: Settings, text: str = "") -> Catalog:
+    """The runtime's own places, things, devices and poses, and the library things whose
+    names the English `text` mentions: the looks of the places and people of an episode.
+    A library of thousands would drown the prompt; only what the story needs is offered."""
     made = Catalog()
-    if settings.library.is_dir():
-        index = settings.library / "index.json"
-        about = json.loads(index.read_text(encoding="utf-8")) if index.is_file() else {}
-        for svg in sorted(settings.library.glob("*.svg")):
-            made.things.setdefault(svg.stem, about.get(svg.stem, {}).get("about", svg.stem))
+    if not settings.library.is_dir():
+        return made
+    said = set(re.findall(r"[a-z]+", text.lower()))
+    scored: list[tuple[float, int, str, str]] = []
+    for name, entry in library_index(settings).items():
+        parts = [p for p in name.split("_") if len(p) > 2]
+        hits = sum(1 for p in parts if p in said or p.rstrip("s") in said)
+        if parts and hits:
+            scored.append((hits / len(parts), -len(parts), name, entry.get("about", name)))
+    for _, _, name, about in sorted(scored, reverse=True)[:LIBRARY_MOST]:
+        made.things.setdefault(name, f"{about} (a flat silhouette from the library)")
     return made
+
+
+def credits(settings: Settings, code: str) -> list[str]:
+    """The authors to name for the library things a scene's code puts on stage."""
+    index = library_index(settings)
+    used = set(re.findall(r"""thing\(\s*["']([a-z0-9_]+)["']""", code))
+    return sorted(
+        {
+            f"{index[n].get('author', '?')} ({index[n].get('source', '')}, {index[n]['license']})"
+            for n in used
+            if n in index and index[n].get("license", "CC0") != "CC0"
+        }
+    )

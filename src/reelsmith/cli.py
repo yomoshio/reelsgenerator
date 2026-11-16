@@ -16,6 +16,7 @@ import typer
 from PIL import Image
 from pydantic import BaseModel
 
+from reelsmith import scenes
 from reelsmith.books import BOOKS, episodes, read_book
 from reelsmith.captions import Word
 from reelsmith.jobs import Context, Job, JobError, Jobs, Source, Status, run_once
@@ -106,7 +107,7 @@ def run(once: Annotated[bool, typer.Option(help="one pass over the stages")] = F
         llm = Llm(settings.llm_url, temperature=settings.temperature)
         speech = Speech(settings.speech_url)
         ctx = Context(settings, llm, Styles(settings.styles), speech)
-        ctx.catalog = lambda: catalog(settings)
+        ctx.catalog = lambda text: catalog(settings, text)
         jobs = Jobs(settings.jobs)
         try:
             while await run_once(jobs, ctx, stages()) and not once:
@@ -165,6 +166,10 @@ def approve(job_id: str) -> None:
     job.status = Status.APPROVED
     jobs.save(job)
     typer.echo(settings.outbox / f"{name}.mp4")
+    ep = Episode.model_validate_json((jobs.folder(job) / "episode.json").read_text("utf-8"))
+    style = Styles(settings.styles).get(job.style)
+    for kept in scenes.keep(style, ep, jobs.folder(job), job.id):
+        typer.echo(f"  example for the coder: {kept}")
 
 
 @app.command()

@@ -28,3 +28,4 @@ styles/*/*.flac
 styles/*/sfx/
 runtime/node_modules/
 jobs/
+library/things/

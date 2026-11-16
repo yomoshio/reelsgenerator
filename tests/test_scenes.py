@@ -152,3 +152,55 @@ async def test_the_stage_step_writes_every_beat_and_keeps_places(tmp_path: Path)
         "Things already standing in this place" in second_section
         or ep.beats[2].place != ep.beats[1].place
     )
+
+
+def test_the_closest_examples_come_first(tmp_path: Path) -> None:
+    folder = tmp_path / "style"
+    (folder / "examples").mkdir(parents=True)
+    (folder / "examples" / "a.js").write_text(
+        "// Beat: water in the stairwell\nfunction scene(s) {}"
+    )
+    (folder / "examples" / "b.js").write_text(
+        "// Beat: the cash machine in the shop shows an error\nfunction scene(s) {}"
+    )
+    style = STYLE.model_copy(update={"folder": folder})
+    beat = _episode().beats[0]
+    assert beat.staging is not None
+    shop = beat.model_copy(
+        update={
+            "staging": beat.staging.model_copy(
+                update={"action": "Ivan walks to the cash machine in the shop", "things": ["atm"]}
+            )
+        }
+    )
+    shown = scenes.examples(style, shop, most=1)
+    assert "cash machine" in shown
+
+
+def test_an_approved_video_leaves_its_best_scenes_as_examples(tmp_path: Path) -> None:
+    ep = _episode(beats=3)
+    folder = tmp_path / "job"
+    (folder / "scenes").mkdir(parents=True)
+    for n, (rounds, fell) in enumerate([(2, False), (1, False), (4, True)], 1):
+        (folder / "scenes" / f"beat{n:02d}.js").write_text(f"function scene(s) {{ /* {n} */ }}")
+        (folder / "scenes" / f"beat{n:02d}.json").write_text(
+            json.dumps({"rounds": rounds, "fallback": fell, "left": [], "graph": []})
+        )
+    style = STYLE.model_copy(update={"folder": tmp_path / "style"})
+    kept = scenes.keep(style, ep, folder, "1116-abc", most=2)
+    assert [p.name for p in kept] == ["1116-abc-beat02.js", "1116-abc-beat01.js"]
+    assert kept[0].read_text().startswith("// Beat: «")
+
+
+async def test_the_best_of_several_first_drafts_is_kept(tmp_path: Path) -> None:
+    ep = _episode()
+    broken = "function scene(s) { s.thing('spaceship'); }"
+    llm = FakeLlm().answer("code", broken, _good(ep, 0)).answer("Looked", YES)
+    ctx = context(
+        tmp_path, llm, rounds=1, variants=2, runtime=REPO / "runtime", library=tmp_path / "lib"
+    )
+    result = await scenes.stage_beat(
+        ctx, STYLE, ep, 0, timing=_timing(ep, 0), keys=tmp_path / "k", stood={}
+    )
+    assert not result.fallback
+    assert result.rounds == 1
