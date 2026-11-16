@@ -2,99 +2,27 @@ from pathlib import Path
 
 import pytest
 
-from reelsmith.models import StageError
-from reelsmith.styles import Style, Styles
-from tests.fakes import REPO_STYLES, script, style
+from reelsmith.styles import StyleError, Styles
 
-GOOD = """
-[story]
-brief = "b"
-[look]
-frame = "f"
-judge = "j"
-"""
+REPO_STYLES = Path(__file__).parent.parent / "styles"
 
 
-def _folder(tmp_path: Path, **files: str) -> Styles:
-    for name, text in files.items():
-        (tmp_path / f"{name}.toml").write_text(text, encoding="utf-8")
-    return Styles(tmp_path)
+def test_blackout_loads_with_a_full_palette_and_its_story_rules() -> None:
+    style = Styles(REPO_STYLES).get("blackout")
+    assert style.story.seconds == (60, 95)
+    assert style.story.rules == (2, 4)
+    assert {"wall", "floor", "ink", "threat", "key", "solved"} <= set(style.palette)
+    assert style.folder == REPO_STYLES / "blackout"
 
 
-@pytest.mark.parametrize("name", Styles(REPO_STYLES).names())
-def test_every_shipped_style_is_valid_and_fits_the_page(name: str) -> None:
-    made = Styles(REPO_STYLES).get(name)
-
-    assert made.name == name
-    assert made.about
-    assert made.story.shots[0] >= 3
-    for kind, plate in made.overlays.items():
-        assert plate.about, kind
+def test_an_unknown_style_names_the_known_ones() -> None:
+    with pytest.raises(StyleError, match="known: blackout"):
+        Styles(REPO_STYLES).get("noir")
 
 
-def test_shipped_styles_are_the_ones_we_expect() -> None:
-    assert Styles(REPO_STYLES).names() == [
-        "deadpan",
-        "noir",
-        "rules-beats",
-        "rules-serial",
-        "serial",
-        "twist",
-        "twist-graphic",
-        "twist-ink",
-    ]
-
-
-def test_the_serial_style_offers_the_plates_the_writer_needs() -> None:
-    serial = Styles(REPO_STYLES).get("rules-serial")
-
-    assert list(serial.overlays) == ["rule", "tag", "label", "alert", "card"]
-    assert serial.captions.karaoke
-    assert "`rule`" in serial.menu()
-
-
-def test_a_style_without_overlays_tells_the_writer_to_leave_them_empty() -> None:
-    assert Styles(REPO_STYLES).get("noir").menu() == "none: leave `overlays` empty"
-
-
-def test_misfit_names_the_range_the_script_missed() -> None:
-    assert style().misfit(script(3)) is None
-    assert style().misfit(script(12)) == "The script has 12 shots; this channel needs 3 to 10."
-
-
-def test_unknown_style_lists_the_ones_there_are(tmp_path: Path) -> None:
-    with pytest.raises(StageError, match=r"no style named 'x'.*have: a, b"):
-        _folder(tmp_path, a=GOOD, b=GOOD).get("x")
-
-
-@pytest.mark.parametrize(
-    "text",
-    [
-        GOOD + '[captions]\naccent = "not a colour"',
-        GOOD + '[overlays."Bad Kind"]\nabout = "a"',
-        GOOD.replace('brief = "b"', "brief = 1\nshots = [9, 6]"),
-        "not toml at all [",
-    ],
-)
-def test_a_broken_style_is_reported_with_its_name(tmp_path: Path, text: str) -> None:
-    with pytest.raises(StageError, match="style 'broken' is broken"):
-        _folder(tmp_path, broken=text).get("broken")
-
-
-def test_defaults_fill_in_what_a_style_leaves_out(tmp_path: Path) -> None:
-    made: Style = _folder(tmp_path, small=GOOD).get("small")
-
-    assert made.story.shots == (6, 9)
-    assert made.captions.font == "Montserrat ExtraBold"
-    assert made.overlays == {}
-
-
-def test_a_style_with_a_skeleton_tells_the_writer_the_count_and_it_must_fit_the_shots() -> None:
-    twist = Styles(REPO_STYLES).get("twist-graphic").story
-
-    assert twist.skeleton().startswith("Every episode of this channel has exactly 10 event shots")
-    assert style().story.skeleton() == "Two breaths never follow each other."
-    with pytest.raises(ValueError, match="events and breaths make 20 shots"):
-        twist.model_validate({**twist.model_dump(), "events": 15})
-    with pytest.raises(ValueError, match="set together"):
-        twist.model_validate({**twist.model_dump(), "breaths": None})
+def test_a_style_missing_a_palette_colour_is_refused(tmp_path: Path) -> None:
+    source = (REPO_STYLES / "blackout" / "style.toml").read_text(encoding="utf-8")
+    (tmp_path / "x").mkdir()
+    (tmp_path / "x" / "style.toml").write_text(source.replace('threat = "#C8382D"\n', ""))
+    with pytest.raises(StyleError, match="palette misses threat"):
+        Styles(tmp_path).get("x")

@@ -10,94 +10,17 @@ EPUB."""
 
 import re
 import zipfile
-from collections.abc import Callable
 from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
-from typing import Protocol
 from xml.etree import ElementTree
 
-from reelsmith.models import Adaptation, EpisodeIdea, Part, Season
-from reelsmith.series import Planner, Serial, episode_brief
-from reelsmith.styles import Style
-
 PASSAGE = 10_000  # characters the writer model reads at once, with room for its answer
-DIGEST = 16_000  # characters of numbered events the season planner reads at once
+DIGEST = 16_000  # characters of numbered events the planner reads at once
 BOOKS = (".txt", ".md", ".fb2", ".epub")
-
-
-class Adapter(Planner, Protocol):
-    async def retell(self, passage: str) -> list[str]: ...
-
-    async def adapt(self, events: list[str], style: Style, most: int) -> Adaptation: ...
-
-
-async def make_adaptation(
-    adapter: Adapter,
-    text: str,
-    style: Style,
-    most: int,
-    progress: Callable[[str], None] = lambda _: None,
-) -> Serial:
-    """At most `most` episodes; a short story with one turn stays one episode."""
-    events = await digest(adapter, text, progress)
-    adaptation = await adapter.adapt(events, style, most)
-    parts = cut(adaptation.parts, len(events), most)
-    season = Season(
-        title=adaptation.title,
-        world=adaptation.world,
-        characters=adaptation.characters,
-        episodes=[EpisodeIdea(title=p.title, logline=p.logline) for p, _ in parts],
-    )
-    outlines = []
-    for n, (_, numbers) in enumerate(parts):
-        source = " ".join(f"{i}) {events[i - 1]}" for i in numbers)
-        brief = (
-            f"{episode_brief(season, n)} Retell these events of the source in this order, "
-            f"and add no event of your own: {source}"
-        )
-        outlines.append(await adapter.plan(brief, style))
-        progress(f"episode {n + 1}: {outlines[-1].title}")
-    return Serial(season, outlines)
-
-
-async def digest(
-    adapter: Adapter, text: str, progress: Callable[[str], None] = lambda _: None
-) -> list[str]:
-    """The events of the whole text, retold again until they fit the season planner."""
-    events: list[str] = []
-    for n, passage in enumerate(passages(text), 1):
-        events += await adapter.retell(passage)
-        progress(f"passage {n}: {len(events)} events")
-    while len(numbered(events)) > DIGEST:
-        shorter = [e for p in passages("\n\n".join(events)) for e in await adapter.retell(p)]
-        if len(numbered(shorter)) >= len(numbered(events)):
-            break
-        events = shorter
-        progress(f"retold shorter: {len(events)} events")
-    return events
 
 
 def numbered(events: list[str]) -> str:
     return "\n".join(f"{n}. {event}" for n, event in enumerate(events, 1))
-
-
-def cut(parts: list[Part], count: int, most: int) -> list[tuple[Part, range]]:
-    """The episodes in order, each with the numbers of the events it retells. The model's
-    boundaries are trusted only as far as they cut the events into consecutive pieces: out
-    of range, repeated or backwards ones are dropped, and the last episode always runs to
-    the end, taking in whatever lies beyond `most`."""
-    kept: list[Part] = []
-    for part in sorted(parts, key=lambda p: p.last):
-        end = min(max(part.last, 1), count)
-        if not kept or end > kept[-1].last:
-            kept.append(part.model_copy(update={"last": end}))
-    kept = kept[:most]
-    kept[-1] = kept[-1].model_copy(update={"last": count})
-    pieces, start = [], 1
-    for part in kept:
-        pieces.append((part, range(start, part.last + 1)))
-        start = part.last + 1
-    return pieces
 
 
 def passages(text: str, size: int = PASSAGE) -> list[str]:

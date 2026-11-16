@@ -66,8 +66,9 @@ services:
     <<: *gpu
     build:
       context: .
-      dockerfile: docker/tts.Dockerfile
-    image: reelsmith/tts:local
+      # voxcpm or qwen3-tts: both answer the same HTTP API, so only the image changes.
+      dockerfile: docker/tts-${REELSMITH_TTS_ENGINE:-voxcpm}.Dockerfile
+    image: reelsmith/tts-${REELSMITH_TTS_ENGINE:-voxcpm}:local
     volumes:
       - ./hf:/hf
       - ./voices:/voices

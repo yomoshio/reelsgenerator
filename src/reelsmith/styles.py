@@ -1,165 +1,116 @@
-"""Style templates: what makes one channel look and sound different from another.
+"""Styles: what makes one channel look and sound different from another. A style is a folder
+in styles/ with a `style.toml`: the story rules and brief, the director's brief, the
+palette and fonts the runtime draws with, how captions look, the narrator and the music.
+Sound files the style names live in the same folder."""
 
-A style is a TOML file in styles/: the writer's brief, the look of the frames, how captions
-and on-screen plates are drawn, and which plates the writer may use."""
-
-import re
 import tomllib
 from pathlib import Path
 from typing import Annotated, Self
 
 from pydantic import BaseModel, Field, StringConstraints, ValidationError, model_validator
 
-from reelsmith.models import Script, StageError
+Hex = Annotated[str, StringConstraints(pattern=r"^#[0-9A-Fa-f]{6}$")]
+PALETTE_KEYS = (
+    "night",
+    "wall",
+    "floor",
+    "line",
+    "light",
+    "ink",
+    "neutral",
+    "threat",
+    "key",
+    "solved",
+)
 
-Hex = Annotated[str, StringConstraints(pattern=r"^[0-9A-Fa-f]{6}$")]
+
+class StyleError(Exception):
+    pass
 
 
-class Story(BaseModel):
-    brief: str = Field(description="Prose for the writer: structure, voice, what to avoid.")
-    critic: str = Field(default="", description="Extra criteria for the script critic.")
-    shots: tuple[int, int] = (6, 9)
-    beats: tuple[int, int] = Field(default=(8, 12), description="Beats in the episode outline.")
-    seconds: tuple[int, int] = (30, 50)
-    words: int = Field(default=18, ge=4, description="Most words the narrator says in a shot.")
-    empty_shots: int = Field(
-        default=2, ge=1, description="Most shots in a row with nobody in the frame."
-    )
-    moving: float = Field(
-        default=1.0,
-        ge=0,
-        le=1,
-        description="Largest share of shots the video model animates; the rest get a camera move.",
-    )
-    events: int | None = Field(
-        default=None, ge=1, description="Exactly this many event shots in every episode."
-    )
-    breaths: int | None = Field(
-        default=None, ge=0, description="Exactly this many breath shots in every episode."
+class StoryRules(BaseModel):
+    brief: str = Field(description="Prose for the planner: structure, voice, what to avoid.")
+    seconds: tuple[int, int] = (60, 95)
+    beats: tuple[int, int] = (9, 16)
+    words: int = Field(default=14, ge=4, description="Most words in one line of a beat.")
+    rules: tuple[int, int] = Field(
+        default=(0, 0), description="Numbered rule cards an episode has; (0, 0) means none."
     )
 
     @model_validator(mode="after")
     def _ordered(self) -> Self:
-        if any(low > high for low, high in (self.shots, self.beats, self.seconds)):
+        if any(low > high for low, high in (self.seconds, self.beats, self.rules)):
             raise ValueError("ranges are written low first")
-        if (self.events is None) != (self.breaths is None):
-            raise ValueError("events and breaths are set together")
-        if self.events is not None and self.breaths is not None:
-            total = self.events + self.breaths
-            if not self.shots[0] <= total <= self.shots[1]:
-                raise ValueError(f"events and breaths make {total} shots, outside `shots`")
         return self
 
-    def skeleton(self) -> str:
-        """The share of story and of air, for the writer."""
-        if self.events is None or self.breaths is None:
-            return "Two breaths never follow each other."
-        return (
-            f"Every episode of this channel has exactly {self.events} event shots and "
-            f"{self.breaths} breath shots, {self.events + self.breaths} in all, so each one "
-            "carries the same amount of story. The first two shots and the last are events, "
-            "and two breaths never follow each other."
-        )
+    def narration_words(self) -> tuple[int, int]:
+        """How many words a voiceover of this length holds: the narrator says about 2.4
+        words a second, pauses included, and the top is kept a little under that."""
+        return round(self.seconds[0] * 2.4), round(self.seconds[1] * 2.3)
 
 
-class Look(BaseModel):
-    frame: str = Field(description="Appended to every image prompt.")
-    motion: str = Field(default="", description="Appended to every motion prompt.")
-    judge: str = Field(description="What the judge should expect the pictures to look like.")
+class Fonts(BaseModel):
+    plate: str = Field(description="A font file the runtime draws plates with.")
+    caption: str = Field(default="Montserrat ExtraBold", description="A font name for ffmpeg.")
 
 
 class Captions(BaseModel):
-    font: str = "Montserrat ExtraBold"
-    size: int = 92
-    margin_v: int = Field(default=620, description="Distance of the text from the bottom edge.")
+    size: int = 110
+    margin_v: int = Field(default=460, description="Distance of the text from the bottom edge.")
     words: int = Field(default=3, ge=1, le=6)
-    spoken: Hex = "FFFFFF"
-    upcoming: Hex = "FFFFFF"
-    accent: Hex = "FFD21F"
-    outline: Hex = "000000"
-    outline_px: int = 6
-    karaoke: bool = Field(
-        default=False,
-        description="The word being spoken shows in `accent`, words not yet spoken in `upcoming`.",
-    )
-    stress_size: int = Field(
-        default=115, ge=100, le=160, description="Size of stressed words in karaoke, percent."
-    )
+    spoken: Hex = "#FFFFFF"
+    upcoming: Hex = "#8E8E93"
+    accent: Hex = "#FFD21F"
+    outline: Hex = "#000000"
+    outline_px: int = 7
+    stress_size: int = Field(default=115, ge=100, le=160)
 
 
-class Plate(BaseModel):
-    """How one kind of overlay is drawn: a filled box with text, pinned by numpad alignment
-    (7 is top left, 9 top right, 4 middle left) and margins in pixels of a 1080x1920 frame."""
-
-    about: str = Field(description="Tells the writer when to use this kind.")
-    align: int = Field(default=7, ge=1, le=9)
-    margin_l: int = 40
-    margin_r: int = 40
-    margin_v: int = 70
-    size: int = 48
-    ink: Hex = "1A1A1A"
-    fill: Hex = "FFFFFF"
-    pad: int = 16
-    upper: bool = True
-    number: Hex | None = Field(default=None, description="Colour of a leading `1.` numeral.")
-    font: str | None = None
+class Voice(BaseModel):
+    name: str = Field(default="narrator", description="The speech service's voices/NAME.wav.")
+    about: str = Field(description="How the narrator sounds; used to design the voice.")
 
 
 class Style(BaseModel):
     name: str = ""
-    about: str = ""
-    voice: str | None = Field(
-        default=None,
-        description="The narrator for this style, voices/NAME.wav; none means REELSMITH_VOICE.",
-    )
-    story: Story
-    look: Look
+    about: str
+    story: StoryRules
+    director: str = Field(description="Prose for the director: how scenes of this channel look.")
+    palette: dict[str, Hex]
+    fonts: Fonts
     captions: Captions = Captions()
-    overlays: dict[str, Plate] = Field(default_factory=dict)
+    voice: Voice
+    music: str = Field(default="", description="A music file in the style folder, or none.")
+    bed: str = Field(default="", description="A background drone file in the style folder.")
+    folder: Path = Path()
 
     @model_validator(mode="after")
-    def _plain_kinds(self) -> Self:
-        for kind in self.overlays:
-            if not re.fullmatch(r"[a-z][a-z0-9_-]*", kind):
-                raise ValueError(f"overlay kind {kind!r}: use lowercase letters, digits, - and _")
+    def _full_palette(self) -> Self:
+        missing = [k for k in PALETTE_KEYS if k not in self.palette]
+        if missing:
+            raise ValueError(f"palette misses {', '.join(missing)}")
         return self
 
-    def menu(self) -> str:
-        """The overlay kinds as the writer sees them."""
-        if not self.overlays:
-            return "none: leave `overlays` empty"
-        return "\n".join(f"  - `{kind}`: {plate.about}" for kind, plate in self.overlays.items())
-
-    def misfit(self, script: Script) -> str | None:
-        """Why the script is outside this style's format, if it is."""
-        low, high = self.story.shots
-        if not low <= len(script.shots) <= high:
-            return f"The script has {len(script.shots)} shots; this channel needs {low} to {high}."
-        return None
+    def file(self, name: str) -> Path | None:
+        """A file the style names, if it names one and it is there."""
+        path = self.folder / name if name else None
+        return path if path and path.is_file() else None
 
 
 class Styles:
-    """The templates found in one folder, read on first use."""
-
     def __init__(self, folder: Path) -> None:
         self.folder = folder
-        self._loaded: dict[str, Style] = {}
 
     def names(self) -> list[str]:
-        return sorted(p.stem for p in self.folder.glob("*.toml"))
+        return sorted(p.parent.name for p in self.folder.glob("*/style.toml"))
 
     def get(self, name: str) -> Style:
-        if name not in self._loaded:
-            self._loaded[name] = self._read(name)
-        return self._loaded[name]
-
-    def _read(self, name: str) -> Style:
-        path = self.folder / f"{name}.toml"
-        if not path.exists():
-            have = ", ".join(self.names()) or "none"
-            raise StageError(f"no style named {name!r} in {self.folder}; have: {have}")
+        path = self.folder / name / "style.toml"
+        if not path.is_file():
+            known = ", ".join(self.names()) or "none"
+            raise StyleError(f"no style {name!r} in {self.folder}; known: {known}")
         try:
             raw = tomllib.loads(path.read_text(encoding="utf-8"))
-            return Style.model_validate({**raw, "name": name})
+            return Style.model_validate({**raw, "name": name, "folder": path.parent})
         except (tomllib.TOMLDecodeError, ValidationError) as exc:
-            raise StageError(f"style {name!r} is broken: {exc}") from exc
+            raise StyleError(f"{path}: {exc}") from exc
