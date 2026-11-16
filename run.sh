@@ -1,142 +1,64 @@
 #!/usr/bin/env bash
 # Все команды reelsmith. Linux, macOS, WSL; на Windows то же самое делает run.cmd.
 #
-# На этой машине:
-#   ./run.sh up | down                      запустить или остановить все сервисы
-#   ./run.sh add "идея" [--style twist]     поставить идею в очередь
-#   ./run.sh ideas [studio/ideas.txt]       поставить новые строки файла идей
-#   ./run.sh series studio/stories/x.txt [--episodes 10]       сезон из синопсиса
-#   ./run.sh adapt studio/input/x.fb2 [--episodes 5] [--style twist]   рассказ или книга в серию
-#   ./run.sh remix [--count 12] [--theme space] [--seed 7]     идеи из библиотеки структур
-#   ./run.sh outline studio/ideas/x.txt     планы для каждой идеи, без рендера
-#   ./run.sh beats studio/ideas/x.txt --series studio/series/proto   сценарии в битах
-#   ./run.sh jobs [--status assembled]      задачи с id и статусом
-#   ./run.sh status | report | styles       счётчики; деньги и брак; стили
-#   ./run.sh preview STYLE                  кадр с субтитрами и плашками в preview/
-#   ./run.sh review ID                      собранный ролик в review/ID.mp4
-#   ./run.sh approve ID | reject ID [--reason "..."] | retry ID [--status framed]
-#   ./run.sh logs | pause | resume | restart   воркер: журнал, пауза, перезапуск
-#   ./run.sh smoke                          по одному вызову каждой модели: проверка машины
+# Каждый день:
+#   ./run.sh add "идея" [--style blackout]   идея или рассказ в очередь
+#   ./run.sh add --file книга.fb2            рассказ или книга: по задаче на каждую часть
+#   ./run.sh run [--once]                    провести все задачи по стадиям
+#   ./run.sh jobs | show ID                  задачи и их ход
+#   ./run.sh storyboard ID                   ключевые кадры всех битов на одном листе
+#   ./run.sh redo ID --beat 5 --note "..."   переделать один бит по замечанию
+#   ./run.sh approve ID | reject ID --reason "..." | retry ID [--status voiced]
+#   ./run.sh styles                          стили
 #
-# Установка по шагам (./install.sh делает их сам):
-#   ./run.sh setup | build | migrate | llm-model | pin
-#   ./run.sh models [video,music] [--optional]   веса моделей, все или часть
-#   ./run.sh voice "описание голоса" [имя]  голос диктора в voices/narrator.wav или voices/имя.wav
+# Модели на этой машине (если есть видеокарта, ./install.sh --models):
+#   ./run.sh up | down | logs                сервисы моделей: ollama и речь
+#   ./run.sh voice "описание" [имя]          голос диктора в voices/имя.wav (по умолчанию narrator)
+#   ./run.sh smoke                           по одному вызову каждой модели и один кадр
 #
-# На арендованном сервере (адрес в .env: SERVER_HOST, SERVER_PORT, SERVER_KEY):
-#   ./run.sh server install                 залить проект на свежий сервер и поставить всё
-#   ./run.sh server КОМАНДА                 любая команда выше, но на сервере
-#   ./run.sh server deploy                  залить код, пересобрать воркер, перезапустить
-#   ./run.sh server pull | backup           забрать ролики, медиа и голоса; копия базы
-#   ./run.sh server restore                 отправить .env, голоса и медиа на новый сервер
-#   ./run.sh server comfy                   туннель к ComfyUI: http://localhost:8188
-#   ./run.sh server gpu | check | shell [команда]
-#   ./run.sh server autostop [--dry-run]    удалить сервер, когда очередь кончится или
-#                                           баланса останется меньше чем на час
+# Арендованный сервер (адрес в .env: SERVER_HOST, SERVER_PORT, SERVER_KEY, VAST_INSTANCE):
+#   ./run.sh box install                     залить проект, поставить модели, включить сторож
+#   ./run.sh box run                         залить задачи и провести их на сервере
+#   ./run.sh box pull                        забрать задачи и голоса
+#   ./run.sh box status                      задачи и видеокарта на сервере
+#   ./run.sh box tunnel                      модели сервера на этой машине: ./run.sh run здесь
+#   ./run.sh box autostop [--dry-run]        удалить сервер, когда задачи кончатся, он простаивает
+#                                            или баланса останется меньше чем на час
+#   ./run.sh box push | logs | shell [команда]
 #
-# Разработка: ./run.sh test | lint | demo | graphs
+# Разработка: ./run.sh test | lint
 set -euo pipefail
 cd "$(dirname "$0")"
 
-COMPOSE=(docker compose)
-
 usage() { awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "$0"; }
-
 setting() { grep -s "^$1=" .env | tail -1 | cut -d= -f2-; }
-
-worker() { "${COMPOSE[@]}" run --rm --no-deps worker "$@"; }
-
-# The worker sees the project's studio/ at /data/studio.
-worker_paths() {
-    local command=$1 arg
-    shift
-    local args=()
-    for arg in "$@"; do
-        [[ $arg == studio/* ]] && arg="/data/$arg"
-        args+=("$arg")
-    done
-    worker "$command" ${args[@]+"${args[@]}"}
-}
-
-# Tools for development come from .venv when there is one.
-dev() {
-    local tool=$1
-    shift
-    if [[ -x .venv/bin/$tool ]]; then ".venv/bin/$tool" "$@"; else "$tool" "$@"; fi
-}
+quoted() { local a out=(); for a in "$@"; do out+=("$(printf '%q' "$a")"); done; echo "${out[*]}"; }
+bin() { if [[ -x .venv/bin/$1 ]]; then echo ".venv/bin/$1"; else echo "$1"; fi; }
 
 here() {
     local command=${1:-help}
     shift || true
     case $command in
-        setup)
-            [[ -f .env ]] || cp .env.example .env
-            mkdir -p models hf voices outbox review studio/output studio/input studio/inbox \
-                studio/series studio/user/default/workflows/reelsmith
-            touch studio/ideas.txt
-            chmod a+rwx models hf voices outbox
-            chmod -R a+rwX studio ;;
-        build) "${COMPOSE[@]}" build ;;
-        models)
-            local arg flags=()
-            for arg in "$@"; do
-                case $arg in
-                    --optional) flags+=(--with-optional) ;;
-                    *) flags+=(--only "$arg") ;;
-                esac
-            done
-            "${COMPOSE[@]}" run --rm --no-deps --entrypoint python -v "$PWD:/project" -w /project \
-                worker scripts/fetch_models.py --models models --hf-home hf ${flags[@]+"${flags[@]}"} ;;
-        llm-model)
-            "${COMPOSE[@]}" up -d llm
-            "${COMPOSE[@]}" exec llm ollama pull "$(setting REELSMITH_WRITER_MODEL)" ;;
+        up) docker compose up -d llm speech ;;
+        down) docker compose down ;;
+        logs) docker compose logs --tail 100 -f "$@" ;;
         voice)
-            local description=${1:?usage: ./run.sh voice \"описание голоса\" [имя] [--text \"образец\"]}
-            "${COMPOSE[@]}" run --rm --no-deps --entrypoint python tts design_voice.py \
-                "${2:-narrator}" "$description" "${@:3}" ;;
-        up) "${COMPOSE[@]}" up -d ;;
-        down) "${COMPOSE[@]}" down ;;
-        migrate) "${COMPOSE[@]}" run --rm worker migrate ;;
-        pin)
-            local image
-            for image in ollama/ollama postgres:17-alpine; do
-                docker image inspect --format '{{index .RepoDigests 0}}' "$image"
-            done ;;
-        ideas) worker_paths queue "${1:-studio/ideas.txt}" ;;
-        series | adapt | outline | beats) worker_paths "$command" "$@" ;;
-        add | jobs | status | report | styles | approve | reject | retry | rate | fork | measure \
-            | compare | remix | smoke | queue)
-            worker "$command" "$@" ;;
-        preview)
-            mkdir -p preview && chmod a+rwx preview
-            "${COMPOSE[@]}" run --rm --no-deps -v "$PWD/preview:/out" worker preview \
-                "${1:?usage: ./run.sh preview STYLE}" --out /out ;;
-        review)
-            local id=${1:?usage: ./run.sh review JOB_ID}
-            mkdir -p review
-            final "$id" > "review/$id.mp4"
-            echo "review/$id.mp4" ;;
-        final) final "${1:?usage: ./run.sh final JOB_ID}" ;;
-        logs) "${COMPOSE[@]}" logs -f --tail 50 worker ;;
-        pause) "${COMPOSE[@]}" stop worker ;;
-        resume) "${COMPOSE[@]}" start worker ;;
-        restart) "${COMPOSE[@]}" restart worker ;;
-        test) dev pytest -q "$@" ;;
-        lint) dev ruff check . && dev ruff format --check . && dev mypy src ;;
-        demo) REELSMITH_STYLES=styles dev reelsmith demo --ideas 3 --out demo ;;
-        graphs) dev python scripts/make_graphs.py ;;
-        server) server "$@" ;;
+            local description=${1:?usage: ./run.sh voice "описание голоса" [имя]}
+            docker compose run --rm speech python design_voice.py "${2:-narrator}" "$description" ;;
+        test)
+            "$(bin pytest)" -q
+            (cd runtime && npm test --silent) ;;
+        lint)
+            "$(bin ruff)" check src tests scripts tools
+            "$(bin ruff)" format --check src tests
+            "$(bin mypy)" src ;;
+        box) box "$@" ;;
         help | -h | --help) usage ;;
-        *) echo "нет такой команды: $command; список: ./run.sh help" >&2; exit 1 ;;
+        *) "$(bin reelsmith)" "$command" "$@" ;;
     esac
 }
 
-final() { "${COMPOSE[@]}" run --rm --no-deps -T --entrypoint cat worker "/data/media/$1/final.mp4"; }
-
-# Arguments quoted for the remote shell; nothing at all when there are none.
-quoted() { (($#)) && printf '%q ' "$@"; true; }
-
-server() {
+box() {
     local host port key dir
     host=$(setting SERVER_HOST)
     [[ -n $host ]] || { echo "впишите в .env адрес сервера: SERVER_HOST=root@1.2.3.4, SERVER_PORT, SERVER_KEY" >&2; exit 1; }
@@ -148,18 +70,19 @@ server() {
     dir=${dir:-/root/reelsmith}
     local ssh=(ssh -i "$key" -p "${port:-22}" -o ServerAliveInterval=30)
     local rsync=(rsync -a -e "ssh -i '$key' -p ${port:-22}")
-    # Code goes to the server and data comes back; weights are never copied. A push deletes
+    # Code goes to the server and jobs come back; weights are never copied. A push deletes
     # code files there that were deleted here and leaves the excluded paths alone.
     local code=(--exclude .venv --exclude __pycache__ --exclude .mypy_cache --exclude .ruff_cache
-        --exclude .pytest_cache --exclude demo --exclude preview --exclude review --exclude .git
-        --exclude logs --exclude models --exclude hf --exclude outbox --exclude voices
-        --exclude studio --exclude .env --exclude backups --exclude '*.zip' --exclude '*.tar'
-        --exclude '*.tar.gz')
+        --exclude .pytest_cache --exclude node_modules --exclude review --exclude .git
+        --exclude logs --exclude hf --exclude outbox --exclude voices --exclude jobs
+        --exclude studio --exclude .env --exclude backups
+        --exclude '*.zip' --exclude '*.tar' --exclude '*.tar.gz')
     # -n: without it ssh swallows the rest of stdin and breaks `while read ...; do ./run.sh`.
     there() { "${ssh[@]}" -n "$host" "cd $dir && $*"; }
-    run_there() { there "bash run.sh $(quoted "$@")"; }
-    send() { "${ssh[@]}" -n "$host" "mkdir -p $dir/$(dirname "$1")"; "${rsync[@]}" "$1" "$host:$dir/$1"; }
-    media_there() { there "docker volume inspect -f '{{.Mountpoint}}' reelsmith_media 2>/dev/null || true"; }
+    push() {
+        "${ssh[@]}" -n "$host" "mkdir -p $dir"
+        "${rsync[@]}" --delete "${code[@]}" ./ "$host:$dir/"
+    }
 
     local command=${1:-help}
     shift || true
@@ -168,78 +91,34 @@ server() {
             push
             "${rsync[@]}" .env "$host:$dir/.env"
             [[ -d voices ]] && "${rsync[@]}" voices/ "$host:$dir/voices/"
-            "${ssh[@]}" -t "$host" "cd $dir && bash install.sh $(quoted "$@")" ;;
+            # The watcher starts before anything else: a box that sits idle bills all the same.
+            here box autostop
+            "${ssh[@]}" -t "$host" "cd $dir && bash install.sh --models $(quoted "$@")" ;;
         push) push ;;
-        deploy) push && there "docker compose build worker tts && docker compose up -d" ;;
-        ideas | series | adapt)
-            local file=${1:-studio/ideas.txt}
-            send "$file"
-            there "chmod -R a+rwX studio"
-            run_there "$command" "$@"
-            mkdir -p studio/series
-            if [[ $command == ideas ]]; then
-                "${rsync[@]}" "$host:$dir/$file" "$file"
-            else
-                "${rsync[@]}" "$host:$dir/studio/series/" studio/series/
-            fi ;;
-        review)
-            local id=${1:?usage: ./run.sh server review JOB_ID}
-            mkdir -p review
-            run_there final "$id" > "review/$id.mp4"
-            echo "review/$id.mp4" ;;
-        comfy)
-            echo "откройте http://localhost:8188 и не закрывайте это окно; Ctrl+C закрывает туннель"
-            "${ssh[@]}" -N -L 8188:localhost:8188 "$host" ;;
-        gpu)
-            there 'nvidia-smi --query-gpu=name,memory.used,memory.total,utilization.gpu --format=csv; docker compose exec -T llm ollama ps' ;;
+        run)
+            push
+            mkdir -p jobs
+            "${rsync[@]}" jobs/ "$host:$dir/jobs/"
+            there "mkdir -p logs && nohup .venv/bin/reelsmith run >> logs/run.log 2>&1 < /dev/null &"
+            echo "задачи идут на сервере; ход: ./run.sh box logs, забрать: ./run.sh box pull" ;;
         pull)
-            mkdir -p outbox voices studio/output/reelsmith/videos studio/series backups/media
-            there "mkdir -p studio/output/reelsmith/videos studio/series"
-            "${rsync[@]}" "$host:$dir/outbox/" outbox/
-            "${rsync[@]}" "$host:$dir/voices/" voices/
-            "${rsync[@]}" "$host:$dir/studio/output/reelsmith/videos/" studio/output/reelsmith/videos/
-            "${rsync[@]}" "$host:$dir/studio/series/" studio/series/
-            "${rsync[@]}" "$host:$(media_there)/" backups/media/ ;;
-        restore)
-            there "mkdir -p voices"
-            "${rsync[@]}" voices/ "$host:$dir/voices/"
-            "${rsync[@]}" .env "$host:$dir/.env"
-            there "chmod a+rwx voices"
-            restore_media ;;
-        backup)
-            mkdir -p backups
-            local file
-            file="backups/jobs-$(date +%Y%m%d-%H%M).sql.gz"
-            there "docker compose exec -T db pg_dump -U reelsmith reelsmith" | gzip > "$file"
-            echo "$file" ;;
+            mkdir -p jobs voices
+            "${rsync[@]}" "$host:$dir/jobs/" jobs/
+            "${rsync[@]}" "$host:$dir/voices/" voices/ ;;
+        status)
+            there ".venv/bin/reelsmith jobs; nvidia-smi --query-gpu=name,memory.used,memory.total,utilization.gpu --format=csv,noheader" ;;
+        logs) there "tail -n 60 -f logs/run.log" ;;
+        tunnel)
+            echo "модели сервера видны здесь, пока открыто это окно; Ctrl+C закрывает туннель"
+            "${ssh[@]}" -N -L 11434:localhost:11434 -L 8000:localhost:8000 "$host" ;;
         autostop)
             mkdir -p logs
             nohup python3 scripts/autostop.py "$@" >> logs/autostop.log 2>&1 < /dev/null &
-            echo "следит в фоне, pid $!; ход в logs/autostop.log; остановить: kill $!" ;;
-        check)
-            "${rsync[@]}" -rcn --delete --itemize-changes "${code[@]}" ./ "$host:$dir/" \
-                | grep -v '^\.d' || echo "код одинаковый здесь и на сервере" ;;
+            echo "сторож следит в фоне, pid $!; ход в logs/autostop.log; остановить: kill $!" ;;
         shell) "${ssh[@]}" "$host" "$@" ;;
         help) usage ;;
-        *) run_there "$command" "$@" ;;
+        *) echo "нет такой команды сервера: $command; ./run.sh help" >&2; exit 1 ;;
     esac
-}
-
-push() {
-    "${ssh[@]}" -n "$host" "mkdir -p $dir"
-    "${rsync[@]}" --delete "${code[@]}" ./ "$host:$dir/"
-}
-
-restore_media() {
-    [[ -d backups/media && -n "$(ls -A backups/media)" ]] || return 0
-    local media
-    media=$(media_there)
-    if [[ -n $media ]]; then
-        "${rsync[@]}" backups/media/ "$host:$media/"
-        there "chown -R 1000:1000 $media"
-    else
-        echo "файлы задач из backups/media вернутся, если повторить ./run.sh server restore после up"
-    fi
 }
 
 here "$@"

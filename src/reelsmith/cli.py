@@ -5,6 +5,8 @@ import json
 import logging
 import re
 import shutil
+import time
+from collections.abc import Awaitable
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated, NoReturn
@@ -12,18 +14,23 @@ from typing import Annotated, NoReturn
 import structlog
 import typer
 from PIL import Image
+from pydantic import BaseModel
 
 from reelsmith.books import BOOKS, episodes, read_book
+from reelsmith.captions import Word
 from reelsmith.jobs import Context, Job, JobError, Jobs, Source, Status, run_once
 from reelsmith.llm import Llm
-from reelsmith.runtime import catalog
+from reelsmith.runtime import Report, catalog, keys, scene_input
+from reelsmith.scenes import fallback
 from reelsmith.settings import Settings
 from reelsmith.stages import stages
+from reelsmith.story import Card, Episode
 from reelsmith.styles import StyleError, Styles
 from reelsmith.voice import Speech
 
 app = typer.Typer(no_args_is_help=True, add_completion=False)
 IDEA_WORDS = 80  # a source this short is an idea to invent a story from, longer is a story
+GOLDEN = Path(__file__).parents[2] / "tests" / "data" / "flood-01.json"
 
 
 def _settings() -> Settings:
@@ -224,6 +231,91 @@ def redo(
     job.status, job.error, job.tries = Status.VOICED, None, 0
     jobs.save(job)
     typer.echo(f"{job.id}  beat {beat} goes back to the coder")
+
+
+@app.command()
+def smoke() -> None:
+    """One call to every model and one keyframe drawn, each with its time: is the box ready?"""
+    settings = _settings()
+
+    async def go() -> list[tuple[str, float, str]]:
+        llm = Llm(settings.llm_url, temperature=0)
+        speech = Speech(settings.speech_url)
+        results: list[tuple[str, float, str]] = []
+
+        async def timed(name: str, call: Awaitable[str]) -> None:
+            started = time.monotonic()
+            try:
+                note = await call
+            except Exception as exc:
+                note = f"FAILED: {exc}"
+            results.append((name, time.monotonic() - started, note))
+
+        async def planner() -> str:
+            got = await llm.json(settings.planner, "Answer with JSON.", "Name a colour.", Smoke)
+            return got.word
+
+        async def coder() -> str:
+            return (await llm.code(settings.coder, "Answer with a js block.", "function f() {}"))[
+                :40
+            ]
+
+        async def speak() -> str:
+            take = await speech.speak("Свет гаснет. Совсем.", "narrator", settings.language)
+            heard = await speech.words(take, settings.language, "Свет гаснет. Совсем.")
+            return " ".join(w.text for w in heard)
+
+        async def draw() -> str:
+            report = await keyframe(settings)
+            return report.error or f"{len(report.pngs)} keyframe(s)"
+
+        async def vision() -> str:
+            report = await keyframe(settings)
+            seen = await llm.json(
+                settings.vision, "Answer with JSON.", "Describe the picture in one word.",
+                Smoke, images=report.pngs[:1],
+            )  # fmt: skip
+            return seen.word
+
+        try:
+            for name, call in [("planner", planner()), ("coder", coder()), ("vision", vision()),
+                               ("speech", speak()), ("runtime", draw())]:  # fmt: skip
+                await timed(name, call)
+        finally:
+            await llm.close()
+            await speech.close()
+        return results
+
+    failed = False
+    for name, seconds, note in asyncio.run(go()):
+        failed |= note.startswith("FAILED")
+        typer.echo(f"{name:<8} {seconds:6.1f} s  {note}")
+    if failed:
+        raise typer.Exit(1)
+
+
+class Smoke(BaseModel):
+    word: str
+
+
+async def keyframe(settings: Settings) -> Report:
+    """One keyframe of the golden episode's first beat, drawn by the plain scene."""
+    ep = Episode.model_validate_json(GOLDEN.read_text(encoding="utf-8"))
+    card = Card(age="adult", build="average", skin="light", hair="short", hair_colour="#222222",
+                top="raincoat", top_colour="#2E4A70", bottom="trousers",
+                bottom_colour="#1C2230", shoes_colour="#101014")  # fmt: skip
+    ep = ep.model_copy(
+        update={"characters": [c.model_copy(update={"card": card}) for c in ep.characters]}
+    )
+    beat = ep.beats[0]
+    words = [Word(w, 0.2 + i * 0.4, 0.5 + i * 0.4) for i, w in enumerate(beat.text.split())]
+    style = Styles(settings.styles).get(settings.style)
+    out = settings.jobs / "smoke" / "beat01"
+    data = scene_input(
+        ep, 0, code=fallback(beat, ep.place(beat.place).kind, {}), words=words,
+        seconds=words[-1].end + 0.35, style=style, settings=settings, keys=[1.0], out=out,
+    )  # fmt: skip
+    return await keys(settings, data)
 
 
 @app.command(name="styles")

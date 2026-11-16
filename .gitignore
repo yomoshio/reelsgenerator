@@ -23,5 +23,8 @@ studio/inbox/
 studio/status.txt
 studio/series/*/sfx/
 studio/series/*/bed/
+styles/*/*.wav
+styles/*/*.flac
+styles/*/sfx/
 runtime/node_modules/
 jobs/
