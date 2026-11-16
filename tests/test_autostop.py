@@ -1,3 +1,4 @@
+import gzip
 import importlib.util
 import io
 import urllib.error
@@ -77,3 +78,30 @@ def test_a_refusal_of_the_last_key_reaches_the_caller(
 
     with pytest.raises(urllib.error.HTTPError):
         autostop._vast("GET", "/users/current/")
+
+
+def test_a_box_with_nothing_to_do_goes_after_the_idle_checks(autostop: ModuleType) -> None:
+    empty = autostop.Reading(unfinished=0, total=0, credit=20.0, usd_per_hour=0.87)
+    working = autostop.Reading(unfinished=0, total=0, credit=20.0, usd_per_hour=0.87, busy=True)
+    unread = autostop.Reading(unfinished=None, total=None, credit=20.0, usd_per_hour=0.87)
+
+    assert autostop.verdict(empty, 0, 1.0, idle_checks=11, most=12) is None
+    assert autostop.verdict(empty, 0, 1.0, idle_checks=12, most=12) == (
+        "nothing has run for 12 checks in a row"
+    )
+    assert autostop.verdict(empty, 0, 1.0, idle_checks=99, most=0) is None
+    assert empty.idle
+    assert unread.idle
+    assert not working.idle
+
+
+def test_a_backup_counts_when_pg_dump_finished_it_whatever_its_size(
+    autostop: ModuleType, tmp_path: Path
+) -> None:
+    whole, cut = tmp_path / "whole.sql.gz", tmp_path / "cut.sql.gz"
+    whole.write_bytes(gzip.compress(b"--\n-- PostgreSQL database dump complete\n--\n"))
+    cut.write_bytes(gzip.compress(b"COPY public.jobs (id) FROM stdin;\n"))
+
+    assert autostop.dumped(whole)
+    assert not autostop.dumped(cut)
+    assert not autostop.dumped(tmp_path / "missing.sql.gz")
