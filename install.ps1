@@ -132,21 +132,17 @@ Say "Проект"
 Invoke-Linux "apt-get update -qq && apt-get install -y -qq git rsync python3 > /dev/null" -Root | Out-Null
 $linuxSource = (& wsl.exe -d $Distro -- wslpath -a "$Here").Trim()
 # Code, styles, graphs and series go in; what the machine made itself stays.
-$keep = @(".git", ".env", ".venv", "models", "hf", "voices", "outbox", "review", "backups",
-    "studio/output", "studio/input", "studio/user", "studio/inbox", "studio/status.txt")
+$keep = @(".git", ".env", ".venv", "hf", "voices", "outbox", "review", "backups", "jobs",
+    "runtime/node_modules", "logs")
 $excludes = ($keep | ForEach-Object { "--exclude '$_'" }) -join " "
 Invoke-Linux "mkdir -p ~/reelsmith && rsync -a $excludes '$linuxSource/' ~/reelsmith/" | Out-Null
 $fresh = (Invoke-Linux "test -f ~/reelsmith/.env" -Quiet) -ne 0
-Invoke-Linux "cd ~/reelsmith && bash run.sh setup" | Out-Null
-if ($fresh) {
-    $price = $HourPrice.ToString([Globalization.CultureInfo]::InvariantCulture)
-    Invoke-Linux "cd ~/reelsmith && sed -i 's/^REELSMITH_GPU_HOUR_USD=.*/REELSMITH_GPU_HOUR_USD=$price/' .env" | Out-Null
-}
+if ($fresh) { Invoke-Linux "cd ~/reelsmith && cp .env.example .env" | Out-Null }
 Note "Проект в Ubuntu: ~/reelsmith. Настройки: ~/reelsmith/.env"
 
-$flags = "--voice '$Voice'"
-if ($SkipModels) { $flags = "--no-models" }
-Say "Сборка, веса моделей и запуск: от получаса до нескольких часов"
+$flags = "--models --voice '$Voice'"
+if ($SkipModels) { $flags = "" }
+Say "Конвейер, модели и голос: от получаса до пары часов"
 Invoke-Linux "cd ~/reelsmith && bash install.sh $flags" | Out-Null
 
 # --- Ярлыки -------------------------------------------------------------------------------
@@ -170,8 +166,7 @@ if ($NoSleep) {
 }
 
 Say "Готово"
-Note "ComfyUI: http://localhost:8188, схемы в папке reelsmith панели Рабочие процессы."
+Note "Идея в очередь: run.cmd add `"идея`", потом run.cmd run."
 Note "Ярлыки на рабочем столе: Reelsmith - запустить, остановить, ролики, статус."
 Note "Все команды: run.cmd help в этой папке."
-Start-Process "http://localhost:8188"
 Read-Host "Нажмите Enter, чтобы закрыть" | Out-Null

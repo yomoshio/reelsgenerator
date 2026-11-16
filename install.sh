@@ -1,28 +1,26 @@
 #!/usr/bin/env bash
-# Ставит reelsmith на эту машину и запускает. Повторный запуск пропускает сделанное и
-# пересобирает образы из текущего кода.
+# Ставит reelsmith. Повторный запуск пропускает сделанное и служит обновлением.
 #
-#   ./install.sh                       Linux с видеокартой NVIDIA: свой компьютер или сервер
-#   ./install.sh --no-models           без весов моделей (около 110 ГБ) и без проверки
-#   ./install.sh --voice "описание"    свой голос диктора вместо стандартного
-#   ./install.sh driver                только драйвер NVIDIA на чистой Ubuntu, потом перезагрузка
+#   ./install.sh                  конвейер на этой машине: Python, Node, ffmpeg. Видеокарта не нужна,
+#                                 модели работают на арендованном сервере (./run.sh box install)
+#   ./install.sh --models         ещё и модели на этой машине: Docker, ollama, сервис речи,
+#                                 веса из .env и голос диктора. Нужна NVIDIA от 24 ГБ
+#   ./install.sh --voice "описание"  свой голос диктора вместо стандартного
+#   ./install.sh driver           только драйвер NVIDIA на чистой Ubuntu, потом перезагрузка
 #
-# Windows: install.cmd, он ставит WSL и Docker Desktop и запускает этот файл в Ubuntu.
-# macOS: нужен Docker Desktop. Видеокарты NVIDIA там нет, поэтому ставится только то, что
-# нужно для ./run.sh demo и для управления сервером через ./run.sh server.
-# Арендованный сервер ставится с вашего компьютера: ./run.sh server install.
+# Windows: install.cmd ставит WSL и Docker Desktop и запускает этот файл в Ubuntu.
 set -euo pipefail
 cd "$(dirname "$0")"
 
-VOICE="A gripping storyteller in his forties, low warm voice, lively intonation, dramatic pauses, building tension, never monotone"
+VOICE="A calm low male voice in his thirties, close to the microphone, unhurried and a little tense, telling a friend what happened last night"
 DRIVER=nvidia-driver-580-open  # RTX 50xx (Blackwell) runs only on the open kernel modules
-MODELS=1
+MODELS=0
 
 say() { printf '\n== %s\n' "$*"; }
 note() { printf '   %s\n' "$*"; }
 fail() { printf '\n%s\n' "$*" >&2; exit 1; }
 as_root() { if [[ $EUID -eq 0 ]]; then "$@"; else sudo "$@"; fi; }
-run() { bash run.sh "$@"; }
+setting() { grep -s "^$1=" .env | tail -1 | cut -d= -f2-; }
 
 gpu_packages() {
     dpkg-query -W -f '${db:Status-Abbrev} ${Package}\n' 'nvidia-*' 'libnvidia-*' 2>/dev/null \
@@ -34,6 +32,34 @@ driver() {
     as_root apt-get update
     as_root apt-get install -y "$DRIVER"
     echo "драйвер поставлен; перезагрузите машину и запустите ./install.sh снова"
+}
+
+pipeline() {
+    say "Конвейер"
+    [[ -f .env ]] || cp .env.example .env
+    mkdir -p jobs outbox voices review logs
+    if ! command -v ffmpeg >/dev/null; then
+        command -v apt-get >/dev/null || fail "Поставьте ffmpeg и запустите ./install.sh снова."
+        as_root apt-get update && as_root apt-get install -y ffmpeg
+    fi
+    local node_major=0
+    command -v node >/dev/null && node_major=$(node -p 'process.versions.node.split(".")[0]')
+    if ((node_major < 22)); then
+        command -v apt-get >/dev/null || fail "Нужен Node 22 или новее: nodejs.org."
+        curl -fsSL https://deb.nodesource.com/setup_22.x | as_root bash -
+        as_root apt-get install -y nodejs
+    fi
+    note "node $(node -v), $(ffmpeg -version | head -1 | cut -d' ' -f1-3)"
+    (cd runtime && npm ci --no-audit --no-fund --loglevel=error)
+    local python
+    python=$(command -v python3.12 || command -v python3)
+    "$python" -c 'import sys; sys.exit(sys.version_info < (3, 12))' \
+        || fail "Нужен Python 3.12 или новее."
+    [[ -x .venv/bin/python ]] || "$python" -m venv .venv
+    .venv/bin/python -m pip --version >/dev/null 2>&1 || .venv/bin/python -m ensurepip --upgrade
+    .venv/bin/python -m pip install --quiet --upgrade pip
+    .venv/bin/python -m pip install --quiet -e ".[check]"
+    note "Настройки: $PWD/.env"
 }
 
 docker_engine() {
@@ -83,11 +109,12 @@ PY
         | as_root tee /etc/apt/apt.conf.d/51reelsmith-no-gpu-upgrades > /dev/null
 }
 
-host_linux() {
+models() {
+    say "Видеокарта"
     local wsl=0
     grep -qi microsoft /proc/version 2>/dev/null && wsl=1
     command -v nvidia-smi > /dev/null \
-        || fail "Нет драйвера NVIDIA. На Ubuntu: ./install.sh driver, перезагрузка и ./install.sh снова."
+        || fail "Нет драйвера NVIDIA. На Ubuntu: ./install.sh driver, перезагрузка и ./install.sh --models снова."
     nvidia-smi --query-gpu=name,memory.total --format=csv,noheader | sed 's/^/   видеокарта: /'
     if ! command -v docker > /dev/null; then
         ((wsl)) && fail "Docker не виден в Ubuntu. В Docker Desktop: Settings, Resources, WSL integration."
@@ -100,25 +127,26 @@ host_linux() {
         docker run --rm --gpus all nvidia/cuda:12.8.1-base-ubuntu24.04 nvidia-smi -L > /dev/null \
             || fail "Контейнеры так и не видят видеокарту."
     fi
-    note "Docker видит видеокарту."
-    local free ram
-    free=$(df -BG --output=avail . | tail -1 | tr -dc 0-9)
-    ((free >= 250)) || note "Свободно ${free} ГБ, а весам и образам нужно около 250 ГБ."
-    ram=$(free -g | awk '/^Mem:/ {print $2}')
-    if ((ram < 60)) && ! grep -q '^COMFY_ARGS=.*--fast-disk' .env 2>/dev/null; then
-        note "Памяти ${ram} ГБ: ComfyUI не удержит все модели в RAM. В .env ставлю COMFY_ARGS=--fast-disk."
-        [[ -f .env ]] || cp .env.example .env
-        if grep -q '^COMFY_ARGS=' .env; then
-            sed -i 's/^COMFY_ARGS=.*/COMFY_ARGS=--fast-disk/' .env
-        else
-            echo 'COMFY_ARGS=--fast-disk' >> .env
-        fi
+    say "Сервисы моделей: ollama и речь"
+    mkdir -p hf voices
+    chmod a+rwx hf voices
+    docker compose build speech
+    docker compose up -d llm speech
+    say "Языковые модели из .env"
+    local model
+    for model in $(for k in PLANNER DIRECTOR CODER VISION EDITOR; do setting "REELSMITH_$k"; done | sort -u); do
+        note "ollama pull $model"
+        docker compose exec -T llm ollama pull "$model"
+    done
+    if [[ ! -f voices/narrator.wav ]]; then
+        say "Голос диктора"
+        bash run.sh voice "$VOICE" narrator
     fi
 }
 
 while (($#)); do
     case $1 in
-        --no-models) MODELS=0 ;;
+        --models) MODELS=1 ;;
         --voice) VOICE=${2:?--voice "описание голоса"}; shift ;;
         driver) driver; exit 0 ;;
         -h | --help) awk 'NR > 1 && /^#/ { sub(/^# ?/, ""); print; next } NR > 1 { exit }' "$0"; exit 0 ;;
@@ -127,44 +155,11 @@ while (($#)); do
     shift
 done
 
-say "Машина"
-case $(uname -s) in
-    Darwin)
-        command -v docker > /dev/null || fail "Поставьте Docker Desktop с docker.com и запустите ./install.sh снова."
-        run setup
-        note "На macOS нет видеокарты NVIDIA: модели не ставятся."
-        note "Прогон на заглушках: ./run.sh demo. Сервер: SERVER_HOST в .env и ./run.sh server install."
-        exit 0 ;;
-    Linux) host_linux ;;
-    *) fail "Эта система не поддерживается; на Windows запустите install.cmd." ;;
-esac
-
-say "Проект"
-run setup
-note "Настройки: $PWD/.env"
-
-say "Образы, 10-20 минут при первом запуске"
-run build
-
+pipeline
 if ((MODELS)); then
-    say "Веса моделей, около 110 ГБ"
-    run models
+    models
+    say "Проверка: по одному вызову каждой модели и отрисовка одного кадра"
+    bash run.sh smoke || note "Проверка не прошла, смотрите вывод выше и docs/setup.md."
 fi
-
-say "Запуск"
-run up
-run migrate
-
-if ((MODELS)); then
-    say "Модель сценариста"
-    run llm-model
-    if [[ ! -f voices/narrator.wav ]]; then
-        say "Голос диктора"
-        run voice "$VOICE"
-    fi
-    say "Проверка: по одному вызову каждой модели"
-    run smoke || note "Проверка не прошла, смотрите вывод выше и docs/setup.md."
-fi
-
 say "Готово"
-note "ComfyUI: http://localhost:8188. Идея в очередь: ./run.sh add \"идея\". Все команды: ./run.sh help"
+note "Идея в очередь: ./run.sh add \"идея\". Все команды: ./run.sh help"

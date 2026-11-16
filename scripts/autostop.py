@@ -1,13 +1,12 @@
-"""Destroys the rented vast.ai server once the queue is done, the box has sat idle, or the
-balance runs low, after the finished videos, the season plans and a database backup are
-safely on this computer.
+"""Destroys the rented vast.ai server once its jobs are done, the box has sat idle, or the
+balance runs low, after every job folder on it is safely on this computer.
 
     python3 scripts/autostop.py --set-key        store the API key from cloud.vast.ai/manage-keys
     python3 scripts/autostop.py --login          with two-factor login on: a code from the app
     python3 scripts/autostop.py --login --email  or a code vast sends to the account's email
     python3 scripts/autostop.py --dry-run --once one check, with every step but the destroy
     python3 scripts/autostop.py --dry-run --now  copy everything off now, destroy nothing
-    ./run.sh server autostop                     watch in the background, log in logs/autostop.log
+    ./run.sh box autostop                        watch in the background, log in logs/autostop.log
 
 Runs here and not on the server: the files have to be copied off before it is gone. The
 server is in .env (SERVER_* and VAST_INSTANCE). A stopped vast instance still
@@ -16,7 +15,6 @@ vast refuses the key, the server stays and the log says so."""
 
 import argparse
 import getpass
-import gzip
 import json
 import os
 import subprocess
@@ -33,8 +31,7 @@ CONFIG = Path.home() / ".config" / "vastai"
 KEY = CONFIG / "vast_api_key"
 SESSION = CONFIG / "vast_tfa_key"  # where the vast CLI keeps the key of a two-factor login
 ROOT = Path(__file__).resolve().parent.parent
-DONE = ("assembled", "approved", "published", "measured", "failed")
-VIDEOS = "studio/output/reelsmith/videos"
+DONE = ("assembled", "approved", "rejected", "failed")
 REFUSED = (401, 403, 404)  # vast answers an expired session with 404
 BUSY = 10  # percent of the card in use that counts as work
 
@@ -121,18 +118,14 @@ def _read(instance: str) -> Reading:
     unfinished = total = None
     busy = False
     try:
-        counts = _remote(
-            "docker compose exec -T db psql -U reelsmith reelsmith -tAc "
-            '"select status, count(*) from jobs group by status"'
-        )
-        by_status = {
-            status: int(n)
-            for status, n in (line.split("|") for line in counts.splitlines() if "|" in line)
-        }
-        unfinished = sum(n for status, n in by_status.items() if status not in DONE)
-        total = sum(by_status.values())
+        statuses = _remote(
+            "python3 -c \"import glob, json; print('\\n'.join(json.load(open(p))['status'] "
+            "for p in glob.glob('jobs/*/job.json')))\""
+        ).split()
+        unfinished = sum(1 for status in statuses if status not in DONE)
+        total = len(statuses)
     except subprocess.CalledProcessError as exc:
-        _log(f"queue unreadable: {exc}")
+        _log(f"jobs unreadable: {exc}")
     try:
         load = _remote("nvidia-smi --query-gpu=utilization.gpu --format=csv,noheader,nounits")
         busy = any(int(n) >= BUSY for n in load.split())
@@ -152,23 +145,19 @@ def _read(instance: str) -> Reading:
 
 
 def _finish(instance: str, *, dry: bool) -> None:
-    """Copies everything off the server, checks the copies, then destroys it."""
-    _log("copying videos, season plans and a database backup")
-    subprocess.run(["bash", ROOT / "run.sh", "server", "pull"], cwd=ROOT, check=True)
-    backup = subprocess.run(
-        ["bash", ROOT / "run.sh", "server", "backup"],
-        cwd=ROOT,
-        check=True,
-        capture_output=True,
-        text=True,
-    ).stdout.split()[-1]
-    if not dumped(ROOT / backup):
-        sys.exit(f"the backup {backup} is cut short; the server stays")
-    there = set(_remote(f"ls -1 {VIDEOS} 2>/dev/null || true").splitlines())
-    here = {p.name for p in (ROOT / VIDEOS).glob("*")}
-    if missing := there - here:
-        sys.exit(f"not copied: {sorted(missing)}; the server stays")
-    _log(f"copied {len(there)} videos and {backup}")
+    """Copies every job folder off the server, checks every finished video arrived whole,
+    then destroys it."""
+    _log("copying the job folders and the voices")
+    subprocess.run(["bash", ROOT / "run.sh", "box", "pull"], cwd=ROOT, check=True)
+    there = _remote("for f in jobs/*/final.mp4; do [ -f \"$f\" ] && stat -c '%n %s' \"$f\"; done")
+    sizes = dict(line.rsplit(" ", 1) for line in there.splitlines() if " " in line)
+    missing = [
+        name for name, size in sizes.items()
+        if not (ROOT / name).is_file() or (ROOT / name).stat().st_size != int(size)
+    ]  # fmt: skip
+    if missing:
+        sys.exit(f"not copied whole: {missing}; the server stays")
+    _log(f"copied {len(sizes)} finished videos with their job folders")
     if dry:
         _log(f"dry run: instance {instance} would be destroyed now")
         return
@@ -180,16 +169,6 @@ def _finish(instance: str, *, dry: bool) -> None:
             f"({exc.code}: {_why(exc)}). Destroy it at cloud.vast.ai/instances."
         )
     _log(f"instance {instance} destroyed")
-
-
-def dumped(backup: Path) -> bool:
-    """Whether pg_dump finished the backup: it ends every complete dump with this line. A
-    size limit took the dump of an empty queue for a failed one and kept a box billing."""
-    try:
-        with gzip.open(backup, "rt", encoding="utf-8", errors="replace") as dump:
-            return "PostgreSQL database dump complete" in dump.read()
-    except (OSError, EOFError):
-        return False
 
 
 def _login(*, email: bool, code: str | None, secret: str | None) -> None:

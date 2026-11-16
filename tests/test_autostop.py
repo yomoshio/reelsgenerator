@@ -1,4 +1,3 @@
-import gzip
 import importlib.util
 import io
 import urllib.error
@@ -93,15 +92,3 @@ def test_a_box_with_nothing_to_do_goes_after_the_idle_checks(autostop: ModuleTyp
     assert empty.idle
     assert unread.idle
     assert not working.idle
-
-
-def test_a_backup_counts_when_pg_dump_finished_it_whatever_its_size(
-    autostop: ModuleType, tmp_path: Path
-) -> None:
-    whole, cut = tmp_path / "whole.sql.gz", tmp_path / "cut.sql.gz"
-    whole.write_bytes(gzip.compress(b"--\n-- PostgreSQL database dump complete\n--\n"))
-    cut.write_bytes(gzip.compress(b"COPY public.jobs (id) FROM stdin;\n"))
-
-    assert autostop.dumped(whole)
-    assert not autostop.dumped(cut)
-    assert not autostop.dumped(tmp_path / "missing.sql.gz")
