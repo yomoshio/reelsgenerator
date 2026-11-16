@@ -1,0 +1,9 @@
+{
+  "name": "reelsmith-runtime",
+  "private": true,
+  "type": "module",
+  "description": "Draws a beat from the scene code a model wrote: places, things, the rig, devices and plates.",
+  "engines": { "node": ">=22" },
+  "scripts": { "test": "node --test test/*.test.mjs" },
+  "dependencies": { "skia-canvas": "2.0.2" }
+}
