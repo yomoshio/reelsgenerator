@@ -1,9 +1,10 @@
+# The speech service: Qwen3-TTS for the narrator, faster-whisper for when each word is said.
 FROM nvidia/cuda:12.8.1-cudnn-runtime-ubuntu24.04
 
 ARG TORCH=2.9.1
 ARG TORCHAUDIO=2.9.1
 # Empty installs the newest release; pin it once a build has been listened to.
-ARG VOXCPM=
+ARG QWEN_TTS=
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PIP_NO_CACHE_DIR=1 \
@@ -17,10 +18,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && python3.12 -m venv /opt/venv
 
 RUN pip install torch==${TORCH} torchaudio==${TORCHAUDIO} --index-url https://download.pytorch.org/whl/cu128 \
-    && pip install "voxcpm${VOXCPM:+==${VOXCPM}}" "fastapi>=0.115,<1" "uvicorn[standard]>=0.30" "soundfile>=0.12"
+    && pip install "qwen-tts${QWEN_TTS:+==${QWEN_TTS}}" "fastapi>=0.115,<1" "uvicorn[standard]>=0.30" "soundfile>=0.12" "faster-whisper>=1.1,<2" "python-multipart>=0.0.9"
 
 WORKDIR /srv
-COPY services/tts/app.py services/tts/design_voice.py ./
+COPY services/speech/app.py services/speech/design_voice.py ./
 
 # Ubuntu 24.04 images already ship user `ubuntu` with uid 1000; reuse it instead of useradd.
 USER ubuntu

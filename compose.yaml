@@ -1,5 +1,8 @@
 name: reelsmith
 
+# The models, on the machine with the GPU: the language models behind ollama and the speech
+# service. The pipeline itself runs from a plain virtualenv and reaches them by URL.
+
 x-gpu: &gpu
   deploy:
     resources:
@@ -10,96 +13,33 @@ x-gpu: &gpu
             capabilities: [gpu]
 
 services:
-  db:
-    image: postgres:17-alpine
-    environment:
-      POSTGRES_USER: reelsmith
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-reelsmith}
-      POSTGRES_DB: reelsmith
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U reelsmith"]
-      interval: 5s
-      retries: 20
-    restart: unless-stopped
-
   llm:
     <<: *gpu
     image: ollama/ollama:${OLLAMA_TAG:-latest}
     environment:
-      OLLAMA_MAX_LOADED_MODELS: "1"
+      # The coder and the vision model take turns on every beat; both stay loaded on a big card.
+      OLLAMA_MAX_LOADED_MODELS: "${OLLAMA_MAX_LOADED_MODELS:-2}"
       OLLAMA_NUM_PARALLEL: "1"
-      OLLAMA_KEEP_ALIVE: "5m"
+      OLLAMA_KEEP_ALIVE: "30m"
+      OLLAMA_CONTEXT_LENGTH: "${OLLAMA_CONTEXT_LENGTH:-32768}"
+    ports:
+      - "127.0.0.1:11434:11434"
     volumes:
       - ollama:/root/.ollama
     restart: unless-stopped
 
-  comfy:
+  speech:
     <<: *gpu
     build:
       context: .
-      dockerfile: docker/comfy.Dockerfile
-    image: reelsmith/comfy:${COMFYUI_REF:-v0.43.1}
-    # COMFY_ARGS adds flags to the image's own command, e.g. --fast-disk on a box with
-    # less than 64 GB of RAM, where ComfyUI would otherwise keep every model in RAM.
-    command: ["sh", "-c", "exec python main.py --listen 0.0.0.0 --port 8188 --disable-auto-launch --preview-method none --reserve-vram 1.0 $$COMFY_ARGS"]
-    environment:
-      COMFY_ARGS: ${COMFY_ARGS:-}
-      REELSMITH_STUDIO: /opt/comfy/reelsmith-studio
-      REELSMITH_STYLES: /opt/comfy/reelsmith-styles
-    volumes:
-      - ./models:/opt/comfy/models
-      - ./studio/output:/opt/comfy/output
-      - ./studio/input:/opt/comfy/input
-      - ./studio/user:/opt/comfy/user
-      - ./workflows:/opt/comfy/user/default/workflows/reelsmith:ro
-      - ./comfy_nodes/reelsmith:/opt/comfy/custom_nodes/reelsmith:ro
-      - ./studio:/opt/comfy/reelsmith-studio
-      - ./styles:/opt/comfy/reelsmith-styles:ro
+      dockerfile: docker/speech.Dockerfile
+    image: reelsmith/speech:local
     ports:
-      - "127.0.0.1:8188:8188"   # ComfyUI has no password, so only this machine may reach it
-    shm_size: 8gb
-    restart: unless-stopped
-
-  tts:
-    <<: *gpu
-    build:
-      context: .
-      # voxcpm or qwen3-tts: both answer the same HTTP API, so only the image changes.
-      dockerfile: docker/tts-${REELSMITH_TTS_ENGINE:-voxcpm}.Dockerfile
-    image: reelsmith/tts-${REELSMITH_TTS_ENGINE:-voxcpm}:local
+      - "127.0.0.1:8000:8000"
     volumes:
       - ./hf:/hf
       - ./voices:/voices
     restart: unless-stopped
 
-  worker:
-    build:
-      context: .
-      dockerfile: docker/worker.Dockerfile
-    image: reelsmith/worker:local
-    env_file: .env
-    environment:
-      REELSMITH_DATABASE_URL: postgresql://reelsmith:${POSTGRES_PASSWORD:-reelsmith}@db:5432/reelsmith
-    volumes:
-      - media:/data/media
-      - ./outbox:/data/outbox
-      - ./hf:/hf
-      - ./styles:/app/styles:ro
-      - ./studio:/data/studio
-    depends_on:
-      db:
-        condition: service_healthy
-      comfy:
-        condition: service_healthy
-      tts:
-        condition: service_healthy
-      llm:
-        condition: service_started
-    restart: unless-stopped
-
 volumes:
-  pgdata:
   ollama:
-  media:
