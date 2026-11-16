@@ -15,6 +15,7 @@
 #   ./run.sh up | down | logs                сервисы моделей: ollama и речь
 #   ./run.sh voice "описание" [имя]          голос диктора в voices/имя.wav (по умолчанию narrator)
 #   ./run.sh smoke                           по одному вызову каждой модели и один кадр
+#   ./run.sh rehearse [--beats 4]            весь путь от идеи до ролика без моделей, с заглушками
 #
 # Арендованный сервер (адрес в .env: SERVER_HOST, SERVER_PORT, SERVER_KEY, VAST_INSTANCE):
 #   ./run.sh box install                     залить проект, поставить модели, включить сторож
@@ -48,6 +49,7 @@ here() {
         test)
             "$(bin pytest)" -q
             (cd runtime && npm test --silent) ;;
+        rehearse) "$(bin python)" scripts/rehearse.py "$@" ;;
         lint)
             "$(bin ruff)" check src tests scripts tools
             "$(bin ruff)" format --check src tests

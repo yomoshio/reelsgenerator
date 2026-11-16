@@ -123,9 +123,16 @@ export function drawHud(ctx, text, t, start, p) {
   return [x, y, w, h];
 }
 
-export function drawStamp(ctx, text, t, start, p) {
-  const size = 104, w = measure(ctx, text, size) + 90, h = 170;
-  const cx = W / 2, cy = (SCENE_TOP + SCENE_BOTTOM) / 2;
+// A stamp is as wide as the frame allows at most; `stampSize` gives its box before it is laid.
+export function stampSize(ctx, text) {
+  const full = measure(ctx, text, 104) + 90;
+  const size = Math.floor(104 * Math.min(1, (W - 120) / full));
+  return { size, w: measure(ctx, text, size) + 90 * (size / 104), h: Math.round(size * 1.63) };
+}
+
+export function drawStamp(ctx, text, t, start, p, cy = (SCENE_TOP + SCENE_BOTTOM) / 2) {
+  const { size, w, h } = stampSize(ctx, text);
+  const cx = W / 2;
   around(ctx, cx, cy, entrance("stamp", t, start), () => {
     ctx.save();
     ctx.translate(cx, cy);
@@ -133,14 +140,14 @@ export function drawStamp(ctx, text, t, start, p) {
     const red = alpha(p.threat ?? "#C8382D", 0.92);
     ctx.beginPath();
     ctx.roundRect(-w / 2, -h / 2, w, h, 14);
-    ctx.lineWidth = 12;
+    ctx.lineWidth = Math.max(size * 0.115, 6);
     ctx.strokeStyle = red;
     ctx.stroke();
     font(ctx, size);
     ctx.fillStyle = red;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    ctx.fillText(text.toUpperCase(), 0, 6);
+    ctx.fillText(text.toUpperCase(), 0, size * 0.06);
     ctx.restore();
   });
   return [cx - w / 2, cy - h / 2, w, h];

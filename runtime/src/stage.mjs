@@ -3,12 +3,13 @@
 // devices. Every frame is then computed from those declarations for its moment, so motion
 // is smooth to a fraction of a pixel and nothing changes that the code did not ask for.
 
+import "./canvas.mjs";
 import { Canvas } from "skia-canvas";
 import { FLOOR, H, HERO, SCENE_BOTTOM, SCENE_TOP, ScriptError, W, alpha, makePlace, seedOf, shade } from "./places.mjs";
 import { FIXTURES, WATER, drawWater, spec } from "./things.mjs";
 import * as rig from "./rig.mjs";
 import * as plates from "./plates.mjs";
-import { place as placePlate, problems as frameProblems } from "./layout.mjs";
+import { overlap, place as placePlate, problems as frameProblems } from "./layout.mjs";
 
 const WALK_SPEED = 260; // px a second
 const CAMERA_MOVE = 1.6; // seconds a camera move takes by default
@@ -413,6 +414,14 @@ export function makeStage(input, library = {}) {
         const at_ = placePlate(wh, anchor, obstacles, r.kind === "status");
         Object.assign(plate, { size: sizeOf, at: at_, target: r.kind === "status" || !target ? null : target.point, box: [...at_, ...wh], pinned: true });
       }
+      if (r.kind === "stamp") {
+        const { w, h } = plates.stampSize(ctx, r.text);
+        const taken = [...decl.people.map((q) => rig.box(personBones(q, r.start))), ...laid.filter((q) => q.box).map((q) => q.box)];
+        const covers = (cy) => taken.reduce((sum, b) => sum + overlap([W / 2 - w / 2, cy - h / 2, w, h], b), 0);
+        const spots = [(SCENE_TOP + SCENE_BOTTOM) / 2, SCENE_TOP + 40 + h / 2, SCENE_BOTTOM - 60 - h / 2];
+        plate.cy = spots.reduce((best, cy) => (covers(cy) < covers(best) ? cy : best));
+        plate.box = [W / 2 - w / 2, plate.cy - h / 2, w, h];
+      }
       laid.push(plate);
     }
   }
@@ -648,7 +657,7 @@ export function makeStage(input, library = {}) {
       if (t < pl.start || t >= pl.end) continue;
       if (pl.kind === "rule_card") shown.push({ text: pl.text, box: plates.drawRuleCard(ctx, pl.text, t, pl.start, p) });
       else if (pl.kind === "hud") shown.push({ text: pl.text, box: plates.drawHud(ctx, pl.text, t, pl.start, p) });
-      else if (pl.kind === "stamp") shown.push({ text: pl.text, box: plates.drawStamp(ctx, pl.text, t, pl.start, p) });
+      else if (pl.kind === "stamp") shown.push({ text: pl.text, box: plates.drawStamp(ctx, pl.text, t, pl.start, p, pl.cy) });
       else {
         const at_ = toScreen(v, pl.at);
         const target = pl.target ? toScreen(v, pl.target) : null;

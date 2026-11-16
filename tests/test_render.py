@@ -106,3 +106,7 @@ def test_words_that_bring_up_plates_are_stressed() -> None:
     stressed = [w.text for w in render.accented(beat, words) if w.accent]
     assert stressed
     assert all(any(r.on_word.lower() in w.lower() for r in beat.reveals) for w in stressed)
+
+
+def test_joins_fall_in_the_middle_of_every_dissolve() -> None:
+    assert assemble.joins([4.0, 6.0, 1.6]) == [3.875, 9.625]
