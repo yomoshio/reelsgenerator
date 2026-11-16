@@ -20,6 +20,7 @@ from reelsmith.runtime import catalog
 from reelsmith.settings import Settings
 from reelsmith.stages import stages
 from reelsmith.styles import StyleError, Styles
+from reelsmith.voice import Speech
 
 app = typer.Typer(no_args_is_help=True, add_completion=False)
 IDEA_WORDS = 80  # a source this short is an idea to invent a story from, longer is a story
@@ -96,7 +97,8 @@ def run(once: Annotated[bool, typer.Option(help="one pass over the stages")] = F
 
     async def go() -> None:
         llm = Llm(settings.llm_url, temperature=settings.temperature)
-        ctx = Context(settings, llm, Styles(settings.styles))
+        speech = Speech(settings.speech_url)
+        ctx = Context(settings, llm, Styles(settings.styles), speech)
         ctx.catalog = lambda: catalog(settings)
         jobs = Jobs(settings.jobs)
         try:
@@ -104,6 +106,7 @@ def run(once: Annotated[bool, typer.Option(help="one pass over the stages")] = F
                 pass
         finally:
             await llm.close()
+            await speech.close()
 
     asyncio.run(go())
     _print(Jobs(settings.jobs).all())
