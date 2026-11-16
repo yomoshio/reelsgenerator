@@ -1,6 +1,7 @@
 """The `reelsmith` command. Every command works on the job folders in REELSMITH_JOBS."""
 
 import asyncio
+import json
 import logging
 import re
 import shutil
@@ -10,6 +11,7 @@ from typing import Annotated, NoReturn
 
 import structlog
 import typer
+from PIL import Image
 
 from reelsmith.books import BOOKS, episodes, read_book
 from reelsmith.jobs import Context, Job, JobError, Jobs, Source, Status, run_once
@@ -180,6 +182,45 @@ def retry(
         job.status = job.failed_at or Status.NEW
     jobs.save(job)
     typer.echo(f"{job.id}  {job.status}")
+
+
+@app.command()
+def storyboard(job_id: str) -> None:
+    """The middle keyframe of every beat on one sheet, storyboard.jpg in the job's folder."""
+    jobs = Jobs(_settings().jobs)
+    job = _job(jobs, job_id)
+    folder = jobs.folder(job)
+    keys = sorted((folder / "keys").glob("beat*-1.png"))
+    if not keys:
+        _fail(f"{job.id} has no keyframes yet; it is {job.status}")
+    thumbs = [Image.open(k).convert("RGB").resize((270, 480)) for k in keys]
+    rows = (len(thumbs) + 5) // 6
+    sheet = Image.new("RGB", (270 * min(len(thumbs), 6), 480 * rows))
+    for i, thumb in enumerate(thumbs):
+        sheet.paste(thumb, ((i % 6) * 270, (i // 6) * 480))
+    sheet.save(folder / "storyboard.jpg", quality=85)
+    typer.echo(folder / "storyboard.jpg")
+
+
+@app.command()
+def redo(
+    job_id: str,
+    beat: Annotated[int, typer.Option(min=1, help="which beat, from 1")],
+    note: Annotated[str, typer.Option(help="what is wrong with it, for the coder")] = "",
+) -> None:
+    """Sends one beat back to the coder with a note; the video is drawn again after it."""
+    jobs = Jobs(_settings().jobs)
+    job = _job(jobs, job_id)
+    scenes_dir = jobs.folder(job) / "scenes"
+    if not (scenes_dir / f"beat{beat:02d}.js").is_file():
+        _fail(f"{job.id} has no scene for beat {beat}")
+    notes_file = scenes_dir / "notes.json"
+    notes = json.loads(notes_file.read_text(encoding="utf-8")) if notes_file.is_file() else {}
+    notes[str(beat)] = note or "Draw this beat again, better."
+    notes_file.write_text(json.dumps(notes, ensure_ascii=False), encoding="utf-8")
+    job.status, job.error, job.tries = Status.VOICED, None, 0
+    jobs.save(job)
+    typer.echo(f"{job.id}  beat {beat} goes back to the coder")
 
 
 @app.command(name="styles")
