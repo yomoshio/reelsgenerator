@@ -14,6 +14,7 @@ import typer
 from reelsmith.books import BOOKS, episodes, read_book
 from reelsmith.jobs import Context, Job, JobError, Jobs, Source, Status, run_once
 from reelsmith.llm import Llm
+from reelsmith.runtime import catalog
 from reelsmith.settings import Settings
 from reelsmith.stages import stages
 from reelsmith.styles import StyleError, Styles
@@ -94,6 +95,7 @@ def run(once: Annotated[bool, typer.Option(help="one pass over the stages")] = F
     async def go() -> None:
         llm = Llm(settings.llm_url, temperature=settings.temperature)
         ctx = Context(settings, llm, Styles(settings.styles))
+        ctx.catalog = lambda: catalog(settings)
         jobs = Jobs(settings.jobs)
         try:
             while await run_once(jobs, ctx, stages()) and not once:
