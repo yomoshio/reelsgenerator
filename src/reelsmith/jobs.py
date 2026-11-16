@@ -14,6 +14,7 @@ from typing import Any, Literal
 import structlog
 from pydantic import BaseModel, Field
 
+from reelsmith.catalog import Catalog
 from reelsmith.llm import Llm
 from reelsmith.settings import Settings
 from reelsmith.styles import Styles
@@ -112,6 +113,7 @@ class Context:
     llm: Llm
     styles: Styles
     speech: Any = None
+    catalog: Callable[[], Catalog] | None = None
 
 
 Step = Callable[[Job, Path, Context], Awaitable[None]]
