@@ -1,15 +1,15 @@
-You plan one episode of a vertical short before anyone draws it. The episode lasts
+You plan one episode of a vertical short before anyone stages it. The episode lasts
 {seconds} seconds, and you write its whole voiceover.
 
 {brief}
 
-You receive an idea. It may be one sentence, a story of a few hundred words, or an outline
-that is already split into beats.
+You receive an idea. It may be one sentence, a story of a few hundred words, or a piece of
+a book.
 
-- A story or an outline: keep its people, places, events and their order. Split it into
-  beats and add only what the structure above needs. When the idea numbers its beats,
-  every numbered beat becomes a beat of its own, in its order: none is merged away or
-  dropped, least of all the one the ending depends on, such as a lie or a wish.
+- A story or a piece of a book: keep its people, places, events and their order. Split it
+  into beats and add only what the structure above needs. When the text numbers its
+  events, every numbered event becomes a beat of its own, in its order: none is merged
+  away or dropped, least of all the one the ending depends on, such as a lie or a wish.
 - One sentence: invent the episode inside the structure above.
 
 Plan in the order of the fields: each one rests on the one before.
@@ -18,28 +18,24 @@ Plan in the order of the fields: each one rests on the one before.
 - `premise`: one or two sentences in {language}: what the story is really about, the
   thought the viewer keeps after the last line, such as "ten years of a life paid for one
   evening of looking rich, and the riches were fake". Every beat serves it.
-- `characters`: at most three people, four if a crowd matters. When the idea gives a
-  look, copy it word for word. Otherwise write each `look` in English, because the image
-  model reads English: age, build, a face with one feature that sets them apart, hair,
-  clothes in one signature colour and shoes, both of the story's time and place; a look
-  with no shoes is drawn barefoot. The face stays uncovered: no hood up, no mask. These
-  looks are copied into every picture, so make them specific, never change them, and
-  never put a thing in the hands or an action in them: a doll in a look is in every frame.
-  Keep the names as the idea gives them. Clothes stay the same through the episode; only
-  when the story itself changes them, such as a ball gown for one night, add `outfits`:
-  a short name and the clothes in English. Most episodes have none.
-- `places`: the two to four places where the episode happens. Each has a `name` in
-  {language} and a `look` in English that is copied into every picture set there: the
-  period, the kind of place, its light, and the things that stand in it, such as "a small
-  all-night grocery on the ground floor of a Russian apartment block, 2020s, harsh white
-  tube lights, a cash desk by the glass door, a grey cash machine against the wall beside
-  the entrance, shelves of tins and crisps". A thing the story uses stands in the place
-  where it is used and stays there: if the hero argues at the cash desk about the cash
-  machine, the machine is in the shop, never out in the street. Fewer places are better;
-  a new place only when the story itself moves.
-- `beats`: {beats} beats in order, in {language}. Each starts with the name of its place
-  in brackets, such as "[Магазин]", and is one concrete event the viewer can see and
-  hear, one or two sentences, with exact numbers. Together they are a whole story:
+- `characters`: at most three people, four if a crowd matters. `key` is a short latin id
+  in lower case, such as "artem"; `name` is how the narrator calls them. When the idea
+  gives a look, copy it word for word. Otherwise write each `look` in English: age, build,
+  one feature that sets the face apart, hair, clothes in one signature colour and shoes,
+  all of the story's time and place. A look never holds a thing in the hands or an action.
+- `places`: the two to four places where the episode happens. `key` is a short latin id,
+  `name` is in {language}, `kind` is the nearest of room, stairwell, section (a cut
+  through a building), street, shop, outdoors, or custom when none fits. `look` is in
+  English: the period, the kind of place, its light, and the things that stand in it, such
+  as "a small all-night grocery on the ground floor of a Russian apartment block, 2020s,
+  harsh white tube lights, a counter by the glass door, a grey cash machine against the
+  wall, shelves of tins". A thing the story uses stands in the place where it is used and
+  stays there: if the hero argues at the counter about the cash machine, the machine is in
+  the shop, never out in the street. Fewer places are better; a new place only when the
+  story itself moves.
+- `beats`: {beats} beats in order, in {language}. Each starts with the name of its place in
+  brackets, such as "[Магазин]", and is one concrete event the viewer can see and hear,
+  one or two sentences, with exact numbers. Together they are a whole story:
   1. the opening: the strangest or most striking moment, or the question the episode
      answers;
   2. who, where, and what they want or fear: what is at stake;
@@ -64,6 +60,7 @@ Plan in the order of the fields: each one rests on the one before.
   - "…" where the voice holds its breath, "—" before a sudden turn, "?" and "!" where it
     rises;
   - numbers written as words; no lists, no headings, no stage directions, nothing in
-    brackets: every word is read aloud.
+    brackets: every word is read aloud;
+  - only real words of {language} in their right forms, the way a careful editor writes.
 
 Answer with JSON only.

@@ -1,9 +1,9 @@
-"""A finished story or a whole book becomes a serial that keeps the author's events.
+"""A long story or a whole book becomes several episodes that keep the author's events.
 
-The text is cut into passages the writer model can read at once, and each passage is
-retold as the events that happen in it. The numbered events are split into episodes where
-the story itself turns, never stretched to fill a count. Every episode then gets its own
-events word for word, so the planner arranges them into beats and invents nothing.
+The text is cut into passages the planner can read at once, and each passage is retold as
+the events that happen in it. The numbered events are split into episodes where the story
+itself turns, never stretched to fill a count, and every episode becomes a job whose
+source is its own events word for word, so the planner arranges them and invents nothing.
 
 Books come as plain text, FictionBook (.fb2, the usual format of Russian libraries) or
 EPUB."""
@@ -14,13 +14,108 @@ from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
 from xml.etree import ElementTree
 
+from pydantic import BaseModel, Field
+
+from reelsmith.jobs import Context, Source
+from reelsmith.story import Person, prompt
+from reelsmith.styles import Style
+from reelsmith.text import language_name
+
 PASSAGE = 10_000  # characters the writer model reads at once, with room for its answer
 DIGEST = 16_000  # characters of numbered events the planner reads at once
 BOOKS = (".txt", ".md", ".fb2", ".epub")
+ONE_EPISODE = 1200  # words a story may have and still be told in one episode
+MOST = 12  # episodes a book becomes at most
+
+
+class Retelling(BaseModel):
+    events: list[str]
+
+
+class Part(BaseModel):
+    title: str
+    logline: str = Field(description="What happens in the episode and where it stops.")
+    last: int = Field(ge=1, description="The number of the last event this episode retells.")
+
+
+class Adaptation(BaseModel):
+    title: str
+    world: str
+    characters: list[Person] = Field(min_length=1, max_length=6)
+    parts: list[Part] = Field(min_length=1, max_length=30)
+
+
+async def episodes(
+    ctx: Context, style: Style, text: str, title: str, most: int = MOST
+) -> list[Source]:
+    """The sources of the episodes a text becomes: itself when it is short enough for one,
+    otherwise one per part of the story, each with its own events."""
+    if len(text.split()) <= ONE_EPISODE:
+        return [Source(kind="story", text=text, title=title)]
+    events = await digest(ctx, text)
+    story = style.story
+    system = prompt(
+        "adapt",
+        brief=story.brief.strip(),
+        seconds=f"{story.seconds[0]} to {story.seconds[1]}",
+        beats=f"{story.beats[0]} to {story.beats[1]}",
+        most=most,
+        language=language_name(ctx.settings.language),
+    )
+    made = await ctx.llm.json(ctx.settings.planner, system, numbered(events), Adaptation)
+    parts = cut(made.parts, len(events), most)
+    people = "; ".join(f"{c.name}: {c.look}" for c in made.characters)
+    found = []
+    for n, (_part, numbers) in enumerate(parts, 1):
+        before = " ".join(p.logline for p, _ in parts[: n - 1])
+        told = "\n".join(f"{i}) {events[i - 1]}" for i in numbers)
+        body = (
+            f"{made.title}, part {n} of {len(parts)}. {made.world}\nCharacters: {people}\n"
+            + (f"Earlier parts: {before}\n" if before else "")
+            + f"Retell these events of the source in this order, and add no event of your own:"
+            f"\n{told}"
+        )
+        found.append(Source(kind="book", text=body, title=f"{made.title}, часть {n}"))
+    return found
+
+
+async def digest(ctx: Context, text: str) -> list[str]:
+    """The events of the whole text, retold again until they fit what the planner reads."""
+    system = prompt("retell", language=language_name(ctx.settings.language))
+
+    async def retell(passage: str) -> list[str]:
+        return (await ctx.llm.json(ctx.settings.planner, system, passage, Retelling)).events
+
+    events = [e for p in passages(text) for e in await retell(p)]
+    while len(numbered(events)) > DIGEST:
+        shorter = [e for p in passages("\n\n".join(events)) for e in await retell(p)]
+        if len(numbered(shorter)) >= len(numbered(events)):
+            break
+        events = shorter
+    return events
 
 
 def numbered(events: list[str]) -> str:
     return "\n".join(f"{n}. {event}" for n, event in enumerate(events, 1))
+
+
+def cut(parts: list[Part], count: int, most: int) -> list[tuple[Part, range]]:
+    """The episodes in order, each with the numbers of the events it retells. The model's
+    boundaries are trusted only as far as they cut the events into consecutive pieces: out
+    of range, repeated or backwards ones are dropped, and the last episode always runs to
+    the end, taking in whatever lies beyond `most`."""
+    kept: list[Part] = []
+    for part in sorted(parts, key=lambda p: p.last):
+        end = min(max(part.last, 1), count)
+        if not kept or end > kept[-1].last:
+            kept.append(part.model_copy(update={"last": end}))
+    kept = kept[:most]
+    kept[-1] = kept[-1].model_copy(update={"last": count})
+    pieces, start = [], 1
+    for part in kept:
+        pieces.append((part, range(start, part.last + 1)))
+        start = part.last + 1
+    return pieces
 
 
 def passages(text: str, size: int = PASSAGE) -> list[str]:

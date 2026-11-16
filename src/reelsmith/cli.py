@@ -11,7 +11,7 @@ from typing import Annotated, NoReturn
 import structlog
 import typer
 
-from reelsmith.books import BOOKS, read_book
+from reelsmith.books import BOOKS, episodes, read_book
 from reelsmith.jobs import Context, Job, JobError, Jobs, Source, Status, run_once
 from reelsmith.llm import Llm
 from reelsmith.settings import Settings
@@ -52,11 +52,12 @@ def add(
     file: Annotated[Path | None, typer.Option(help=f"a story or book: {', '.join(BOOKS)}")] = None,
     style: Annotated[str | None, typer.Option(help="a style folder in styles/")] = None,
 ) -> None:
-    """Puts an idea, a story or a book in the queue."""
+    """Puts an idea, a story or a book in the queue. A long story or a book is retold and
+    split into episodes first, one job each; that needs the models."""
     settings = _settings()
     chosen = style or settings.style
     try:
-        Styles(settings.styles).get(chosen)
+        look = Styles(settings.styles).get(chosen)
     except StyleError as exc:
         _fail(str(exc))
     if file is not None:
@@ -65,9 +66,24 @@ def add(
         body, title = text, ""
     else:
         _fail("give an idea, or a file with --file")
-    kind = "idea" if len(body.split()) < IDEA_WORDS else "story"
-    job = Jobs(settings.jobs).create(Source(kind=kind, text=body, title=title), chosen)
-    typer.echo(f"{job.id}  {kind}  {chosen}")
+    jobs = Jobs(settings.jobs)
+    if len(body.split()) < IDEA_WORDS:
+        sources = [Source(kind="idea", text=body, title=title)]
+    else:
+
+        async def split() -> list[Source]:
+            llm = Llm(settings.llm_url, temperature=settings.temperature)
+            try:
+                return await episodes(
+                    Context(settings, llm, Styles(settings.styles)), look, body, title
+                )
+            finally:
+                await llm.close()
+
+        sources = asyncio.run(split())
+    for source in sources:
+        job = jobs.create(source, chosen)
+        typer.echo(f"{job.id}  {source.kind}  {chosen}  {source.title}")
 
 
 @app.command()
