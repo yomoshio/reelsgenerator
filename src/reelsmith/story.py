@@ -528,10 +528,10 @@ async def direct(
     async def draft(notes: str) -> Episode:
         user = shown + (f"\n\nFix these problems of the last staging: {notes}" if notes else "")
         made = await ctx.llm.json(ctx.settings.director, system, user, Direction)
-        if len(made.beats) != len(ep.beats):
-            made.beats = (made.beats + [made.beats[-1]] * len(ep.beats))[: len(ep.beats)]
+        staged: list[Staging | None] = [*made.beats]
+        staged += [staged[-1] if staged else None] * len(ep.beats)
         beats = [
-            b.model_copy(update={"staging": s}) for b, s in zip(ep.beats, made.beats, strict=True)
+            b.model_copy(update={"staging": s}) for b, s in zip(ep.beats, staged, strict=False)
         ]
         return ep.model_copy(update={"beats": beats})
 

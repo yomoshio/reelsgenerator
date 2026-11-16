@@ -159,6 +159,11 @@ def keep(style: Style, ep: Episode, folder: Path, job_id: str, most: int = 3) ->
     return kept
 
 
+_SPOTS = [round(0.2 + 0.05 * i, 2) for i in range(13)]  # where a person may stand, 0.2 to 0.8
+_APART = 0.15  # as far from a thing or a person as it needs to be
+_OFF_FLOOR = {"water", "window", "lamp"}  # these take no room on the floor
+
+
 def fallback(beat: Beat, kind: str, stood: dict[str, float]) -> str:
     """A scene that always runs: the place, its things in a row, the cast standing apart,
     the first of them turning to the first thing on the middle word, a slow push in."""
@@ -167,12 +172,16 @@ def fallback(beat: Beat, kind: str, stood: dict[str, float]) -> str:
     names = list(dict.fromkeys([*things, *targets]))
     free = [round(0.15 + 0.7 * i / max(len(names) - 1, 1), 2) for i in range(len(names))]
     lines = [f's.place("{kind}");']
+    xs = [stood.get(name, free[i] if len(names) > 1 else 0.3) for i, name in enumerate(names)]
     for i, name in enumerate(names):
-        x = stood.get(name, free[i] if len(names) > 1 else 0.3)
-        lines.append(f"const t{i} = s.thing({json.dumps(name)}, {{ x: {x} }});")
-    spots = [0.42, 0.6, 0.75, 0.3]
+        lines.append(f"const t{i} = s.thing({json.dumps(name)}, {{ x: {xs[i]} }});")
+    taken = [x for name, x in zip(names, xs, strict=True) if name not in _OFF_FLOOR]
     for i, key in enumerate(beat.cast):
-        lines.append(f"const p{i} = s.person({json.dumps(key)}, {{ x: {spots[i % 4]} }});")
+        spot = max(
+            _SPOTS, key=lambda x: (min([_APART, *(abs(x - t) for t in taken)]), -abs(x - 0.5))
+        )
+        taken.append(spot)
+        lines.append(f"const p{i} = s.person({json.dumps(key)}, {{ x: {spot} }});")
     middle = "s.seconds / 2"
     if beat.cast and names and names[0] != "water":
         lines.append(f"p0.look(t0, {{ at: {middle} }});")

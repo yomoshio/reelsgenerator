@@ -96,10 +96,20 @@ async def card(settings: Settings, style: Style, ep: Episode, out: Path) -> Path
     return out
 
 
-async def measure(video: Path, out: Path) -> dict[str, object]:
+def joins(lengths: list[float]) -> list[float]:
+    """The second every dissolve between two clips is half done."""
+    out, elapsed = [], 0.0
+    for length in lengths[:-1]:
+        elapsed += length - JOIN
+        out.append(round(elapsed + JOIN / 2, 3))
+    return out
+
+
+async def measure(video: Path, out: Path, joined: list[float]) -> dict[str, object]:
     """The reference check of the video, kept in check.json; its absence is not fatal."""
     process = await asyncio.create_subprocess_exec(
         sys.executable, str(CHECK), str(video), "--json",
+        "--joins", ",".join(str(t) for t in joined),
         stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
     )  # fmt: skip
     stdout, stderr = await process.communicate()
@@ -125,7 +135,7 @@ async def assemble(job: Job, folder: Path, ctx: Context) -> None:
         lengths.append(CARD_SECONDS)
     final = folder / "final.mp4"
     await run(join_args(clips, lengths, style.file(style.music), final))
-    found = await measure(final, folder / "check.json")
+    found = await measure(final, folder / "check.json", joins(lengths))
     failed = [c["name"] for c in found.get("checks", []) if not c.get("ok")]  # type: ignore[attr-defined]
     job.note("assemble", note=f"reference check failed: {', '.join(failed)}" if failed else "")
     code = " ".join(p.read_text(encoding="utf-8") for p in (folder / "scenes").glob("*.js"))

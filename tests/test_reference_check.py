@@ -131,3 +131,11 @@ def test_measures_the_videos_of_the_spec(variable: str, passing: int) -> None:
     results = rc.checks({**rc.video_stats(video, None), **rc.audio_stats(video)})
 
     assert sum(c.ok for c in results) == passing
+
+
+def test_a_video_with_known_joins_is_measured_by_them(three_still_scenes: Path) -> None:
+    stats = rc.video_stats(three_still_scenes, None, joins=[1.5, 3.0, 4.5])
+
+    assert stats["scenes"] == 4
+    assert stats["transitions"] == 3
+    assert stats["scene_len_median"] == pytest.approx(1.5, abs=0.05)

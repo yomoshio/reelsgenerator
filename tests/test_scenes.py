@@ -1,4 +1,5 @@
 import json
+import re
 import shutil
 from pathlib import Path
 
@@ -204,3 +205,14 @@ async def test_the_best_of_several_first_drafts_is_kept(tmp_path: Path) -> None:
     )
     assert not result.fallback
     assert result.rounds == 1
+
+
+def test_the_plain_scene_stands_people_clear_of_things_and_each_other() -> None:
+    ep = _episode()
+    beat = next(b for b in ep.beats if len(b.cast) == 2 and b.staging and b.staging.things)
+    code = scenes.fallback(beat, "stairwell", {"railing": 0.5})
+    things = [float(x) for x in re.findall(r"s\.thing\([^)]*x: ([\d.]+)", code)]
+    people = [float(x) for x in re.findall(r"s\.person\([^)]*x: ([\d.]+)", code)]
+    assert len(people) == 2
+    assert abs(people[0] - people[1]) >= 0.15
+    assert all(abs(p - t) >= 0.1 for p in people for t in things)

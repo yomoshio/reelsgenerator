@@ -65,7 +65,12 @@ def checks(v: dict[str, float]) -> list[Check]:
     ]
 
 
-def video_stats(path: Path, sheet: Path | None) -> dict[str, float]:
+def video_stats(
+    path: Path, sheet: Path | None, joins: list[float] | None = None
+) -> dict[str, float]:
+    """`joins` are the seconds where the maker of the video joined two scenes. Scenes of one
+    dark palette joined by a short dissolve change too little from frame to frame to be
+    found by looking, so a video whose joins are known is measured by them."""
     cap = cv2.VideoCapture(str(path))
     fps = cap.get(cv2.CAP_PROP_FPS)
     top = int(GRID_H * SCENE_TOP)
@@ -81,11 +86,12 @@ def video_stats(path: Path, sheet: Path | None) -> dict[str, float]:
         gray.append(cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)[:top])
 
     cuts = [0]
-    for i in range(1, len(gray)):
+    for i in range(1, len(gray) if joins is None else 0):
         hist_jump = cv2.compareHist(hists[i - 1], hists[i], cv2.HISTCMP_BHATTACHARYYA)
         pixel_jump = float(np.mean(np.abs(gray[i].astype(np.float32) - gray[i - 1])))
         if (hist_jump > 0.35 or pixel_jump > 28) and i - cuts[-1] >= 6:
             cuts.append(i)
+    cuts += [round(t * fps) for t in joins or [] if 0 < round(t * fps) < len(gray)]
     cuts.append(len(gray))
 
     lengths, motion, brightness = [], [], []
@@ -96,7 +102,7 @@ def video_stats(path: Path, sheet: Path | None) -> dict[str, float]:
             continue
         lengths.append(length)
         motion.append(_scene_motion(gray, start, end, fps))
-    transitions = len(cuts) - 1 - len(lengths)
+    transitions = len(cuts) - 1 - len(lengths) if joins is None else len(cuts) - 2
 
     if sheet is not None:
         _contact_sheet(path, cuts, fps, sheet)
@@ -238,9 +244,11 @@ def main() -> int:
     parser.add_argument("video", type=Path)
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--sheet", type=Path)
+    parser.add_argument("--joins", default=None, help="seconds of the known joins, by commas")
     args = parser.parse_args()
 
-    values = {**video_stats(args.video, args.sheet), **audio_stats(args.video)}
+    joins = None if args.joins is None else [float(t) for t in args.joins.split(",") if t]
+    values = {**video_stats(args.video, args.sheet, joins), **audio_stats(args.video)}
     results = checks(values)
     failed = [c for c in results if not c.ok]
 

@@ -136,9 +136,10 @@ models() {
     chmod a+rwx hf voices
     docker compose build speech
     docker compose up -d llm speech
-    say "Языковые модели из .env"
+    say "Языковые модели: из .env, а чего там нет, по умолчанию"
     local model
-    for model in $(for k in PLANNER DIRECTOR CODER VISION EDITOR; do setting "REELSMITH_$k"; done | sort -u); do
+    local wanted='from reelsmith.settings import Settings as S; s = S(); print(*{s.planner, s.director, s.coder, s.vision, s.editor} - {""})'
+    for model in $(.venv/bin/python -c "$wanted"); do
         note "ollama pull $model"
         docker compose exec -T llm ollama pull "$model"
     done

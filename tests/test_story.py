@@ -197,3 +197,14 @@ async def test_a_missing_card_stops_the_stage(tmp_path: Path) -> None:
     llm = FakeLlm().answer("Cast", {"cards": []})
     with pytest.raises(ValueError, match="no card for artem"):
         await story.cast(context(tmp_path, llm), STYLE, ep)
+
+
+async def test_a_director_who_stages_nothing_is_asked_again(tmp_path: Path) -> None:
+    staged = _staged(_golden())
+    ep = _golden()
+    good = {"beats": [b.staging.model_dump() for b in staged.beats if b.staging]}
+    llm = FakeLlm().answer("Direction", {"beats": []}, good)
+    made, left = await story.direct(context(tmp_path, llm), STYLE, ep, _narration(ep), Catalog())
+    assert left == []
+    assert all(b.staging is not None for b in made.beats)
+    assert "has no staging" in llm.calls[1][3]
