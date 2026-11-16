@@ -20,6 +20,7 @@ from reelsmith.jobs import Context, Job
 from reelsmith.runtime import Report
 from reelsmith.story import Beat, Episode, Reveal, prompt
 from reelsmith.styles import Style
+from reelsmith.text import words
 
 API = Path(__file__).parent.parent.parent / "runtime" / "API.md"
 FIXED = [
@@ -111,9 +112,51 @@ def brief(ep: Episode, n: int, timing: Timing, stood: dict[str, float], note: st
     return "\n".join(p for p in parts if p)
 
 
-def examples(style: Style) -> str:
-    found = sorted((style.folder / "examples").glob("*.js"))[:2]
-    return "\n\n".join(f"```js\n{p.read_text(encoding='utf-8').strip()}\n```" for p in found)
+def examples(style: Style, beat: Beat | None = None, most: int = 2) -> str:
+    """The style's scenes closest to this beat: its own two and every scene kept from an
+    approved video, ranked by the words their header shares with the beat's staging."""
+    found = sorted((style.folder / "examples").glob("*.js"))
+    if beat is not None and beat.staging is not None:
+        wanted = set(words(" ".join([beat.staging.action, *beat.staging.things, beat.text])))
+
+        def shared(path: Path) -> int:
+            head = [
+                line
+                for line in path.read_text(encoding="utf-8").splitlines()
+                if line.startswith("//")
+            ]
+            return len(wanted & set(words(" ".join(head))))
+
+        found.sort(key=shared, reverse=True)
+    chosen = found[:most]
+    return "\n\n".join(f"```js\n{p.read_text(encoding='utf-8').strip()}\n```" for p in chosen)
+
+
+def keep(style: Style, ep: Episode, folder: Path, job_id: str, most: int = 3) -> list[Path]:
+    """Copies the best scenes of an approved video into the style's examples, so the coder
+    sees them next time: those drawn in the fewest rounds, never a fallback."""
+    reports = []
+    for n, beat in enumerate(ep.beats, 1):
+        report = folder / "scenes" / f"beat{n:02d}.json"
+        if report.is_file():
+            raw = json.loads(report.read_text(encoding="utf-8"))
+            if not raw["fallback"] and not raw["left"]:
+                reports.append((raw["rounds"], n, beat))
+    kept = []
+    target = style.folder / "examples"
+    target.mkdir(parents=True, exist_ok=True)
+    for _, n, beat in sorted(reports)[:most]:
+        stage = beat.staging
+        head = [f"// Beat: «{beat.text}»"]
+        if stage:
+            head.append(
+                f"// Staging: {stage.shot}; {stage.action} Things: {', '.join(stage.things)}."
+            )
+        code = (folder / "scenes" / f"beat{n:02d}.js").read_text(encoding="utf-8")
+        out = target / f"{job_id}-beat{n:02d}.js"
+        out.write_text("\n".join(head) + "\n" + code.strip() + "\n", encoding="utf-8")
+        kept.append(out)
+    return kept
 
 
 def fallback(beat: Beat, kind: str, stood: dict[str, float]) -> str:
@@ -168,7 +211,10 @@ async def stage_beat(
 ) -> SceneResult:
     beat = ep.beats[n]
     system = prompt(
-        "coder", brief=style.director, api=API.read_text(encoding="utf-8"), examples=examples(style)
+        "coder",
+        brief=style.director,
+        api=API.read_text(encoding="utf-8"),
+        examples=examples(style, beat),
     )
     task = brief(ep, n, timing, stood, note)
     times = [0.4, timing.seconds / 2, max(timing.seconds - 0.3, 0.5)]
@@ -186,6 +232,14 @@ async def stage_beat(
     for done in range(1, ctx.settings.rounds + 1):
         code = await ctx.llm.code(ctx.settings.coder, system, task + feedback)
         report = await draw(code)
+        if done == 1:
+            for _ in range(ctx.settings.variants - 1):
+                other = await ctx.llm.code(ctx.settings.coder, system, task)
+                drawn = await draw(other)
+                if len(drawn.faults()) < len(report.faults()):
+                    code, report = other, drawn
+            if ctx.settings.variants > 1:
+                report = await draw(code)
         faults = report.faults()
         if not faults:
             faults = await look(ctx, report.pngs, beat)

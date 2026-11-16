@@ -79,3 +79,19 @@ test("frames come out as raw RGBA of the beat's length", () => {
   assert.equal(r.status, 0);
   assert.equal(r.stdout.length, 15 * 1080 * 1920 * 4);
 });
+
+test("a small thing stands on a table, not inside it", () => {
+  const r = run(input(`function scene(s) { s.place("room"); const t = s.thing("table", { x: 0.3 });
+    s.thing("lamp", { x: 0.3 }); s.thing("chair", { on: t, scale: 0.4 });
+    s.person("artem", { x: 0.7 }).point(t, { at: "слушает" }); }`));
+  assert.equal(r.error, null);
+  assert.deepEqual(r.problems, []);
+  const items = r.graph[0].items;
+  const table = items.find((i) => i.id === "table"), chair = items.find((i) => i.id === "chair");
+  assert.ok(Math.abs(chair.box[1] + chair.box[3] - table.box[1]) < 2);
+});
+
+test("nothing stands on a thing without a top", () => {
+  const r = run(input(`function scene(s) { const d = s.thing("door"); s.thing("chair", { on: d }); }`));
+  assert.match(r.error, /nothing can stand on 'door'/);
+});

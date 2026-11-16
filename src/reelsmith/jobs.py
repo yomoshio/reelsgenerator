@@ -113,7 +113,7 @@ class Context:
     llm: Llm
     styles: Styles
     speech: Any = None
-    catalog: Callable[[], Catalog] | None = None
+    catalog: Callable[[str], Catalog] | None = None
 
 
 Step = Callable[[Job, Path, Context], Awaitable[None]]

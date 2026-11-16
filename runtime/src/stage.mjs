@@ -53,9 +53,12 @@ export function makeStage(input, library = {}) {
   function thing(name, opts = {}) {
     const s = spec(name, library);
     const count = decl.things.filter((t) => t.name === name).length;
+    const base = opts.on?.__ref ?? null;
+    if (opts.on && (!base || base.kind !== "thing")) throw new ScriptError("`on` takes a thing, such as { on: table }");
+    if (base && !["top", "seat"].some((q) => base.spec.parts[q])) throw new ScriptError(`nothing can stand on '${base.name}'; it has no top or seat`);
     const t = {
-      kind: "thing", name, id: count ? `${name}#${count + 1}` : name, spec: s,
-      x: px(opts.x ?? 0.5), level: opts.level ?? opts.floor ?? 1,
+      kind: "thing", name, id: count ? `${name}#${count + 1}` : name, spec: s, base,
+      x: opts.x === undefined && base ? null : px(opts.x ?? 0.5), level: opts.level ?? opts.floor ?? 1,
       scale: (opts.scale ?? 1) * k(), flip: opts.flip ? -1 : 1, front: !!opts.front,
       states: [{ t: 0, n: opts.state ?? 0 }], moves: [],
     };
@@ -81,7 +84,7 @@ export function makeStage(input, library = {}) {
     return handle;
   }
   function thingX(t, time_) {
-    let x = t.x;
+    let x = t.x ?? partPoint(t.base, t.base.spec.parts.top ? "top" : "seat", time_)[0];
     for (const m of t.moves) x += (m.x - x) * rig.ease((time_ - m.t0) / Math.max(m.t1 - m.t0, 0.01));
     return x;
   }
@@ -93,6 +96,7 @@ export function makeStage(input, library = {}) {
   function thingFoot(t, time_) {
     const place = stagePlace();
     const x = thingX(t, time_);
+    if (t.base) return [x, partPoint(t.base, t.base.spec.parts.top ? "top" : "seat", time_)[1]];
     const ground = place.support(x, t.level);
     const on = t.spec.on;
     if (on === "wall") return [x, ground - (t.spec.lift ?? 0) * t.scale];
@@ -450,7 +454,8 @@ export function makeStage(input, library = {}) {
     };
     const items = [];
     for (const th of decl.things.filter((q) => q.spec.on !== "floor" && q.spec.on !== "fill")) drawThing(th);
-    for (const th of decl.things.filter((q) => q.spec.on === "floor" && !q.front)) drawThing(th);
+    for (const th of decl.things.filter((q) => q.spec.on === "floor" && !q.front && !q.base)) drawThing(th);
+    for (const th of decl.things.filter((q) => q.base && !q.front)) drawThing(th);
     const people = [...decl.people].sort((a, b) => ground(a, personX(a, t).x) - ground(b, personX(b, t).x));
     const walkers = [];
     for (const pr of people) {
@@ -468,7 +473,8 @@ export function makeStage(input, library = {}) {
     for (const th of decl.things) {
       const b = thingBox(th, t);
       const [x, y] = thingFoot(th, t);
-      items.push({ id: th.id, kind: th.spec.on === "fill" ? "fill" : "thing", on: th.spec.on, box: b, screen: boxToScreen(v, b), gap: th.spec.on === "floor" ? place.support(x, th.level) - y : 0 });
+      const stands = th.base ? "thing" : th.spec.on;
+      items.push({ id: th.id, kind: th.spec.on === "fill" ? "fill" : "thing", on: stands, box: b, screen: boxToScreen(v, b), gap: stands === "floor" ? place.support(x, th.level) - y : 0 });
     }
     custom(ctx, t, "front");
     sceneDevices(ctx, t);

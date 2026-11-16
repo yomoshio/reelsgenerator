@@ -33,6 +33,7 @@ class Settings(BaseSettings):
     rewrites: int = Field(default=2, ge=0, description="Rewrites of a story that fails checks.")
     rounds: int = Field(default=4, ge=1, description="Rounds of a scene before the fallback.")
     retakes: int = Field(default=2, ge=0, description="Retakes of a beat the narrator misread.")
+    variants: int = Field(default=1, ge=1, le=5, description="Scenes the coder writes at first.")
     tries: int = Field(default=3, ge=1, description="Failed steps before a job is failed.")
     workers: int = Field(default=0, ge=0, description="Beats rendered at once; 0 is every core.")
     min_free_gb: float = Field(default=2.0, ge=0)
