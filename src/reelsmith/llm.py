@@ -11,11 +11,17 @@ from pathlib import Path
 import httpx
 from pydantic import BaseModel, ValidationError
 
-_FENCE = re.compile(r"```(?:js|javascript|mjs)?[ \t]*\n(.*?)```", re.DOTALL)
+_FENCE = re.compile(r"```(?:js|javascript|mjs)?[ \t]*\n(.*?)(?:```|\Z)", re.DOTALL)
+_SCENE = re.compile(r"function\s+scene\s*\(.*", re.DOTALL)
+CODE_TOKENS = 4000  # a scene is some forty lines; room is left for a model that thinks first
 
 
 class LlmError(Exception):
     pass
+
+
+class NoCode(LlmError):
+    """The model answered, with no code in the answer."""
 
 
 class Llm:
@@ -65,22 +71,40 @@ class Llm:
     async def text(self, model: str, system: str, user: str) -> str:
         return await self._chat(model, [_message("system", system), _message("user", user)])
 
-    async def code(self, model: str, system: str, user: str) -> str:
-        """The last fenced code block of the answer."""
-        answer = await self.text(model, system, user)
-        blocks = _FENCE.findall(answer)
-        if not blocks:
-            raise LlmError(f"{model} answered without a fenced code block")
-        return str(blocks[-1]).strip()
+    async def code(
+        self, model: str, system: str, user: str, *, temperature: float | None = None
+    ) -> str:
+        """The last fenced code block of the answer; a block the answer never closed counts,
+        and so does bare code that defines the scene. The answer is cut at CODE_TOKENS."""
+        answer = await self._chat(
+            model,
+            [_message("system", system), _message("user", user)],
+            temperature=temperature,
+            max_tokens=CODE_TOKENS,
+        )
+        blocks = [b for b in _FENCE.findall(answer) if b.strip()]
+        if blocks:
+            return str(blocks[-1]).strip()
+        if bare := _SCENE.search(answer):
+            return bare.group(0).strip()
+        raise NoCode(f"{model} answered without code")
 
     async def _chat(
-        self, model: str, messages: list[dict[str, object]], response_format: object = None
+        self,
+        model: str,
+        messages: list[dict[str, object]],
+        response_format: object = None,
+        *,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
     ) -> str:
         body: dict[str, object] = {
             "model": model,
             "messages": messages,
-            "temperature": self._temperature,
+            "temperature": self._temperature if temperature is None else temperature,
         }
+        if max_tokens is not None:
+            body["max_tokens"] = max_tokens
         if response_format is not None:
             body["response_format"] = response_format
         try:

@@ -38,7 +38,9 @@ class FakeLlm:
         self.calls.append(("text", model, system, user))
         return str(self.queues["text"].pop(0))
 
-    async def code(self, model: str, system: str, user: str) -> str:
+    async def code(
+        self, model: str, system: str, user: str, *, temperature: float | None = None
+    ) -> str:
         self.calls.append(("code", model, system, user))
         return str(self.queues["code"].pop(0))
 
