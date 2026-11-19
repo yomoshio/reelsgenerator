@@ -21,7 +21,7 @@ class LlmError(Exception):
 
 
 class NoCode(LlmError):
-    """The model answered, with no code in the answer."""
+    """The model answered with no code to run; the message says so to the model."""
 
 
 class Llm:
@@ -76,18 +76,25 @@ class Llm:
     ) -> str:
         """The last fenced code block of the answer; a block the answer never closed counts,
         and so does bare code that defines the scene. The answer is cut at CODE_TOKENS."""
-        answer = await self._chat(
+        answer, finish = await self._complete(
             model,
             [_message("system", system), _message("user", user)],
             temperature=temperature,
             max_tokens=CODE_TOKENS,
         )
+        if finish == "length":
+            raise NoCode(
+                "your answer ran on until it was cut off; a scene is ten to forty lines. Write "
+                "`function scene(s) { ... }` once, short, in one ```js block, and stop"
+            )
         blocks = [b for b in _FENCE.findall(answer) if b.strip()]
         if blocks:
             return str(blocks[-1]).strip()
         if bare := _SCENE.search(answer):
             return bare.group(0).strip()
-        raise NoCode(f"{model} answered without code")
+        raise NoCode(
+            "your answer had no code; answer with `function scene(s) { ... }` in one ```js block"
+        )
 
     async def _chat(
         self,
@@ -98,6 +105,22 @@ class Llm:
         temperature: float | None = None,
         max_tokens: int | None = None,
     ) -> str:
+        return (
+            await self._complete(
+                model, messages, response_format, temperature=temperature, max_tokens=max_tokens
+            )
+        )[0]
+
+    async def _complete(
+        self,
+        model: str,
+        messages: list[dict[str, object]],
+        response_format: object = None,
+        *,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+    ) -> tuple[str, str]:
+        """The answer and why it ended: "stop", or "length" when it was cut."""
         body: dict[str, object] = {
             "model": model,
             "messages": messages,
@@ -114,7 +137,8 @@ class Llm:
         if response.status_code != httpx.codes.OK:
             raise LlmError(f"{model} answered {response.status_code}: {response.text[:300]}")
         try:
-            return str(response.json()["choices"][0]["message"]["content"])
+            choice = response.json()["choices"][0]
+            return str(choice["message"]["content"]), str(choice.get("finish_reason") or "stop")
         except (KeyError, IndexError, json.JSONDecodeError) as exc:
             raise LlmError(f"{model} answered in an unknown shape: {response.text[:300]}") from exc
 

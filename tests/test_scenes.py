@@ -226,7 +226,7 @@ async def test_an_answer_without_code_is_a_round_not_a_crash(tmp_path: Path) -> 
         async def code(self, *args: object, **kwargs: object) -> str:
             reply = await super().code(*args, **kwargs)  # type: ignore[arg-type]
             if not reply:
-                raise NoCode("m answered without code")
+                raise NoCode("your answer had no code")
             return reply
 
     llm = Mute().answer("code", "", _good(ep, 0)).answer("Looked", YES)

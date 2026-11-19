@@ -24,7 +24,6 @@ from reelsmith.styles import Style
 from reelsmith.text import words
 
 API = Path(__file__).parent.parent.parent / "runtime" / "API.md"
-NO_CODE = "your answer had no code; answer with `function scene(s) { ... }` in one ```js block"
 FIXED = [
     "Is anything floating in the air, cut off, or standing inside something else?",
     "Does the picture show what the lines say?",
@@ -248,8 +247,8 @@ async def stage_beat(
             code = await ctx.llm.code(
                 ctx.settings.coder, system, user, temperature=ctx.settings.coder_temperature
             )
-        except NoCode:
-            return "", Report(False, NO_CODE)
+        except NoCode as exc:
+            return "", Report(False, str(exc))
         return code, await draw(code)
 
     best: tuple[str, Report, list[str]] | None = None
@@ -272,9 +271,9 @@ async def stage_beat(
             return SceneResult(code, report, done, False, [], tries)
         if report.error is None and (best is None or len(faults) < len(best[2])):
             best = (code, report, faults)
-        feedback = (
-            f"\n\nYour last code:\n```js\n{code}\n```\nIt has these problems. Fix them and give "
-            "the whole code again:\n" + "\n".join(f"- {f}" for f in faults)
+        last = f"Your last code:\n```js\n{code}\n```\nIt has these problems" if code else "Problems"
+        feedback = f"\n\n{last}. Fix them and give the whole code again:\n" + "\n".join(
+            f"- {f}" for f in faults
         )
     if best is not None and len(best[2]) <= 1:
         return SceneResult(best[0], best[1], ctx.settings.rounds, False, best[2], tries)

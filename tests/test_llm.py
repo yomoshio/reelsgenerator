@@ -92,3 +92,13 @@ async def test_code_survives_an_unclosed_block_and_bare_code() -> None:
         await llm.code("m", "s", "u")
     assert seen[0]["max_tokens"] == CODE_TOKENS
     assert seen[1]["temperature"] == 0.1
+
+
+async def test_a_code_answer_cut_at_the_limit_is_not_run() -> None:
+    def reply(request: httpx.Request) -> httpx.Response:
+        choice = {"message": {"content": "```js\nfunction scene(s) {"}, "finish_reason": "length"}
+        return httpx.Response(200, json={"choices": [choice]})
+
+    llm = Llm("http://x/v1", transport=httpx.MockTransport(reply))
+    with pytest.raises(NoCode, match="cut off"):
+        await llm.code("m", "s", "u")
