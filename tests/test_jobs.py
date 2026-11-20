@@ -80,3 +80,23 @@ async def test_a_job_goes_through_every_stage_in_one_pass(tmp_path: Path) -> Non
     done = jobs.get(job.id)
     assert done.status == Status.VOICED
     assert [e.step for e in done.log] == ["write", "voice"]
+
+
+def test_a_job_sent_back_loses_the_work_of_later_steps(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from reelsmith import cli
+
+    monkeypatch.setenv("REELSMITH_JOBS", str(tmp_path))
+    jobs = Jobs(tmp_path)
+    job = jobs.create(Source(kind="idea", text="x"), "blackout")
+    folder = jobs.folder(job)
+    for name in ("plan.json", "episode.json", "final.mp4"):
+        (folder / name).write_text("x")
+    for name in ("voice", "scenes", "keys", "clips"):
+        (folder / name).mkdir()
+        (folder / name / "beat01").write_text("x")
+    cli.retry(job.id, Status.VOICED)
+    assert sorted(p.name for p in folder.iterdir()) == [
+        "episode.json", "job.json", "plan.json", "source.txt", "voice",
+    ]  # fmt: skip
