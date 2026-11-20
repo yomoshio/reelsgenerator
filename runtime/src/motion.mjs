@@ -174,7 +174,15 @@ export function makeMotion(decl, place) {
       const q = rig.ease((t - seat.t) / rig.EASE);
       hip = [standingHip[0] + (sp[0] - standingHip[0]) * q, standingHip[1] + (sp[1] - standingHip[1]) * q];
     }
-    return rig.bones([x, ground(pr, x)], a, s, facing, hip);
+    const out = rig.bones([x, ground(pr, x)], a, s, facing, hip);
+    // The face: what the scene said last, or what the pose comes with. Eyes close for a
+    // moment every few seconds, each person in their own time.
+    const said = (pr.moods ?? []).filter((m) => m.t <= t).at(-1);
+    out.mood = said?.mood ?? rig.POSE_MOOD[now.pose] ?? "neutral";
+    const beat = (t + (seedOf(pr.key) % 37) / 10) % 3.7;
+    out.blink = beat < 0.14 ? Math.abs(beat - 0.07) / 0.07 : 1;
+    out.gaze = now.pose === "look_down" ? 1 : 0;
+    return out;
   }
 
   return { k, thingState, thingFoot, thingBox, personX, targetPoint, seatAt, personBones, ground };

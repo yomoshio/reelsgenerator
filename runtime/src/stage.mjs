@@ -37,6 +37,16 @@ const ALIASES = {
   hear: "listen", wave: "point", show: "point",
 };
 
+// Words the model uses for a face, and the mood the rig has for each.
+const FEELINGS = {
+  smile: "happy", laugh: "happy", grin: "happy", relieved: "happy", calm: "neutral",
+  cry: "sad", sigh: "sad", upset: "sad", disappointed: "sad", shake_head: "sad",
+  afraid: "scared", fear: "scared", panic: "scared", scream: "scared", terrified: "scared",
+  shout: "angry", yell: "angry", furious: "angry", annoyed: "angry", frown: "angry",
+  shocked: "surprised", gasp: "surprised", confused: "worried", nervous: "worried", anxious: "worried",
+  think: "worried", sleepy: "tired", exhausted: "tired", sleep: "tired",
+};
+
 // The longest walk in from off the frame, edge to edge at walking speed.
 const ENTER_SECONDS = 4;
 
@@ -115,7 +125,7 @@ export function makeStage(input, library = {}) {
 
   // --- people -----------------------------------------------------------------------------
   function person(key, opts = {}) {
-    opts = options(opts, ["x", "facing", "pose", "level", "floor", "enter"], `s.person("${key}")`, decl.ignored);
+    opts = options(opts, ["x", "facing", "pose", "mood", "level", "floor", "enter"], `s.person("${key}")`, decl.ignored);
     if (handles[key]) return handles[key];
     // A name outside the cast is somebody in the crowd: a queue, a passer-by.
     const card = cast[key]?.card ?? EXTRA;
@@ -123,8 +133,14 @@ export function makeStage(input, library = {}) {
       kind: "person", key, id: key, card, extra: !cast[key], level: opts.level ?? opts.floor ?? 1,
       x0: px(opts.x ?? 0.5), facing0: opts.facing === "left" ? -1 : 1,
       cues: [{ t: 0, pose: pose(opts.pose ?? "stand"), target: null }], walks: [], looks: [], sits: [],
-      appear: 0,
+      appear: 0, moods: [],
     };
+    const feel = (name, at_) => {
+      const mood = rig.MOODS[name] ? name : FEELINGS[name];
+      if (mood) pr.moods.push({ t: at_, mood });
+      return !!mood;
+    };
+    if (opts.mood && !feel(opts.mood, 0)) decl.ignored.push(`mood ${opts.mood}`);
     decl.people.push(pr);
     const aimed = (pose, target, o) => {
       if ((target?.__ref ?? target?.ref) === pr) target = null; // a hand to one's own pocket
@@ -135,6 +151,9 @@ export function makeStage(input, library = {}) {
     const handle = strict({
       id: key,
       pose(name, o = {}) {
+        // A pose the rig lacks is often a feeling: `shout`, `smile`, `cry`.
+        const felt = !rig.POSES[name] && feel(name, time(o.at));
+        if (felt && !ALIASES[name]) return handle;
         pr.cues.push({ t: time(o.at), pose: pose(name), target: o.target ?? null });
         decl.events++;
         return handle;
@@ -186,6 +205,11 @@ export function makeStage(input, library = {}) {
         return handle;
       },
       part: () => handle,
+      mood(name, o = {}) {
+        if (!feel(name, time(o.at))) decl.ignored.push(`mood ${name}`);
+        decl.events++;
+        return handle;
+      },
       x: pr.x0 / W, // where they start, as a share of the width, for code that draws by hand
       __ref: pr,
     }, key, decl.ignored);
@@ -291,6 +315,16 @@ export function makeStage(input, library = {}) {
     custom(ctx, t, "back");
     const drawThing = (th) => {
       const [x, y] = thingFoot(th, t);
+      // What stands on the floor darkens it underneath.
+      if (th.spec.on === "floor" && !th.base && !th.holder && !th.spec.flat) {
+        ctx.save();
+        ctx.filter = "blur(10px)";
+        ctx.beginPath();
+        ctx.ellipse(x, y + 8, th.spec.w * th.scale * 0.56, 13, 0, 0, 2 * Math.PI);
+        ctx.fillStyle = "rgba(0,0,0,0.55)";
+        ctx.fill();
+        ctx.restore();
+      }
       ctx.save();
       ctx.translate(x, y);
       ctx.scale(th.scale * th.flip, th.scale);

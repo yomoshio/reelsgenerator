@@ -23,17 +23,23 @@ export function seedOf(text) {
   return h >>> 0;
 }
 
-export function shade(hex, k) {
-  const n = parseInt(hex.slice(1), 16);
-  let r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+// The red, green and blue of "#RRGGBB" or of "rgb(r,g,b)", which shade() itself gives.
+function parts(colour) {
+  if (colour.startsWith("rgb")) return colour.match(/[\d.]+/g).slice(0, 3).map(Number);
+  const n = parseInt(colour.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+export function shade(colour, k) {
+  let [r, g, b] = parts(colour);
   if (k <= 1) [r, g, b] = [r * k, g * k, b * k];
   else [r, g, b] = [r + (255 - r) * (k - 1), g + (255 - g) * (k - 1), b + (255 - b) * (k - 1)];
   return `rgb(${Math.round(r)},${Math.round(g)},${Math.round(b)})`;
 }
 
-export function alpha(hex, a) {
-  const n = parseInt(hex.slice(1), 16);
-  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+export function alpha(colour, a) {
+  const [r, g, b] = parts(colour);
+  return `rgba(${r},${g},${b},${a})`;
 }
 
 function vertical(ctx, x, y, w, h, stops) {
@@ -69,22 +75,79 @@ function wall(ctx, p, floor, seams = true) {
       ctx.stroke();
     }
   }
+  // The room is a box seen from inside: the ceiling comes forward over the viewer and the
+  // side walls close in at the edges, each darker than the wall ahead.
+  const inset = 64, top = SCENE_TOP - 26;
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(W, 0);
+  ctx.lineTo(W - inset, top);
+  ctx.lineTo(inset, top);
+  ctx.closePath();
+  ctx.fillStyle = shade(p.night, 0.8);
+  ctx.fill();
+  for (const [edge, inner] of [[0, inset], [W, W - inset]]) {
+    ctx.beginPath();
+    ctx.moveTo(edge, 0);
+    ctx.lineTo(inner, top);
+    ctx.lineTo(inner, floor - 26);
+    ctx.lineTo(edge, floor + 30);
+    ctx.closePath();
+    const g = ctx.createLinearGradient(edge, 0, inner, 0);
+    g.addColorStop(0, shade(p.wall, 0.42));
+    g.addColorStop(1, shade(p.wall, 0.7));
+    ctx.fillStyle = g;
+    ctx.fill();
+    ctx.strokeStyle = shade(p.wall, 0.5);
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(inner, top);
+    ctx.lineTo(inner, floor - 26);
+    ctx.stroke();
+  }
+  ctx.fillStyle = shade(p.line, 0.9);
+  ctx.fillRect(inset, top - 4, W - 2 * inset, 10);
+  // Where the wall meets the floor it is darkest; the skirting board catches a line of light.
+  const corner = ctx.createLinearGradient(0, floor - 150, 0, floor - 18);
+  corner.addColorStop(0, "rgba(0,0,0,0)");
+  corner.addColorStop(1, "rgba(0,0,0,0.3)");
+  ctx.fillStyle = corner;
+  ctx.fillRect(0, floor - 150, W, 132);
   ctx.fillStyle = shade(p.line, 1.1);
-  ctx.fillRect(0, floor - 18, W, 22);
+  ctx.fillRect(0, floor - 26, W, 30);
+  ctx.fillStyle = shade(p.line, 1.6);
+  ctx.fillRect(0, floor - 26, W, 3);
+  ctx.fillStyle = shade(p.line, 0.6);
+  ctx.fillRect(0, floor - 2, W, 6);
 }
 
+// A floor that runs away from the viewer: boards drawn toward one point behind the wall,
+// lighter by the wall where the lamp falls, darker toward the viewer.
 function ground(ctx, p, floor, lines = true) {
-  vertical(ctx, 0, floor, W, H - floor, [p.floor, shade(p.floor, 0.6)]);
+  vertical(ctx, 0, floor, W, H - floor, [shade(p.floor, 1.22), p.floor, shade(p.floor, 0.5)]);
   if (!lines) return;
-  ctx.strokeStyle = alpha(p.light, 0.06);
+  const far = [W / 2, floor - 520];
+  ctx.strokeStyle = alpha(p.light, 0.075);
   ctx.lineWidth = 2;
-  for (let i = 1; i <= 6; i++) {
-    const y = floor + i * i * 9;
+  for (let x = -1400; x <= W + 1400; x += 150) {
+    ctx.beginPath();
+    ctx.moveTo(far[0] + ((x - far[0]) * 520) / (H - far[1]), floor);
+    ctx.lineTo(x, H);
+    ctx.stroke();
+  }
+  for (let i = 1; i <= 5; i++) {
+    const y = floor + i * i * 11;
+    ctx.strokeStyle = alpha(p.light, 0.05);
     ctx.beginPath();
     ctx.moveTo(0, y);
     ctx.lineTo(W, y);
     ctx.stroke();
   }
+  const shadow = ctx.createLinearGradient(0, floor, 0, floor + 46);
+  shadow.addColorStop(0, "rgba(0,0,0,0.42)");
+  shadow.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = shadow;
+  ctx.fillRect(0, floor, W, 46);
 }
 
 function stars(ctx, seed, top, bottom, count = 50) {

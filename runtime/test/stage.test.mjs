@@ -154,7 +154,7 @@ for (const [what, code, left] of [
   ["a guessed method of the stage", `function scene(s) { s.place("room"); s.plate("ОШИБКА").at("воду"); }`, "s.plate"],
   ["a guessed method of a person", `function scene(s) { s.person("artem").shout({ at: "воду" }).pose("point"); }`, "artem.shout"],
   ["a guessed option", `function scene(s) { s.person("artem", { x: 0.4, y: 0.1 }); }`, 's.person("artem") option y'],
-  ["a guessed pose", `function scene(s) { s.person("artem").pose("smile", { at: "воду" }); }`, "pose smile"],
+  ["a guessed pose", `function scene(s) { s.person("artem").pose("juggle", { at: "воду" }); }`, "pose juggle"],
   ["a guessed device", `function scene(s) { s.person("artem"); s.device("stamp", { text: "x" }); }`, 's.device("stamp")'],
 ]) {
   test(`${what} is left out and the rest is drawn`, () => {
@@ -201,4 +201,11 @@ test("a reach at oneself and arithmetic on a handle do not crash the scene", () 
     a.reach(a, { at: "воду" }); const ghost = s.thing("nowhere");
     s.draw((ctx) => ctx.fillRect(a.x * 1080 + ghost.x * 2, 900, 10, 10)); s.camera.push({ to: [a.x + 0.05, 0.6], at: "воду" }); }`));
   assert.equal(r.error, null);
+});
+
+test("a feeling asked as a pose or as a mood shows on the face", () => {
+  const r = run(input(`function scene(s) { s.place("room"); const a = s.person("artem", { mood: "worried" });
+    a.pose("smile", { at: "сидит" }); a.mood("scared", { at: "воду" }); a.mood("glum", { at: "внизу" }); }`));
+  assert.equal(r.error, null);
+  assert.deepEqual(r.ignored, ["mood glum"]);
 });

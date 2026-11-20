@@ -4,13 +4,53 @@
 // can sit on, and how it looks at each of its states.
 
 import { readFileSync } from "node:fs";
-import { loadImage } from "skia-canvas";
+import { Canvas, loadImage } from "skia-canvas";
 import { H, W, alpha, rng, seedOf, shade, ScriptError } from "./places.mjs";
 
+// A block with a body: lit from above, darker toward the floor, a contour around it, a
+// line of light on its top edge and a shadow down the side turned from the light. Small
+// details, a key of a keypad, stay flat.
 const box = (ctx, x, y, w, h, colour) => {
-  ctx.fillStyle = colour;
+  if (Math.min(w, h) < 12 || colour.startsWith("rgba")) {
+    ctx.fillStyle = colour;
+    ctx.fillRect(x, y, w, h);
+    return;
+  }
+  ctx.fillStyle = OUT;
+  ctx.fillRect(x - 2.5, y - 2.5, w + 5, h + 5);
+  const g = ctx.createLinearGradient(0, y, 0, y + h);
+  g.addColorStop(0, shade(colour, 1.12));
+  g.addColorStop(1, shade(colour, 0.8));
+  ctx.fillStyle = g;
   ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = alpha("#FFFFFF", 0.16);
+  ctx.fillRect(x, y, w, Math.min(3, h / 4));
+  ctx.fillStyle = "rgba(0,0,0,0.22)";
+  ctx.fillRect(x, y, Math.min(w * 0.12, 9), h);
 };
+// The top of a table or a seat, seen a little from above: it runs back from the front edge
+// at (x, y), `depth` px up the picture, narrowing as it goes.
+const slab = (ctx, x, y, w, depth, colour) => {
+  const skew = depth * 0.55;
+  const path = (grow) => {
+    ctx.beginPath();
+    ctx.moveTo(x - grow, y + grow);
+    ctx.lineTo(x + w + grow, y + grow);
+    ctx.lineTo(x + w - skew + grow, y - depth - grow);
+    ctx.lineTo(x + skew - grow, y - depth - grow);
+    ctx.closePath();
+  };
+  path(2.5);
+  ctx.fillStyle = OUT;
+  ctx.fill();
+  path(0);
+  const g = ctx.createLinearGradient(0, y - depth, 0, y);
+  g.addColorStop(0, shade(colour, 1.05));
+  g.addColorStop(1, shade(colour, 1.32));
+  ctx.fillStyle = g;
+  ctx.fill();
+};
+const OUT = "rgba(6,8,14,0.9)";
 const line = (ctx, pts, width, colour) => {
   ctx.beginPath();
   ctx.moveTo(...pts[0]);
@@ -21,9 +61,18 @@ const line = (ctx, pts, width, colour) => {
   ctx.stroke();
 };
 const round = (ctx, x, y, w, h, r, colour) => {
+  if (Math.min(w, h) >= 12) {
+    ctx.beginPath();
+    ctx.roundRect(x - 2.5, y - 2.5, w + 5, h + 5, r + 2);
+    ctx.fillStyle = OUT;
+    ctx.fill();
+  }
   ctx.beginPath();
   ctx.roundRect(x, y, w, h, r);
-  ctx.fillStyle = colour;
+  const g = ctx.createLinearGradient(0, y, 0, y + h);
+  g.addColorStop(0, shade(colour, 1.12));
+  g.addColorStop(1, shade(colour, 0.8));
+  ctx.fillStyle = Math.min(w, h) >= 12 ? g : colour;
   ctx.fill();
 };
 
@@ -111,35 +160,44 @@ export const FIXTURES = {
   bench: {
     w: 360, h: 130, on: "floor", parts: { seat: [0, -125] },
     draw(ctx) {
+      for (const lx of [-142, 126]) box(ctx, lx, -124, 12, 98, shade(WOOD_DARK, 0.7));
+      for (const lx of [-166, 150]) box(ctx, lx, -98, 16, 98, WOOD_DARK);
+      slab(ctx, -180, -130, 360, 30, WOOD);
       box(ctx, -180, -130, 360, 24, WOOD);
       box(ctx, -180, -106, 360, 8, WOOD_DARK);
-      for (const lx of [-166, 150]) box(ctx, lx, -98, 16, 98, WOOD_DARK);
     },
   },
   chair: {
     w: 130, h: 270, on: "floor", parts: { seat: [0, -135] },
     draw(ctx) {
-      box(ctx, -65, -140, 130, 18, WOOD);
+      box(ctx, 34, -150, 12, 122, shade(WOOD_DARK, 0.7));
       box(ctx, -65, -270, 16, 270, WOOD_DARK);
       box(ctx, 50, -122, 14, 122, WOOD_DARK);
-      box(ctx, -60, -260, 14, 110, WOOD);
+      box(ctx, -60, -262, 14, 112, WOOD);
+      box(ctx, -49, -250, 40, 14, WOOD);
+      box(ctx, -49, -205, 40, 14, WOOD);
+      slab(ctx, -65, -140, 130, 26, WOOD);
+      box(ctx, -65, -140, 130, 18, WOOD);
     },
   },
   table: {
     w: 380, h: 240, on: "floor", parts: { top: [0, -240] },
     draw(ctx) {
-      box(ctx, -190, -240, 380, 26, WOOD);
-      box(ctx, -190, -214, 380, 8, WOOD_DARK);
+      for (const lx of [-150, 134]) box(ctx, lx, -236, 14, 206, shade(WOOD_DARK, 0.7));
       for (const lx of [-176, 160]) box(ctx, lx, -206, 18, 206, WOOD_DARK);
       box(ctx, -168, -110, 336, 14, WOOD_DARK);
+      slab(ctx, -190, -240, 380, 34, WOOD);
+      box(ctx, -190, -240, 380, 26, WOOD);
+      box(ctx, -190, -214, 380, 8, WOOD_DARK);
     },
   },
   counter: {
     w: 440, h: 260, on: "floor", parts: { top: [0, -260], front: [0, -130] },
     draw(ctx, s, t, p) {
-      box(ctx, -220, -260, 440, 28, shade(p.light, 0.55));
       box(ctx, -210, -232, 420, 232, shade(p.wall, 1.25));
-      box(ctx, -210, -232, 420, 10, shade(p.wall, 0.8));
+      for (const cx of [-140, 0, 140]) box(ctx, cx - 58, -200, 116, 170, shade(p.wall, 1.12));
+      slab(ctx, -220, -260, 440, 34, shade(p.light, 0.55));
+      box(ctx, -220, -260, 440, 28, shade(p.light, 0.55));
       box(ctx, 40, -320, 120, 60, "#2A2F38");
       box(ctx, 52, -312, 96, 38, alpha(p.key ?? "#F2C230", 0.35));
     },
@@ -148,6 +206,7 @@ export const FIXTURES = {
     w: 360, h: 520, on: "floor", parts: { top: [0, -520], middle: [0, -300] },
     draw(ctx, s, t, p, seed) {
       const r = rng(seed);
+      slab(ctx, -180, -518, 360, 24, shade(p.wall, 0.9));
       box(ctx, -180, -520, 360, 520, shade(p.wall, 0.75));
       const tones = ["#B8443A", "#D9B44A", "#4A7A9A", "#6A8A4A", "#C6C0B0", "#8A5A9A"];
       for (let k = 0; k < 5; k++) {
@@ -170,6 +229,7 @@ export const FIXTURES = {
       ctx.translate(110, 0);
       ctx.rotate((-fallen * 70 * Math.PI) / 180);
       ctx.translate(-110, 0);
+      slab(ctx, -110, -418, 220, 24, WOOD_DARK);
       round(ctx, -110, -420, 220, 420, 6, WOOD_DARK);
       box(ctx, -96, -406, 92, 392, WOOD);
       box(ctx, 4, -406, 92, 392, WOOD);
@@ -185,6 +245,7 @@ export const FIXTURES = {
   atm: {
     w: 180, h: 400, on: "floor", parts: { screen: [0, -290], slot: [0, -210], keys: [0, -170] },
     draw(ctx, s, t, p) {
+      slab(ctx, -90, -398, 180, 22, "#4A525E");
       round(ctx, -90, -400, 180, 400, 10, "#4A525E");
       box(ctx, -90, -400, 180, 46, p.solved ?? "#2E9E5B");
       ctx.fillStyle = "#0E1218";
@@ -309,12 +370,34 @@ export async function libraryThing(name, file, colour, h = SMALL.test(name) ? 90
   let svg = readFileSync(file, "utf8");
   svg = svg.replace(/fill="(?!none)[^"]*"/g, `fill="${colour}"`).replace(/fill:\s*(?!none)[^;"]+/g, `fill:${colour}`);
   if (!/fill=/.test(svg)) svg = svg.replace(/<path/g, `<path fill="${colour}"`);
-  const image = await loadImage(Buffer.from(svg));
-  const w = (h * image.width) / Math.max(image.height, 1);
+  const flat = await loadImage(Buffer.from(svg));
+  const w = (h * flat.width) / Math.max(flat.height, 1);
+  // The silhouette gets a body once, when it is loaded: light from above, a dark contour.
+  const pad = 6, k = 2;
+  const made = new Canvas((w + 2 * pad) * k, (h + 2 * pad) * k);
+  const c = made.getContext("2d");
+  c.scale(k, k);
+  for (let a = 0; a < 8; a++) c.drawImage(flat, pad + Math.cos((a * Math.PI) / 4) * 2.5, pad + Math.sin((a * Math.PI) / 4) * 2.5, w, h);
+  c.globalCompositeOperation = "source-in";
+  c.fillStyle = OUT;
+  c.fillRect(0, 0, w + 2 * pad, h + 2 * pad);
+  const body = new Canvas((w + 2 * pad) * k, (h + 2 * pad) * k);
+  const d = body.getContext("2d");
+  d.scale(k, k);
+  d.drawImage(flat, pad, pad, w, h);
+  d.globalCompositeOperation = "source-atop";
+  const g = d.createLinearGradient(0, pad, 0, pad + h);
+  g.addColorStop(0, "rgba(255,255,255,0.3)");
+  g.addColorStop(0.5, "rgba(255,255,255,0)");
+  g.addColorStop(1, "rgba(0,0,0,0.38)");
+  d.fillStyle = g;
+  d.fillRect(0, 0, w + 2 * pad, h + 2 * pad);
+  c.globalCompositeOperation = "source-over";
+  c.drawImage(body, 0, 0, w + 2 * pad, h + 2 * pad);
   return {
     w, h, on: "floor", small: h < 120, parts: { top: [0, -h], middle: [0, -h / 2] },
     draw(ctx) {
-      ctx.drawImage(image, -w / 2, -h, w, h);
+      ctx.drawImage(made, -w / 2 - pad, -h - pad, w + 2 * pad, h + 2 * pad);
     },
   };
 }
