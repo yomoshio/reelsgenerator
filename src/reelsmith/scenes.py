@@ -9,7 +9,7 @@ place, its things in a row, the people standing, a slow push in. The episode nev
 on one bad beat."""
 
 import json
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from pydantic import BaseModel
@@ -17,6 +17,7 @@ from pydantic import BaseModel
 from reelsmith import runtime
 from reelsmith.captions import WIDTH, Word
 from reelsmith.jobs import Context, Job
+from reelsmith.llm import NoCode
 from reelsmith.runtime import Report
 from reelsmith.story import Beat, Episode, Reveal, prompt
 from reelsmith.styles import Style
@@ -46,6 +47,7 @@ class SceneResult:
     rounds: int
     fallback: bool
     left: list[str]
+    tries: list[dict[str, object]] = field(default_factory=list)
 
 
 @dataclass
@@ -108,6 +110,8 @@ def brief(ep: Episode, n: int, timing: Timing, stood: dict[str, float], note: st
         if kept
         else "",
         f"Notes from a person who watched it: {note}" if note else "",
+        "Write `function scene(s) { ... }` for this beat only, with these characters, things "
+        "and words, in one ```js block.",
     ]
     return "\n".join(p for p in parts if p)
 
@@ -236,15 +240,25 @@ async def stage_beat(
         )  # fmt: skip
         return await runtime.keys(ctx.settings, data)
 
+    async def write(user: str) -> tuple[str, Report]:
+        """A draft and how it draws. An answer without code is a failed draft like any other:
+        the coder is told and tries again."""
+        try:
+            code = await ctx.llm.code(
+                ctx.settings.coder, system, user, temperature=ctx.settings.coder_temperature
+            )
+        except NoCode as exc:
+            return "", Report(False, str(exc))
+        return code, await draw(code)
+
     best: tuple[str, Report, list[str]] | None = None
+    tries: list[dict[str, object]] = []
     feedback = ""
     for done in range(1, ctx.settings.rounds + 1):
-        code = await ctx.llm.code(ctx.settings.coder, system, task + feedback)
-        report = await draw(code)
+        code, report = await write(task + feedback)
         if done == 1:
             for _ in range(ctx.settings.variants - 1):
-                other = await ctx.llm.code(ctx.settings.coder, system, task)
-                drawn = await draw(other)
+                other, drawn = await write(task)
                 if len(drawn.faults()) < len(report.faults()):
                     code, report = other, drawn
             if ctx.settings.variants > 1:
@@ -252,20 +266,21 @@ async def stage_beat(
         faults = report.faults()
         if not faults:
             faults = await look(ctx, report.pngs, beat)
+        tries.append({"code": code, "faults": faults})
         if not faults:
-            return SceneResult(code, report, done, False, [])
+            return SceneResult(code, report, done, False, [], tries)
         if report.error is None and (best is None or len(faults) < len(best[2])):
             best = (code, report, faults)
-        feedback = (
-            f"\n\nYour last code:\n```js\n{code}\n```\nIt has these problems. Fix them and give "
-            "the whole code again:\n" + "\n".join(f"- {f}" for f in faults)
+        last = f"Your last code:\n```js\n{code}\n```\nIt has these problems" if code else "Problems"
+        feedback = f"\n\n{last}. Fix them and give the whole code again:\n" + "\n".join(
+            f"- {f}" for f in faults
         )
     if best is not None and len(best[2]) <= 1:
-        return SceneResult(best[0], best[1], ctx.settings.rounds, False, best[2])
+        return SceneResult(best[0], best[1], ctx.settings.rounds, False, best[2], tries)
     plain = fallback(beat, ep.place(beat.place).kind, stood)
     report = await draw(plain)
     left = (best[2] if best else []) + report.faults()
-    return SceneResult(plain, report, ctx.settings.rounds, True, left)
+    return SceneResult(plain, report, ctx.settings.rounds, True, left, tries)
 
 
 def timings(folder: Path) -> list[Timing]:
@@ -309,6 +324,7 @@ async def stage(job: Job, folder: Path, ctx: Context) -> None:
                     "rounds": result.rounds,
                     "fallback": result.fallback,
                     "left": result.left,
+                    "tries": result.tries,
                     "graph": result.report.graph,
                 },
                 ensure_ascii=False,

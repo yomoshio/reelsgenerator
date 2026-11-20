@@ -8,6 +8,7 @@ import pytest
 from reelsmith import scenes
 from reelsmith.captions import Word
 from reelsmith.jobs import Jobs, Source
+from reelsmith.llm import NoCode
 from reelsmith.story import Card, Episode, Staging
 from reelsmith.styles import Styles
 from tests.fakes import DATA, REPO, FakeLlm, context
@@ -216,3 +217,22 @@ def test_the_plain_scene_stands_people_clear_of_things_and_each_other() -> None:
     assert len(people) == 2
     assert abs(people[0] - people[1]) >= 0.15
     assert all(abs(p - t) >= 0.1 for p in people for t in things)
+
+
+async def test_an_answer_without_code_is_a_round_not_a_crash(tmp_path: Path) -> None:
+    ep = _episode()
+
+    class Mute(FakeLlm):
+        async def code(self, *args: object, **kwargs: object) -> str:
+            reply = await super().code(*args, **kwargs)  # type: ignore[arg-type]
+            if not reply:
+                raise NoCode("your answer had no code")
+            return reply
+
+    llm = Mute().answer("code", "", _good(ep, 0)).answer("Looked", YES)
+    result = await scenes.stage_beat(
+        _ctx(tmp_path, llm), STYLE, ep, 0, timing=_timing(ep, 0), keys=tmp_path / "k", stood={}
+    )
+    assert not result.fallback
+    assert result.rounds == 2
+    assert "had no code" in llm.calls[1][3]

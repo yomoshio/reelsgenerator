@@ -11,11 +11,17 @@ from pathlib import Path
 import httpx
 from pydantic import BaseModel, ValidationError
 
-_FENCE = re.compile(r"```(?:js|javascript|mjs)?[ \t]*\n(.*?)```", re.DOTALL)
+_FENCE = re.compile(r"```(?:js|javascript|mjs)?[ \t]*\n(.*?)(?:```|\Z)", re.DOTALL)
+_SCENE = re.compile(r"function\s+scene\s*\(.*", re.DOTALL)
+CODE_TOKENS = 4000  # a scene is some forty lines; room is left for a model that thinks first
 
 
 class LlmError(Exception):
     pass
+
+
+class NoCode(LlmError):
+    """The model answered with no code to run; the message says so to the model."""
 
 
 class Llm:
@@ -65,22 +71,63 @@ class Llm:
     async def text(self, model: str, system: str, user: str) -> str:
         return await self._chat(model, [_message("system", system), _message("user", user)])
 
-    async def code(self, model: str, system: str, user: str) -> str:
-        """The last fenced code block of the answer."""
-        answer = await self.text(model, system, user)
-        blocks = _FENCE.findall(answer)
-        if not blocks:
-            raise LlmError(f"{model} answered without a fenced code block")
-        return str(blocks[-1]).strip()
+    async def code(
+        self, model: str, system: str, user: str, *, temperature: float | None = None
+    ) -> str:
+        """The last fenced code block of the answer; a block the answer never closed counts,
+        and so does bare code that defines the scene. The answer is cut at CODE_TOKENS."""
+        answer, finish = await self._complete(
+            model,
+            [_message("system", system), _message("user", user)],
+            temperature=temperature,
+            max_tokens=CODE_TOKENS,
+        )
+        if finish == "length":
+            raise NoCode(
+                "your answer ran on until it was cut off; a scene is ten to forty lines. Write "
+                "`function scene(s) { ... }` once, short, in one ```js block, and stop"
+            )
+        blocks = [b for b in _FENCE.findall(answer) if b.strip()]
+        if blocks:
+            return str(blocks[-1]).strip()
+        if bare := _SCENE.search(answer):
+            return bare.group(0).strip()
+        raise NoCode(
+            "your answer had no code; answer with `function scene(s) { ... }` in one ```js block"
+        )
 
     async def _chat(
-        self, model: str, messages: list[dict[str, object]], response_format: object = None
+        self,
+        model: str,
+        messages: list[dict[str, object]],
+        response_format: object = None,
+        *,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
     ) -> str:
+        return (
+            await self._complete(
+                model, messages, response_format, temperature=temperature, max_tokens=max_tokens
+            )
+        )[0]
+
+    async def _complete(
+        self,
+        model: str,
+        messages: list[dict[str, object]],
+        response_format: object = None,
+        *,
+        temperature: float | None = None,
+        max_tokens: int | None = None,
+    ) -> tuple[str, str]:
+        """The answer and why it ended: "stop", or "length" when it was cut."""
         body: dict[str, object] = {
             "model": model,
             "messages": messages,
-            "temperature": self._temperature,
+            "temperature": self._temperature if temperature is None else temperature,
         }
+        if max_tokens is not None:
+            body["max_tokens"] = max_tokens
         if response_format is not None:
             body["response_format"] = response_format
         try:
@@ -90,7 +137,8 @@ class Llm:
         if response.status_code != httpx.codes.OK:
             raise LlmError(f"{model} answered {response.status_code}: {response.text[:300]}")
         try:
-            return str(response.json()["choices"][0]["message"]["content"])
+            choice = response.json()["choices"][0]
+            return str(choice["message"]["content"]), str(choice.get("finish_reason") or "stop")
         except (KeyError, IndexError, json.JSONDecodeError) as exc:
             raise LlmError(f"{model} answered in an unknown shape: {response.text[:300]}") from exc
 

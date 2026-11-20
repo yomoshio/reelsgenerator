@@ -7,7 +7,12 @@ is real: the command line, the stages, the scene runtime, ffmpeg.
 
 The planner "writes" the golden episode from tests/data, the coder "writes" the safe scene
 of each beat, the viewer finds nothing wrong, the narrator reads in silence at the right
-pace. What comes out shows that the parts fit together, never how good the models are."""
+pace. What comes out shows that the parts fit together, never how good the models are.
+
+    python scripts/rehearse.py --beats 4 --coder-url http://localhost:8080/v1 --coder NAME
+
+sends the scene code to a real coder model on any OpenAI-compatible server and keeps the
+stand-ins for the rest: a way to see how a model reads the scene API before renting a box."""
 
 import argparse
 import io
@@ -17,6 +22,7 @@ import re
 import subprocess
 import sys
 import threading
+import urllib.request
 import wave
 from email import message_from_bytes
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -85,7 +91,8 @@ def staged(ep: Episode, beat: Beat) -> Beat:
 
 
 class StandIn:
-    def __init__(self, ep: Episode) -> None:
+    def __init__(self, ep: Episode, coder_url: str = "") -> None:
+        self.coder_url = coder_url.rstrip("/")
         self.ep = ep.model_copy(update={"beats": [staged(ep, b) for b in ep.beats]})
 
     def answer(self, body: dict[str, Any]) -> str:
@@ -93,10 +100,22 @@ class StandIn:
         if isinstance(user, list):
             user = user[0]["text"]
         shape = body.get("response_format", {}).get("json_schema", {}).get("name")
+        if not shape and self.coder_url:
+            return self._real(body)
         made = getattr(self, f"_{shape}".lower(), None) if shape else self._code
         if made is None:
             raise KeyError(f"the rehearsal has no answer of the shape {shape}")
         return str(made(user))
+
+    def _real(self, body: dict[str, Any]) -> str:
+        """The answer of the real coder at `coder_url`, to the request as it came."""
+        request = urllib.request.Request(
+            f"{self.coder_url}/chat/completions",
+            data=json.dumps(body).encode(),
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(request, timeout=1800) as response:
+            return str(json.load(response)["choices"][0]["message"]["content"])
 
     def _outline(self, _: str) -> str:
         ep = self.ep
@@ -164,7 +183,7 @@ def handler(stand_in: StandIn) -> type[BaseHTTPRequestHandler]:
             if self.path.endswith("/chat/completions"):
                 try:
                     content = stand_in.answer(json.loads(raw))
-                except (KeyError, StopIteration) as exc:
+                except (KeyError, StopIteration, OSError) as exc:
                     self._send(500, "text/plain", str(exc).encode())
                     return
                 reply = {"choices": [{"message": {"role": "assistant", "content": content}}]}
@@ -193,11 +212,18 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("--beats", type=int, default=0, help="only the first beats; 0 is all")
     parser.add_argument("--jobs", type=Path, default=REPO / "review" / "rehearsal")
+    parser.add_argument(
+        "--coder-url",
+        default="",
+        help="a real coder behind an OpenAI-compatible API, such as http://localhost:8080/v1; "
+        "the scenes are then written by it, everything else stays a stand-in",
+    )
+    parser.add_argument("--coder", default="", help="the model's name on that server")
     args = parser.parse_args()
     ep = Episode.model_validate_json(GOLDEN.read_text(encoding="utf-8"))
     if args.beats:
         ep = ep.model_copy(update={"beats": ep.beats[: max(args.beats, 4)]})
-    server = ThreadingHTTPServer(("127.0.0.1", 0), handler(StandIn(ep)))
+    server = ThreadingHTTPServer(("127.0.0.1", 0), handler(StandIn(ep, args.coder_url)))
     threading.Thread(target=server.serve_forever, daemon=True).start()
     url = f"http://127.0.0.1:{server.server_port}"
     env = os.environ | {
@@ -208,6 +234,8 @@ def main() -> None:
         "REELSMITH_EDITOR": "",
         "REELSMITH_VARIANTS": "1",
     }
+    if args.coder:
+        env["REELSMITH_CODER"] = args.coder
     command = [sys.executable, "-c", "from reelsmith.cli import app; app()"]
     before = set(args.jobs.glob("*/job.json"))
     subprocess.run([*command, "add", ep.premise], env=env, cwd=REPO, check=True)

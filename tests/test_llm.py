@@ -5,7 +5,7 @@ import httpx
 import pytest
 from pydantic import BaseModel
 
-from reelsmith.llm import Llm, LlmError
+from reelsmith.llm import CODE_TOKENS, Llm, LlmError, NoCode
 
 
 class Answer(BaseModel):
@@ -54,12 +54,6 @@ async def test_code_takes_the_last_fenced_block() -> None:
     assert code == "function scene(s) {}"
 
 
-async def test_code_without_a_fence_is_an_error() -> None:
-    transport, _ = _replies("function scene(s) {}")
-    with pytest.raises(LlmError, match="fenced"):
-        await Llm("http://box/v1", transport=transport).code("m", "s", "u")
-
-
 async def test_images_go_as_data_urls(tmp_path: Path) -> None:
     png = tmp_path / "k.png"
     png.write_bytes(b"\x89PNG")
@@ -76,3 +70,35 @@ async def test_unreachable_box_is_an_llm_error() -> None:
     llm = Llm("http://box/v1", transport=httpx.MockTransport(refuse))
     with pytest.raises(LlmError, match="unreachable"):
         await llm.text("m", "s", "u")
+
+
+async def test_code_survives_an_unclosed_block_and_bare_code() -> None:
+    seen: list[dict[str, object]] = []
+
+    def reply(request: httpx.Request) -> httpx.Response:
+        seen.append(json.loads(request.content))
+        answers = [
+            "Here:\n```js\nfunction scene(s) { s.place('room'); }",
+            "function scene(s) {}",
+            "No.",
+        ]
+        content = answers[len(seen) - 1]
+        return httpx.Response(200, json={"choices": [{"message": {"content": content}}]})
+
+    llm = Llm("http://x/v1", transport=httpx.MockTransport(reply))
+    assert (await llm.code("m", "s", "u")).startswith("function scene(s) { s.place")
+    assert await llm.code("m", "s", "u", temperature=0.1) == "function scene(s) {}"
+    with pytest.raises(NoCode):
+        await llm.code("m", "s", "u")
+    assert seen[0]["max_tokens"] == CODE_TOKENS
+    assert seen[1]["temperature"] == 0.1
+
+
+async def test_a_code_answer_cut_at_the_limit_is_not_run() -> None:
+    def reply(request: httpx.Request) -> httpx.Response:
+        choice = {"message": {"content": "```js\nfunction scene(s) {"}, "finish_reason": "length"}
+        return httpx.Response(200, json={"choices": [choice]})
+
+    llm = Llm("http://x/v1", transport=httpx.MockTransport(reply))
+    with pytest.raises(NoCode, match="cut off"):
+        await llm.code("m", "s", "u")

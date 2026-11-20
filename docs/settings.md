@@ -20,6 +20,7 @@
 | `REELSMITH_CODER` | `qwen3-coder-next` | Пишет код сцен |
 | `REELSMITH_VISION` | `qwen3.5:27b` | Смотрит ключевые кадры; нужна модель, которая видит картинки |
 | `REELSMITH_TEMPERATURE` | `0.7` | Выше — смелее, ниже — строже |
+| `REELSMITH_CODER_TEMPERATURE` | `0.3` | То же для кода сцен: коду нужна точность, а не выдумка |
 
 ## Что делаем
 
