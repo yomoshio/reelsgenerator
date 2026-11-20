@@ -5,6 +5,7 @@
 // Where things are at a moment is motion.mjs; the camera, light, devices, plates and the
 // checks of what was declared each have a module of their own.
 
+import { options, strict } from "./strict.mjs";
 import "./canvas.mjs";
 import { Canvas } from "skia-canvas";
 import { FLOOR, H, HERO, SCENE_BOTTOM, SCENE_TOP, ScriptError, W, makePlace, seedOf } from "./places.mjs";
@@ -41,6 +42,7 @@ export function makeStage(input, library = {}) {
 
   // --- things -----------------------------------------------------------------------------
   function thing(name, opts = {}) {
+    options(opts, ["x", "scale", "flip", "state", "front", "level", "floor", "on"], `s.thing("${name}")`);
     const s = spec(name, library);
     const count = decl.things.filter((t) => t.name === name).length;
     const base = opts.on?.__ref ?? null;
@@ -53,7 +55,7 @@ export function makeStage(input, library = {}) {
       states: [{ t: 0, n: opts.state ?? 0 }], moves: [],
     };
     decl.things.push(t);
-    const handle = {
+    const handle = strict({
       id: t.id,
       state(n, o = {}) {
         t.states.push({ t: time(o.at), n });
@@ -70,12 +72,13 @@ export function makeStage(input, library = {}) {
         return { ref: t, part: partName };
       },
       __ref: t,
-    };
+    }, name);
     return handle;
   }
 
   // --- people -----------------------------------------------------------------------------
   function person(key, opts = {}) {
+    options(opts, ["x", "facing", "pose", "level", "floor", "enter"], `s.person("${key}")`);
     const card = cast[key]?.card;
     if (!card) throw new ScriptError(`no character '${key}'; characters: ${Object.keys(cast).join(", ")}`);
     if (decl.people.some((q) => q.key === key)) throw new ScriptError(`'${key}' is already on stage`);
@@ -83,10 +86,16 @@ export function makeStage(input, library = {}) {
       kind: "person", key, id: key, card, level: opts.level ?? opts.floor ?? 1,
       x0: px(opts.x ?? 0.5), facing0: opts.facing === "left" ? -1 : 1,
       cues: [{ t: 0, pose: opts.pose ?? "stand", target: null }], walks: [], looks: [], sits: [],
-      appear: opts.enter ? null : 0,
+      appear: 0,
     };
     decl.people.push(pr);
-    const handle = {
+    const aimed = (pose, target, o) => {
+      if (target === null || target === undefined) throw new ScriptError(`${key}.${pose} needs a target: a thing, a part of a thing or a person`);
+      pr.cues.push({ t: time(o.at), pose, target });
+      decl.events++;
+      return handle;
+    };
+    const handle = strict({
       id: key,
       pose(name, o = {}) {
         if (!rig.POSES[name]) throw new ScriptError(`no pose '${name}'; poses: ${Object.keys(rig.POSES).join(", ")}`);
@@ -118,21 +127,9 @@ export function makeStage(input, library = {}) {
         decl.events++;
         return handle;
       },
-      reach(target, o = {}) {
-        pr.cues.push({ t: time(o.at), pose: "reach", target });
-        decl.events++;
-        return handle;
-      },
-      point(target, o = {}) {
-        pr.cues.push({ t: time(o.at), pose: "point", target });
-        decl.events++;
-        return handle;
-      },
-      knock(target, o = {}) {
-        pr.cues.push({ t: time(o.at), pose: "knock", target });
-        decl.events++;
-        return handle;
-      },
+      reach: (target, o = {}) => aimed("reach", target, o),
+      point: (target, o = {}) => aimed("point", target, o),
+      knock: (target, o = {}) => aimed("knock", target, o),
       look(target, o = {}) {
         pr.looks.push({ t: time(o.at), target });
         decl.events++;
@@ -147,12 +144,12 @@ export function makeStage(input, library = {}) {
         return handle;
       },
       __ref: pr,
-    };
+    }, key);
     return handle;
   }
 
   // --- camera, light, devices, drawing ----------------------------------------------------
-  const camera = {
+  const camera = strict({
     push(o = {}) {
       decl.moves.push({ t0: time(o.at), t1: o.until !== undefined ? time(o.until) : null, to: o.to ?? null, zoom: o.zoom ?? 1.18 });
       decl.events++;
@@ -168,7 +165,7 @@ export function makeStage(input, library = {}) {
       decl.events++;
       return camera;
     },
-  };
+  }, "s.camera");
 
   function light(level, o = {}) {
     decl.lights.push({ t: time(o.at), level: Math.min(Math.max(level, 0), 1), flicker: !!o.flicker, until: o.until !== undefined ? time(o.until) : null });
@@ -185,11 +182,11 @@ export function makeStage(input, library = {}) {
     decl.draws.push({ fn, layer: o.layer ?? "front" });
   }
 
-  const api = {
+  const api = strict({
     W, H, floor: FLOOR, seconds, words: input.words.map((w) => w.text),
     place: (kind, opts) => (setPlace(kind, opts), undefined),
     thing, person, camera, light, device, draw, at,
-  };
+  }, "s");
 
   // --- a frame ----------------------------------------------------------------------------
   let backdrop = null;
@@ -224,6 +221,7 @@ export function makeStage(input, library = {}) {
     const people = [...decl.people].sort((a, b) => ground(a, personX(a, t).x) - ground(b, personX(b, t).x));
     const walkers = [];
     for (const pr of people) {
+      if (t < pr.appear) continue; // not in yet: `enter` brings them in from off the frame
       const b = personBones(pr, t);
       rig.draw(ctx, b, pr.card);
       walkers.push(b.hip[0]);

@@ -44,6 +44,9 @@ function run(context, code, timeout, filename) {
       throw new ScriptError(`${filename === "draw.js" ? "a draw call" : "the scene"} took longer than ${timeout / 1000} s; it must not loop for long`);
     }
     if (exc instanceof ScriptError) throw exc;
+    if (exc?.name === "ReferenceError" && /^s is not defined/.test(exc.message)) {
+      throw new ScriptError("`s` exists only inside `function scene(s) { ... }`; put the whole scene in that function");
+    }
     const where = String(exc?.stack ?? "").match(/scene\.js:(\d+)/);
     throw new ScriptError(`${exc?.name ?? "Error"}: ${exc?.message ?? exc}${where ? ` (line ${where[1]})` : ""}`);
   }

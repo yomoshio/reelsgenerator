@@ -95,3 +95,46 @@ test("nothing stands on a thing without a top", () => {
   const r = run(input(`function scene(s) { const d = s.thing("door"); s.thing("chair", { on: d }); }`));
   assert.match(r.error, /nothing can stand on 'door'/);
 });
+
+test("a person walks to a thing and to another person", () => {
+  const data = input(`function scene(s) {
+    s.place("room");
+    const door = s.thing("door", { x: 0.85 });
+    const a = s.person("artem", { x: 0.2 });
+    const l = s.person("lena", { x: 0.55 });
+    a.walk({ to: l, at: "сидит" });
+    l.walk({ to: door, at: "слушает" });
+  }`);
+  data.beat.cast = ["artem", "lena"];
+  data.characters.push({ key: "lena", name: "Лена", look: "", card: CARD });
+  const r = run(data);
+  assert.equal(r.error, null);
+  const x = (id) => { const b = r.graph.at(-1).items.find((i) => i.id === id).box; return b[0] + b[2] / 2; };
+  assert.ok(x("artem") > 300 && x("artem") < x("lena"), "artem did not come up to lena");
+  assert.ok(x("lena") > 700 && x("lena") < x("door"), "lena did not come up to the door");
+});
+
+for (const [what, code, says] of [
+  ["a guessed method of the stage", `function scene(s) { s.place("room"); s.push({ zoom: 1.1 }); }`, /s has no `push`; it has: .*camera/],
+  ["a guessed method of a person", `function scene(s) { s.person("artem").sits(); }`, /artem has no `sits`; it has: .*sit/],
+  ["a guessed option", `function scene(s) { s.person("artem", { x: 0.4, y: 0.1, face: "left" }); }`, /no option `y`, `face`; its options: x, facing/],
+  ["a reach at nothing", `function scene(s) { s.person("artem").reach(undefined, { at: 1 }); }`, /artem\.reach needs a target/],
+  ["code outside the scene function", `s.place("room");\nfunction scene(s) {}`, /only inside `function scene/],
+]) {
+  test(`${what} is answered with what exists`, () => {
+    assert.match(run(input(code)).error, says);
+  });
+}
+
+test("a person who enters is not on stage before the word", () => {
+  const data = input(`function scene(s) {
+    s.place("room");
+    const a = s.person("artem", { x: 0.5 });
+    a.enter({ from: "right", at: "воду" });
+  }`);
+  const r = run(data);
+  assert.equal(r.error, null);
+  assert.deepEqual(r.problems, []);
+  assert.equal(r.graph[0].items.some((i) => i.id === "artem"), false);
+  assert.equal(r.graph.at(-1).items.some((i) => i.id === "artem"), true);
+});

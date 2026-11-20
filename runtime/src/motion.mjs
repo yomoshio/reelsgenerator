@@ -69,7 +69,7 @@ export function makeMotion(decl, place) {
     for (const w of [...pr.walks].sort((a, b) => a.t0 - b.t0)) {
       if (t < w.t0) break;
       const from = w.from ?? x;
-      const goal = w.seat ? targetPoint(w.to, w.t0)[0] - 30 * Math.sign(targetPoint(w.to, w.t0)[0] - from || 1) : targetX(w.to, w.t0, pr);
+      const goal = w.seat ? targetPoint(w.to, w.t0)[0] - 30 * Math.sign(targetPoint(w.to, w.t0)[0] - from || 1) : targetX(w.to, w.t0, from);
       const dur = w.until !== null ? Math.max(w.until - w.t0, 0.1) : Math.max(Math.abs(goal - from) / WALK_SPEED, 0.3);
       const q = Math.min((t - w.t0) / dur, 1);
       x = from + (goal - from) * (w.seat ? rig.ease(q) : q);
@@ -85,13 +85,13 @@ export function makeMotion(decl, place) {
     const [tx] = targetPoint(target, t);
     return tx === x ? facing : tx > x ? 1 : -1;
   }
-  function targetX(target, t, self) {
+  // Where a walk ends: beside a thing or a person, on the side the walker comes from.
+  function targetX(target, t, from) {
     if (typeof target === "number") return px(target);
     const [x] = targetPoint(target, t);
     const ref = target?.__ref;
     if (ref?.kind === "thing" || ref?.kind === "person") {
       const box = ref.kind === "thing" ? thingBox(ref, t) : [x - 60, 0, 120, 0];
-      const from = personX(self, t).x;
       const gap = 40;
       return from < x ? box[0] - gap : box[0] + box[2] + gap;
     }
@@ -148,7 +148,7 @@ export function makeMotion(decl, place) {
     if (seat) {
       const sp = partPoint(seat.ref, "seat", t);
       const standingHip = rig.bones([x, ground(pr, x)], rig.poseAngles("stand"), s, facing).hip;
-      const q = rig.ease((t - pr.sits.find((z) => z.ref === seat.ref).t) / rig.EASE);
+      const q = rig.ease((t - seat.t) / rig.EASE);
       hip = [standingHip[0] + (sp[0] - standingHip[0]) * q, standingHip[1] + (sp[1] - standingHip[1]) * q];
     }
     return rig.bones([x, ground(pr, x)], a, s, facing, hip);
