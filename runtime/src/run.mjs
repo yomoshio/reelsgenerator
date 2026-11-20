@@ -78,7 +78,7 @@ function luminance() {
 }
 
 try {
-  const asked = [...input.code.matchAll(/thing\(\s*["'`]([^"'`]+)["'`]/g)].map((m) => m[1]);
+  const asked = [...input.code.matchAll(/thing\(\s*["'`]([^"'`]+)["'`]/g)].map((m) => m[1].replace(/#\d+$/, ""));
   const library = await libraryFor([...(input.beat.staging?.things ?? []), ...asked]);
   const stage = makeStage(input, library);
   stage.run(load(input.code, seedOf(input.place.key)));

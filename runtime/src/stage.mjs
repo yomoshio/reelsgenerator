@@ -69,6 +69,7 @@ export function makeStage(input, library = {}) {
   // --- things -----------------------------------------------------------------------------
   function thing(name, opts = {}) {
     opts = options(opts, ["x", "scale", "flip", "state", "front", "level", "floor", "on"], `s.thing("${name}")`, decl.ignored);
+    name = String(name).replace(/#\d+$/, ""); // the brief calls a second door `door#2`
     // Plates are laid by the runtime from the beat's reveals, and a thing neither the runtime
     // nor the library has cannot be drawn: both are left out, and whatever is done to them.
     if (PLATES.includes(name) || !(FIXTURES[name] ?? library[name])) return decl.ignored.push(`s.thing("${name}")`), nothing;
@@ -256,6 +257,18 @@ export function makeStage(input, library = {}) {
     }
     const over = people.length ? people.at(-1).x0 - 0.92 * W : 0;
     if (over > 0) for (const pr of people) pr.x0 = Math.max(pr.x0 - over, 0.06 * W);
+    // Three people told to run to the same spot arrive one behind another.
+    const taken = [];
+    for (const pr of decl.people) {
+      for (const w of pr.walks) {
+        if (typeof w.to !== "number") continue;
+        let goal = px(w.to);
+        const back = goal >= pr.x0 ? -1 : 1;
+        while (taken.some((q) => q.pr !== pr && Math.abs(q.t0 - w.t0) < 2 && Math.abs(q.goal - goal) < 0.1 * W)) goal += back * 0.11 * W;
+        taken.push({ pr, t0: w.t0, goal });
+        w.to = goal;
+      }
+    }
   }
 
   // --- a frame ----------------------------------------------------------------------------
