@@ -33,7 +33,7 @@ const WOOD = "#70523A", WOOD_DARK = "#4E3828", STEEL = "#68727F", STEEL_LIT = "#
 // tall runs from the ground to the top of the frame; fill covers the whole place.
 export const FIXTURES = {
   door: {
-    w: 250, h: 520, on: "floor", parts: { handle: [80, -270], middle: [0, -260] },
+    w: 250, h: 520, on: "floor", flat: true, parts: { handle: [80, -270], middle: [0, -260] },
     draw(ctx, s, t, p) {
       box(ctx, -143, -538, 286, 538, shade(p.line, 1.05));
       const g = ctx.createLinearGradient(0, -520, 0, 0);
@@ -231,7 +231,7 @@ export const FIXTURES = {
     },
   },
   railing: {
-    w: 520, h: 190, on: "floor", parts: { rail: [0, -190] },
+    w: 520, h: 190, on: "floor", flat: true, parts: { rail: [0, -190] },
     draw(ctx, s, t, p, seed, place, x) {
       const st = place.stairs;
       if (st) {

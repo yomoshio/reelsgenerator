@@ -236,7 +236,7 @@ export function makeStage(input, library = {}) {
   // The model places by eye and puts two things or two people on one spot. The later one
   // steps aside; what the scene moves later it still moves from there.
   function settle() {
-    const floor = decl.things.filter((q) => q.spec.on === "floor" && !q.spec.small && !q.base && !q.holder && q.x !== null);
+    const floor = decl.things.filter((q) => q.spec.on === "floor" && !q.spec.small && !q.spec.flat && !q.base && !q.holder && q.x !== null);
     for (let pass = 0; pass < 4; pass++) {
       for (let i = 0; i < floor.length; i++) {
         for (let j = i + 1; j < floor.length; j++) {
@@ -308,7 +308,9 @@ export function makeStage(input, library = {}) {
     }));
     const front = (q) => q.front || over.has(q) || (q.base && (q.base.front || over.has(q.base)));
     for (const th of free.filter((q) => q.spec.on !== "floor" && q.spec.on !== "fill")) drawThing(th);
-    for (const th of free.filter((q) => q.spec.on === "floor" && !q.base && !front(q))) drawThing(th);
+    // A door and a railing are part of the wall: furniture stands in front of them.
+    const standing = free.filter((q) => q.spec.on === "floor" && !q.base && !front(q));
+    for (const th of [...standing.filter((q) => q.spec.flat), ...standing.filter((q) => !q.spec.flat)]) drawThing(th);
     for (const th of free.filter((q) => q.base && !front(q))) drawThing(th);
     const walkers = [];
     for (const pr of people) {
@@ -332,7 +334,7 @@ export function makeStage(input, library = {}) {
       const b = thingBox(th, t);
       const [x, y] = thingFoot(th, t);
       const stands = th.holder ? "hand" : th.base ? "thing" : th.spec.on;
-      items.push({ id: th.id, kind: th.spec.on === "fill" ? "fill" : "thing", small: !!th.spec.small, on: stands, box: b, screen: boxToScreen(v, b), gap: stands === "floor" ? place.support(x, th.level) - y : 0 });
+      items.push({ id: th.id, kind: th.spec.on === "fill" ? "fill" : "thing", small: !!th.spec.small || !!th.spec.flat, on: stands, box: b, screen: boxToScreen(v, b), gap: stands === "floor" ? place.support(x, th.level) - y : 0 });
     }
     custom(ctx, t, "front");
     sceneDevices(ctx, t, decl.devices, p, where);
