@@ -195,3 +195,10 @@ test("a thing put on a person is in their hand and goes with them", () => {
   assert.ok(c0[3] <= 95 && Math.abs(c0[0] - p0[0]) < 250);
   assert.ok(c1[0] - c0[0] > 200 && Math.abs(c1[0] - p1[0]) < 250);
 });
+
+test("a reach at oneself and arithmetic on a handle do not crash the scene", () => {
+  const r = run(input(`function scene(s) { s.place("room"); const a = s.person("artem", { x: 0.4 });
+    a.reach(a, { at: "воду" }); const ghost = s.thing("nowhere");
+    s.draw((ctx) => ctx.fillRect(a.x * 1080 + ghost.x * 2, 900, 10, 10)); s.camera.push({ to: [a.x + 0.05, 0.6], at: "воду" }); }`));
+  assert.equal(r.error, null);
+});

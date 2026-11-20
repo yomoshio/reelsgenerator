@@ -249,3 +249,16 @@ async def test_an_answer_without_code_is_a_round_not_a_crash(tmp_path: Path) -> 
     assert not result.fallback
     assert result.rounds == 2
     assert "had no code" in llm.calls[1][3]
+
+
+async def test_the_same_doubt_twice_running_ends_the_rounds(tmp_path: Path) -> None:
+    ep = _episode()
+    no = {"answers": [{"question": "q", "yes": False, "why": "he stands"}, *YES["answers"][1:]]}
+    llm = FakeLlm().answer("code", *[_good(ep, 0)] * 4).answer("Looked", no, no, no, no)
+    result = await scenes.stage_beat(
+        _ctx(tmp_path, llm, rounds=4), STYLE, ep, 0, timing=_timing(ep, 0), keys=tmp_path / "k",
+        stood={},
+    )  # fmt: skip
+    assert result.rounds == 2
+    assert not result.fallback
+    assert len(result.left) == 1

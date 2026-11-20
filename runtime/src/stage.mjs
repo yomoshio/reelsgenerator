@@ -91,6 +91,7 @@ export function makeStage(input, library = {}) {
     decl.things.push(t);
     const handle = strict({
       id: t.id,
+      x: (t.x ?? W / 2) / W,
       state(n, o = {}) {
         t.states.push({ t: time(o.at), n });
         decl.events++;
@@ -125,6 +126,7 @@ export function makeStage(input, library = {}) {
     };
     decl.people.push(pr);
     const aimed = (pose, target, o) => {
+      if ((target?.__ref ?? target?.ref) === pr) target = null; // a hand to one's own pocket
       pr.cues.push({ t: time(o.at), pose, target: target ?? null });
       decl.events++;
       return handle;
@@ -183,6 +185,7 @@ export function makeStage(input, library = {}) {
         return handle;
       },
       part: () => handle,
+      x: pr.x0 / W, // where they start, as a share of the width, for code that draws by hand
       __ref: pr,
     }, key, decl.ignored);
     handles[key] = handle;

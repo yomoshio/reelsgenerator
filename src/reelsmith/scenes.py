@@ -254,6 +254,8 @@ async def stage_beat(
     best: tuple[str, Report, list[str]] | None = None
     tries: list[dict[str, object]] = []
     feedback = ""
+    before: set[str] | None = None
+    done = 0
     for done in range(1, ctx.settings.rounds + 1):
         code, report = await write(task + feedback)
         if done == 1:
@@ -271,6 +273,12 @@ async def stage_beat(
             return SceneResult(code, report, done, False, [], tries)
         if report.error is None and (best is None or len(faults) < len(best[2])):
             best = (code, report, faults)
+        # The same doubts twice running: the coder cannot answer them, and more rounds
+        # would only cost time.
+        doubts = {f.split(" and saw otherwise")[0] for f in faults}
+        if doubts == before and report.error is None:
+            break
+        before = doubts
         last = f"Your last code:\n```js\n{code}\n```\nIt has these problems" if code else "Problems"
         feedback = f"\n\n{last}. Fix them and give the whole code again:\n" + "\n".join(
             f"- {f}" for f in faults
@@ -278,11 +286,11 @@ async def stage_beat(
     # A scene that draws, whatever a viewer still doubts in it, shows more of the beat than
     # the plain stand-in does; the stand-in is for a beat with no scene that draws at all.
     if best is not None:
-        return SceneResult(best[0], best[1], ctx.settings.rounds, False, best[2], tries)
+        return SceneResult(best[0], best[1], done, False, best[2], tries)
     plain = fallback(beat, ep.place(beat.place).kind, stood)
     report = await draw(plain)
     left = (best[2] if best else []) + report.faults()
-    return SceneResult(plain, report, ctx.settings.rounds, True, left, tries)
+    return SceneResult(plain, report, done, True, left, tries)
 
 
 def timings(folder: Path) -> list[Timing]:

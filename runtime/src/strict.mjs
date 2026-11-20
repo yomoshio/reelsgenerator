@@ -6,7 +6,7 @@ const QUIET = new Set(["ref", "kind", "spec", "then", "toJSON", "constructor"]);
 
 // Swallows any chain of calls: s.plate("...").at("слово").
 export const nothing = new Proxy(function () {}, {
-  get: (o, key) => (typeof key === "symbol" ? undefined : nothing),
+  get: (o, key) => (key === Symbol.toPrimitive ? () => 0 : typeof key === "symbol" ? undefined : nothing),
   apply: () => nothing,
 });
 
