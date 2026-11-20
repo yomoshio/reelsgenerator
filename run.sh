@@ -102,7 +102,9 @@ box() {
             push
             mkdir -p jobs
             "${rsync[@]}" jobs/ "$host:$dir/jobs/"
-            there "mkdir -p logs && nohup .venv/bin/reelsmith run >> logs/run.log 2>&1 < /dev/null &"
+            # In brackets: a bare `a && b &` backgrounds a shell that keeps the SSH channel open,
+            # and this command would hang until the last job is done.
+            there "mkdir -p logs && (nohup .venv/bin/reelsmith run >> logs/run.log 2>&1 < /dev/null &)"
             echo "задачи идут на сервере; ход: ./run.sh box logs, забрать: ./run.sh box pull" ;;
         pull)
             mkdir -p jobs voices

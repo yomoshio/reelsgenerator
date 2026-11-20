@@ -283,10 +283,17 @@ export function makeStage(input, library = {}) {
     };
     const items = [];
     const free = decl.things.filter((q) => !q.holder);
-    for (const th of free.filter((q) => q.spec.on !== "floor" && q.spec.on !== "fill")) drawThing(th);
-    for (const th of free.filter((q) => q.spec.on === "floor" && !q.front && !q.base)) drawThing(th);
-    for (const th of free.filter((q) => q.base && !q.front)) drawThing(th);
     const people = [...decl.people].sort((a, b) => ground(a, personX(a, t).x) - ground(b, personX(b, t).x));
+    // Somebody at a table or a counter stands behind it: it is drawn over their legs.
+    const over = new Set(free.filter((q) => {
+      if (q.spec.on !== "floor" || q.base || !q.spec.parts.top || q.spec.parts.seat || q.spec.small) return false;
+      const b = thingBox(q, t);
+      return b[3] < 0.5 * HERO * k() && people.some((pr) => t >= pr.appear && Math.abs(personX(pr, t).x - (b[0] + b[2] / 2)) < b[2] / 2);
+    }));
+    const front = (q) => q.front || over.has(q) || (q.base && (q.base.front || over.has(q.base)));
+    for (const th of free.filter((q) => q.spec.on !== "floor" && q.spec.on !== "fill")) drawThing(th);
+    for (const th of free.filter((q) => q.spec.on === "floor" && !q.base && !front(q))) drawThing(th);
+    for (const th of free.filter((q) => q.base && !front(q))) drawThing(th);
     const walkers = [];
     for (const pr of people) {
       if (t < pr.appear) continue; // not in yet: `enter` brings them in from off the frame
@@ -302,7 +309,8 @@ export function makeStage(input, library = {}) {
     for (const th of free.filter((q) => q.spec.on === "fill")) {
       drawWater(ctx, place.support(W / 2, th.level), HERO * k(), thingState(th, t), t, p, walkers);
     }
-    for (const th of free.filter((q) => q.spec.on === "floor" && q.front)) drawThing(th);
+    for (const th of free.filter((q) => q.spec.on === "floor" && !q.base && front(q))) drawThing(th);
+    for (const th of free.filter((q) => q.base && front(q))) drawThing(th);
     for (const th of decl.things) {
       if (th.holder && t < th.holder.appear) continue;
       const b = thingBox(th, t);
