@@ -37,6 +37,14 @@ export function shade(colour, k) {
   return `rgb(${Math.round(r)},${Math.round(g)},${Math.round(b)})`;
 }
 
+// A colour pulled toward another: every local colour of a scene leans to the colour of its
+// air, which is what makes separate things look lit by one light.
+export function mix(colour, toward, k) {
+  const a = parts(colour), b = parts(toward);
+  return `rgb(${a.map((v, i) => Math.round(v + (b[i] - v) * k)).join(",")})`;
+}
+export const AIR = "#27344E"; // the night-blue everything stands in
+
 export function alpha(colour, a) {
   const [r, g, b] = parts(colour);
   return `rgba(${r},${g},${b},${a})`;

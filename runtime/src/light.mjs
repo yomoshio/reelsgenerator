@@ -1,6 +1,7 @@
 // The light of a scene: its level at a moment, the darkness that level lays over the set,
 // torch beams through it, and the vignette every frame gets.
 
+import { Canvas } from "skia-canvas";
 import { H, W, alpha } from "./places.mjs";
 import { ease } from "./rig.mjs";
 
@@ -39,10 +40,71 @@ export function darkness(ctx, t, lights, people, p, bonesOf) {
   ctx.restore();
 }
 
-export function vignette(ctx) {
-  const g = ctx.createRadialGradient(W / 2, H * 0.4, 0, W / 2, H * 0.4, H * 0.8);
-  g.addColorStop(0, "rgba(0,0,0,0)");
-  g.addColorStop(1, "rgba(0,0,0,0.47)");
+// One light for the whole scene, laid over everything drawn in it: the cool air of the
+// place, then a warm pool under every lamp that is on, bright at the bulb and fading over
+// the wall and the floor. `lamps` are [x, y, strength] in scene coordinates.
+export function grade(ctx, lamps, floor, p) {
+  ctx.save();
+  ctx.globalCompositeOperation = "soft-light";
+  ctx.fillStyle = "rgba(52,84,150,0.42)";
+  ctx.fillRect(-W, -H, 3 * W, 3 * H);
+  ctx.globalCompositeOperation = "screen";
+  const warm = p.warm ?? "#FFD696";
+  for (const [x, y, k] of lamps) {
+    const glow = ctx.createRadialGradient(x, y, 0, x, y, 760);
+    glow.addColorStop(0, alpha(warm, 0.3 * k));
+    glow.addColorStop(0.35, alpha(warm, 0.1 * k));
+    glow.addColorStop(1, alpha(warm, 0));
+    ctx.fillStyle = glow;
+    ctx.fillRect(x - 760, y - 760, 1520, 1520);
+    const bulb = ctx.createRadialGradient(x, y, 0, x, y, 70);
+    bulb.addColorStop(0, alpha("#FFF2D8", 0.5 * k));
+    bulb.addColorStop(1, alpha(warm, 0));
+    ctx.fillStyle = bulb;
+    ctx.fillRect(x - 70, y - 70, 140, 140);
+    ctx.save();
+    ctx.translate(x, floor + 70);
+    ctx.scale(1, 0.2);
+    const pool = ctx.createRadialGradient(0, 0, 0, 0, 0, 430);
+    pool.addColorStop(0, alpha(warm, 0.2 * k));
+    pool.addColorStop(1, alpha(warm, 0));
+    ctx.fillStyle = pool;
+    ctx.fillRect(-430, -430, 860, 860);
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+// Grain: one small sheet of noise, made once and laid over every frame at a new spot, the
+// way film looks. It takes the plastic off flat colour.
+let noise = null;
+function grain(ctx, t) {
+  if (!noise) {
+    noise = new Canvas(360, 640);
+    const c = noise.getContext("2d");
+    const data = c.createImageData(360, 640);
+    let a = 12345;
+    for (let i = 0; i < data.data.length; i += 4) {
+      a = (Math.imul(a, 1664525) + 1013904223) >>> 0;
+      const v = a >>> 24;
+      data.data[i] = data.data[i + 1] = data.data[i + 2] = v;
+      data.data[i + 3] = 255;
+    }
+    c.putImageData(data, 0, 0);
+  }
+  const n = Math.floor(t * 30);
+  ctx.save();
+  ctx.globalCompositeOperation = "overlay";
+  ctx.globalAlpha = 0.04;
+  ctx.drawImage(noise, -((n * 73) % 120), -((n * 41) % 120), W + 120, H + 120);
+  ctx.restore();
+}
+
+export function vignette(ctx, t = 0) {
+  const g = ctx.createRadialGradient(W / 2, H * 0.36, H * 0.12, W / 2, H * 0.36, H * 0.78);
+  g.addColorStop(0, "rgba(4,7,14,0)");
+  g.addColorStop(1, "rgba(4,7,14,0.6)");
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, W, H);
+  grain(ctx, t);
 }
