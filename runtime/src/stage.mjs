@@ -19,6 +19,7 @@ import { darkness, vignette } from "./light.mjs";
 import { DEVICES, sceneDevices, screenDevices } from "./devices.mjs";
 import { drawPlates, layPlates } from "./platelayout.mjs";
 import { declared } from "./checks.mjs";
+import { dress } from "./dressing.mjs";
 
 const HELD = 90; // px: the most a thing in a hand stands tall
 const PLATES = ["stamp", "status", "label", "rule_card", "plate", "caption", "text", "subtitle"];
@@ -274,6 +275,30 @@ export function makeStage(input, library = {}) {
         }
       }
     }
+    // Nobody stands inside a table: a person put on its spot stands at its nearer end, and
+    // one put behind a counter serves from behind it. Nothing stands in a side wall.
+    const tables = decl.things.filter((q) => q.spec.on === "floor" && !q.base && !q.holder && q.spec.parts.top && !q.spec.parts.seat && !q.spec.small && !q.spec.back && q.x !== null);
+    const beside = (x) => {
+      for (const q of tables) {
+        const half = (q.spec.w * q.scale) / 2;
+        if (q.name === "counter" || Math.abs(x - q.x) >= half + 40) continue;
+        const side = x >= q.x ? 1 : -1;
+        const out = q.x + side * (half + 64);
+        return out > 0.08 * W && out < 0.92 * W ? out : q.x - side * (half + 64);
+      }
+      return x;
+    };
+    const edge = (stagePlace().walls ?? 0) + 70;
+    for (const pr of decl.people) {
+      pr.behind = tables.find((q) => q.name === "counter" && Math.abs(pr.x0 - q.x) < (q.spec.w * q.scale) / 2) ?? null;
+      pr.x0 = Math.min(Math.max(beside(pr.x0), edge), W - edge);
+      for (const w of pr.walks) if (typeof w.to === "number") w.to = Math.min(Math.max(beside(px(w.to)), edge), W - edge);
+    }
+    for (const q of decl.things) {
+      if (q.x === null || q.spec.on === "fill" || q.spec.on === "tall") continue;
+      const half = Math.min((q.spec.w * q.scale) / 2, W / 2 - edge + 60);
+      q.x = Math.min(Math.max(q.x, edge - 60 + half), W - edge + 60 - half);
+    }
     const people = [...decl.people].sort((a, b) => a.x0 - b.x0);
     for (let i = 1; i < people.length; i++) {
       const apart = (people[i].extra && people[i - 1].extra ? 0.07 : 0.13) * W; // a crowd stands close
@@ -304,6 +329,10 @@ export function makeStage(input, library = {}) {
     if (!backdrop) {
       backdrop = new Canvas(W, H);
       place.draw(backdrop.getContext("2d"), 0);
+      if (place.walls) {
+        const taken = decl.things.filter((q) => !q.holder && q.spec.on !== "fill").map((q) => thingBox(q, 0));
+        dress(backdrop.getContext("2d"), taken, place.floor, p, seedOf(input.place.key), place.walls);
+      }
     }
     if (!laid) laid = layPlates(ctx, input, decl, where, revealTime);
     const v = view(decl.moves, seconds, t, where.targetPoint);
@@ -334,12 +363,8 @@ export function makeStage(input, library = {}) {
     const items = [];
     const free = decl.things.filter((q) => !q.holder);
     const people = [...decl.people].sort((a, b) => ground(a, personX(a, t).x) - ground(b, personX(b, t).x));
-    // Somebody at a table or a counter stands behind it: it is drawn over their legs.
-    const over = new Set(free.filter((q) => {
-      if (q.spec.on !== "floor" || q.base || !q.spec.parts.top || q.spec.parts.seat || q.spec.small) return false;
-      const b = thingBox(q, t);
-      return b[3] < 0.5 * HERO * k() && people.some((pr) => t >= pr.appear && Math.abs(personX(pr, t).x - (b[0] + b[2] / 2)) < b[2] / 2);
-    }));
+    // Whoever serves at a counter stands behind it: it is drawn over their legs.
+    const over = new Set(free.filter((q) => q.name === "counter" && decl.people.some((pr) => pr.behind === q)));
     const front = (q) => q.front || over.has(q) || (q.base && (q.base.front || over.has(q.base)));
     for (const th of free.filter((q) => q.spec.on !== "floor" && q.spec.on !== "fill")) drawThing(th);
     // A door and a railing are part of the wall: furniture stands in front of them.
@@ -368,7 +393,7 @@ export function makeStage(input, library = {}) {
       const b = thingBox(th, t);
       const [x, y] = thingFoot(th, t);
       const stands = th.holder ? "hand" : th.base ? "thing" : th.spec.on;
-      items.push({ id: th.id, kind: th.spec.on === "fill" ? "fill" : "thing", small: !!th.spec.small || !!th.spec.flat, on: stands, box: b, screen: boxToScreen(v, b), gap: stands === "floor" ? place.support(x, th.level) - y : 0 });
+      items.push({ id: th.id, kind: th.spec.on === "fill" ? "fill" : "thing", small: !!th.spec.small || !!th.spec.flat, on: stands, box: b, screen: boxToScreen(v, b), gap: 0 });
     }
     custom(ctx, t, "front");
     sceneDevices(ctx, t, decl.devices, p, where);

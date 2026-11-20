@@ -11,8 +11,14 @@ const WALK_SPEED = 260; // px a second
 
 export const px = (x) => (typeof x !== "number" || Number.isNaN(x) ? W / 2 : Math.abs(x) <= 1.5 ? x * W : x);
 
+// How far in front of the wall each kind of thing stands, in px down the picture: what
+// hangs on the wall or is part of it, furniture, and people in front of the furniture.
+// This is what lets a person stand before a table and not inside it.
+export const ROWS = { wall: 0, furniture: 30, people: 62 };
+
 export function makeMotion(decl, place) {
   const k = () => place().scale / HERO;
+  const row = (kind) => (place().rows ? ROWS[kind] : 0);
 
   // --- things -----------------------------------------------------------------------------
   function thingX(t, time_) {
@@ -32,8 +38,8 @@ export function makeMotion(decl, place) {
     }
     const x = thingX(t, time_);
     if (t.base) return [x, onPoint(t.base, time_)[1]];
-    const ground = place().support(x, t.level);
     const on = t.spec.on;
+    const ground = place().support(x, t.level) + (on === "floor" && !t.spec.flat && !t.spec.back ? row("furniture") : 0);
     if (on === "wall") return [x, ground - (t.spec.lift ?? 0) * t.scale];
     if (on === "ceiling") return [x, SCENE_TOP + 10];
     return [x, ground];
@@ -71,7 +77,7 @@ export function makeMotion(decl, place) {
 
   // --- people -----------------------------------------------------------------------------
   const size = (pr) => rig.heightOf(pr.card, place().scale);
-  const ground = (pr, x) => place().support(x, pr.level);
+  const ground = (pr, x) => place().support(x, pr.level) + (pr.behind ? 6 : row("people"));
 
   // The x a person stands at and which way they face at time t.
   function personX(pr, t) {

@@ -166,10 +166,12 @@ export function makePlace(kind, palette, opts = {}) {
   const p = palette;
   const seed = seedOf(opts.seed ?? kind);
   const floor = opts.floor ?? FLOOR;
-  const flat = (y) => ({ support: () => y, scale: HERO });
+  // On level ground things stand in rows going away from the wall, see ROWS in motion.mjs.
+  const flat = (y) => ({ support: () => y, scale: HERO, rows: true });
   const make = {
     room: () => ({
       ...flat(floor),
+      walls: 64,
       draw(ctx) {
         wall(ctx, p, floor);
         ground(ctx, p, floor);

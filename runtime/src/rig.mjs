@@ -6,18 +6,18 @@ export const EASE = 0.45; // seconds a change of pose takes
 export const WALK_STEP = 0.55; // seconds a step takes
 
 // Lengths in units of the figure's height.
-const HEAD = 0.082, NECK = 0.03, TORSO = 0.3;
-const SHOULDER = 0.105, HIP = 0.065;
+const HEAD = 0.092, NECK = 0.022, TORSO = 0.29;
+const SHOULDER = 0.092, HIP = 0.062;
 const UPPER = 0.165, FORE = 0.15, HAND = 0.03;
-const THIGH = 0.235, SHIN = 0.225, FOOT = 0.065;
-const ARM_W = 0.058, LEG_W = 0.074;
+const THIGH = 0.222, SHIN = 0.212, FOOT = 0.065;
+const ARM_W = 0.052, LEG_W = 0.072;
 
 // Angles in degrees: 0 points straight down, 90 to the front. The lower bone of a limb is
 // given relative to the upper one. "_n" is the near limb, "_f" the far one.
 const STAND = {
   lean: 0, head: 0, nod: 0,
-  arm_f: -9, fore_f: -5, arm_n: 9, fore_n: 5,
-  leg_f: -4, shin_f: 0, leg_n: 4, shin_n: 0,
+  arm_f: -7, fore_f: 16, arm_n: 6, fore_n: 20,
+  leg_f: -6, shin_f: 2, leg_n: 5, shin_n: 1,
 };
 export const POSES = {
   stand: {},
@@ -86,8 +86,9 @@ export function bones(feet, angles, size, facing, hip = null) {
   const lean = (a.lean * Math.PI) / 180;
   const neck = [hipP[0] + Math.sin(lean) * TORSO * size, hipP[1] - Math.cos(lean) * TORSO * size];
   const across = [Math.cos(lean) * SHOULDER * size, Math.sin(lean) * SHOULDER * size];
-  const shoulder_f = [neck[0] - across[0] * facing, neck[1] - across[1] * facing + 0.025 * size];
-  const shoulder_n = [neck[0] + across[0] * facing, neck[1] + across[1] * facing + 0.025 * size];
+  // The body is turned a little the way it faces: the shoulder behind sits nearer the neck.
+  const shoulder_f = [neck[0] - across[0] * facing * 0.78, neck[1] - across[1] * facing + 0.03 * size];
+  const shoulder_n = [neck[0] + across[0] * facing * 0.92, neck[1] + across[1] * facing + 0.026 * size];
   const tilt = (a.head * Math.PI) / 180;
   const up = (NECK + HEAD) * size;
   const head = [
@@ -221,8 +222,7 @@ function limb(ctx, points, widths, colour, f) {
     ctx.fillStyle = colour;
     ctx.fill();
     ctx.clip();
-    stroke(ctx, [[a[0] + d[0], a[1] + d[1]], [b[0] + d[0], b[1] + d[1]]], w * 0.6, shade(colour, 0.74));
-    stroke(ctx, [[a[0] - d[0] * 1.1, a[1] - d[1] * 1.1], [b[0] - d[0] * 1.1, b[1] - d[1] * 1.1]], w * 0.13, shade(colour, 1.16));
+    stroke(ctx, [[a[0] + d[0] * 1.15, a[1] + d[1] * 1.15], [b[0] + d[0] * 1.15, b[1] + d[1] * 1.15]], w * 0.5, shade(colour, 0.8));
     ctx.restore();
   }
 }
@@ -300,11 +300,11 @@ export function draw(ctx, b, card, alpha = 1) {
   const far = (colour) => shade(colour, 0.72);
   const leg = (side) => {
     const knee = b[`knee_${side}`], ankle = b[`ankle_${side}`];
-    const hip = [b.hip[0] + (side === "n" ? 1 : -1) * HIP * s * 0.6 * f * w, b.hip[1]];
+    const hip = [b.hip[0] + (side === "n" ? 0.62 : -0.42) * HIP * s * f * w, b.hip[1]];
     const tone = (c) => (side === "n" ? c : far(c));
     if (!long) {
       const lw = LEG_W * s * w;
-      limb(ctx, [hip, knee, ankle], [lw * 1.12, lw * 0.92, lw * 0.74], tone(bare ? skin : legs), f);
+      limb(ctx, [hip, knee, ankle], [lw * 1.26, lw * 0.96, lw * 0.66], tone(bare ? skin : legs), f);
       if (card.bottom === "shorts") limb(ctx, [hip, [(hip[0] + knee[0]) / 2, (hip[1] + knee[1]) / 2]], [lw * 1.2, lw * 1.12], tone(legs), f);
       if (!bare) stroke(ctx, [[ankle[0] - lw * 0.36, ankle[1] - 0.012 * s], [ankle[0] + lw * 0.36, ankle[1] - 0.012 * s]], 0.012 * s, shade(tone(legs), 0.7));
     }
@@ -315,9 +315,9 @@ export function draw(ctx, b, card, alpha = 1) {
     const tone = side === "n" ? top : far(top);
     const aw = ARM_W * s * w;
     hand(ctx, elbow, wrist, s, side === "n" ? skin : shade(skin, 0.82), f);
-    limb(ctx, [shoulder, elbow, wrist], [aw * 1.15, aw * 0.95, aw * 0.8], tone, f);
+    limb(ctx, [shoulder, elbow, wrist], [aw * 1.28, aw * 0.98, aw * 0.7], tone, f);
     const back = [wrist[0] + (elbow[0] - wrist[0]) * 0.1, wrist[1] + (elbow[1] - wrist[1]) * 0.1];
-    stroke(ctx, [back, wrist], aw * 0.86, shade(tone, card.top === "sweater" ? 0.8 : 0.66));
+    stroke(ctx, [back, wrist], aw * 0.74, shade(tone, card.top === "sweater" ? 0.8 : 0.66));
   };
 
   leg("f");

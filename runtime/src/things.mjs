@@ -203,7 +203,7 @@ export const FIXTURES = {
     },
   },
   shelf: {
-    w: 360, h: 520, on: "floor", parts: { top: [0, -520], middle: [0, -300] },
+    w: 360, h: 520, on: "floor", back: true, parts: { top: [0, -520], middle: [0, -300] },
     draw(ctx, s, t, p, seed) {
       const r = rng(seed);
       slab(ctx, -180, -518, 360, 24, shade(p.wall, 0.9));
@@ -222,7 +222,7 @@ export const FIXTURES = {
     },
   },
   wardrobe: {
-    w: 220, h: 420, on: "floor", parts: { door: [50, -220], top: [0, -420] },
+    w: 220, h: 420, on: "floor", back: true, parts: { door: [50, -220], top: [0, -420] },
     draw(ctx, s) {
       const fallen = Math.min(Math.max(s, 0), 1);
       ctx.save();
@@ -243,7 +243,7 @@ export const FIXTURES = {
     },
   },
   atm: {
-    w: 180, h: 400, on: "floor", parts: { screen: [0, -290], slot: [0, -210], keys: [0, -170] },
+    w: 180, h: 400, on: "floor", back: true, parts: { screen: [0, -290], slot: [0, -210], keys: [0, -170] },
     draw(ctx, s, t, p) {
       slab(ctx, -90, -398, 180, 22, "#4A525E");
       round(ctx, -90, -400, 180, 400, 10, "#4A525E");
