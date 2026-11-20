@@ -18,6 +18,8 @@
 #   ./run.sh rehearse [--beats 4]            весь путь от идеи до ролика без моделей, с заглушками
 #
 # Арендованный сервер (адрес в .env: SERVER_HOST, SERVER_PORT, SERVER_KEY, VAST_INSTANCE):
+#   ./run.sh box rent [--vram 80] [--price 2.5] [--dry-run]
+#                                            арендовать сервер на vast.ai и вписать его адрес в .env
 #   ./run.sh box install                     залить проект, поставить модели, включить сторож
 #   ./run.sh box run                         залить задачи и провести их на сервере
 #   ./run.sh box pull                        забрать задачи и голоса
@@ -61,6 +63,11 @@ here() {
 }
 
 box() {
+    if [[ ${1:-} == rent ]]; then
+        shift
+        python3 scripts/rent.py "$@"
+        return
+    fi
     local host port key dir
     host=$(setting SERVER_HOST)
     [[ -n $host ]] || { echo "впишите в .env адрес сервера: SERVER_HOST=root@1.2.3.4, SERVER_PORT, SERVER_KEY" >&2; exit 1; }
