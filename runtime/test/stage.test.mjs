@@ -183,3 +183,15 @@ test("a person told to sit on nothing takes the nearest seat", () => {
   assert.equal(r.error, null);
   assert.deepEqual(r.problems, []);
 });
+
+test("a thing put on a person is in their hand and goes with them", () => {
+  const data = input(`function scene(s) { s.place("room"); const a = s.person("artem", { x: 0.3 });
+    s.thing("chair", { on: a }); a.walk({ to: 0.7, at: "сидит" }); }`);
+  const r = run(data);
+  assert.equal(r.error, null);
+  assert.deepEqual(r.problems, []);
+  const at = (g) => ["artem", "chair"].map((id) => g.items.find((i) => i.id === id).box);
+  const [[p0, c0], [p1, c1]] = [at(r.graph[0]), at(r.graph.at(-1))];
+  assert.ok(c0[3] <= 95 && Math.abs(c0[0] - p0[0]) < 250);
+  assert.ok(c1[0] - c0[0] > 200 && Math.abs(c1[0] - p1[0]) < 250);
+});

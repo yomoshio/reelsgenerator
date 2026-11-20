@@ -87,7 +87,7 @@ async def test_a_no_from_the_viewer_goes_back_too(tmp_path: Path) -> None:
 
 async def test_after_the_last_round_the_plain_scene_is_drawn(tmp_path: Path) -> None:
     ep = _episode()
-    broken = "function scene(s) { s.person('nobody'); }"
+    broken = "function scene(s) { undefined.x; }"
     llm = FakeLlm().answer("code", broken, broken)
     result = await scenes.stage_beat(
         _ctx(tmp_path, llm, rounds=2), STYLE, ep, 0, timing=_timing(ep, 0), keys=tmp_path / "k",
@@ -95,6 +95,19 @@ async def test_after_the_last_round_the_plain_scene_is_drawn(tmp_path: Path) -> 
     )  # fmt: skip
     assert result.fallback
     assert result.report.error is None
+
+
+async def test_a_scene_that_draws_is_kept_over_the_plain_one(tmp_path: Path) -> None:
+    ep = _episode()
+    doubted = "function scene(s) { s.person('nobody'); }"
+    llm = FakeLlm().answer("code", doubted, doubted)
+    result = await scenes.stage_beat(
+        _ctx(tmp_path, llm, rounds=2), STYLE, ep, 0, timing=_timing(ep, 0), keys=tmp_path / "k",
+        stood={},
+    )  # fmt: skip
+    assert not result.fallback
+    assert result.code == doubted
+    assert result.left
 
 
 @pytest.mark.parametrize(

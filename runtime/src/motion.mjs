@@ -26,6 +26,10 @@ export function makeMotion(decl, place) {
     return level;
   }
   function thingFoot(t, time_) {
+    if (t.holder) {
+      const hand = personBones(t.holder, time_).hand_n;
+      return [hand[0], hand[1] + (t.spec.h * t.scale) / 2];
+    }
     const x = thingX(t, time_);
     if (t.base) return [x, onPoint(t.base, time_)[1]];
     const ground = place().support(x, t.level);

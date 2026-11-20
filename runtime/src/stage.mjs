@@ -20,6 +20,7 @@ import { DEVICES, sceneDevices, screenDevices } from "./devices.mjs";
 import { drawPlates, layPlates } from "./platelayout.mjs";
 import { declared } from "./checks.mjs";
 
+const HELD = 90; // px: the most a thing in a hand stands tall
 const PLATES = ["stamp", "status", "label", "rule_card", "plate", "caption", "text", "subtitle"];
 // Somebody in the crowd, in the greys of the place.
 const EXTRA = {
@@ -74,13 +75,17 @@ export function makeStage(input, library = {}) {
     const s = spec(name, library);
     const count = decl.things.filter((t) => t.name === name).length;
     // A thing put on one with no top, a padlock on a door, hangs on its middle.
+    // A thing put on a person is in their hand, and goes where they go.
     let base = opts.on?.__ref ?? opts.on?.ref ?? null;
+    const holder = base?.kind === "person" ? base : null;
     if (base?.kind !== "thing") base = null;
-    if (opts.on && !base) decl.ignored.push(`s.thing("${name}") option on`);
+    if (opts.on && !base && !holder) decl.ignored.push(`s.thing("${name}") option on`);
+    if (holder && holder.cues[0].pose === "stand") holder.cues[0].pose = "hold";
     const t = {
-      kind: "thing", name, id: count ? `${name}#${count + 1}` : name, spec: s, base,
+      kind: "thing", name, id: count ? `${name}#${count + 1}` : name, spec: s, base, holder,
       x: opts.x === undefined && base ? null : px(opts.x ?? 0.5), level: opts.level ?? opts.floor ?? 1,
-      scale: (opts.scale ?? 1) * k(), flip: opts.flip ? -1 : 1, front: !!opts.front,
+      scale: holder ? Math.min((opts.scale ?? 1) * k(), (HELD / s.h) * k()) : (opts.scale ?? 1) * k(),
+      flip: opts.flip ? -1 : 1, front: !!opts.front,
       states: [{ t: 0, n: opts.state ?? 0 }], moves: [],
     };
     decl.things.push(t);
@@ -227,7 +232,7 @@ export function makeStage(input, library = {}) {
   // The model places by eye and puts two things or two people on one spot. The later one
   // steps aside; what the scene moves later it still moves from there.
   function settle() {
-    const floor = decl.things.filter((q) => q.spec.on === "floor" && !q.spec.small && !q.base && q.x !== null);
+    const floor = decl.things.filter((q) => q.spec.on === "floor" && !q.spec.small && !q.base && !q.holder && q.x !== null);
     for (let pass = 0; pass < 4; pass++) {
       for (let i = 0; i < floor.length; i++) {
         for (let j = i + 1; j < floor.length; j++) {
@@ -277,29 +282,32 @@ export function makeStage(input, library = {}) {
       ctx.restore();
     };
     const items = [];
-    for (const th of decl.things.filter((q) => q.spec.on !== "floor" && q.spec.on !== "fill")) drawThing(th);
-    for (const th of decl.things.filter((q) => q.spec.on === "floor" && !q.front && !q.base)) drawThing(th);
-    for (const th of decl.things.filter((q) => q.base && !q.front)) drawThing(th);
+    const free = decl.things.filter((q) => !q.holder);
+    for (const th of free.filter((q) => q.spec.on !== "floor" && q.spec.on !== "fill")) drawThing(th);
+    for (const th of free.filter((q) => q.spec.on === "floor" && !q.front && !q.base)) drawThing(th);
+    for (const th of free.filter((q) => q.base && !q.front)) drawThing(th);
     const people = [...decl.people].sort((a, b) => ground(a, personX(a, t).x) - ground(b, personX(b, t).x));
     const walkers = [];
     for (const pr of people) {
       if (t < pr.appear) continue; // not in yet: `enter` brings them in from off the frame
       const b = personBones(pr, t);
       rig.draw(ctx, b, pr.card);
+      for (const th of decl.things.filter((q) => q.holder === pr)) drawThing(th);
       walkers.push(b.hip[0]);
       const lowest = Math.max(b.ankle_f[1], b.ankle_n[1]) + 0.065 * b.size * 0.35;
       const seated = seatAt(pr, t);
       const entering = pr.walks.some((w) => w.from !== undefined && t >= w.t0 && t < w.t0 + ENTER_SECONDS);
       items.push({ id: pr.key, kind: "person", extra: pr.extra, entering, box: rig.box(b), screen: boxToScreen(v, rig.box(b)), gap: seated ? 0 : ground(pr, b.hip[0]) - lowest });
     }
-    for (const th of decl.things.filter((q) => q.spec.on === "fill")) {
+    for (const th of free.filter((q) => q.spec.on === "fill")) {
       drawWater(ctx, place.support(W / 2, th.level), HERO * k(), thingState(th, t), t, p, walkers);
     }
-    for (const th of decl.things.filter((q) => q.spec.on === "floor" && q.front)) drawThing(th);
+    for (const th of free.filter((q) => q.spec.on === "floor" && q.front)) drawThing(th);
     for (const th of decl.things) {
+      if (th.holder && t < th.holder.appear) continue;
       const b = thingBox(th, t);
       const [x, y] = thingFoot(th, t);
-      const stands = th.base ? "thing" : th.spec.on;
+      const stands = th.holder ? "hand" : th.base ? "thing" : th.spec.on;
       items.push({ id: th.id, kind: th.spec.on === "fill" ? "fill" : "thing", small: !!th.spec.small, on: stands, box: b, screen: boxToScreen(v, b), gap: stands === "floor" ? place.support(x, th.level) - y : 0 });
     }
     custom(ctx, t, "front");

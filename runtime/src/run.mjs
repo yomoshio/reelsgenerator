@@ -23,8 +23,11 @@ function out(report) {
   process.stdout.write(JSON.stringify(report) + "\n");
 }
 
+// The canvas keeps every drawing command since it was made and replays them all for each
+// frame it hands out: a beat of 400 frames drew slower and slower. Each frame starts clean.
 function frame(n) {
   writeSync(1, canvas.toBufferSync("raw"));
+  ctx.reset();
 }
 
 if (input.mode === "card") {

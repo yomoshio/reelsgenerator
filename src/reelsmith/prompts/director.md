@@ -23,7 +23,11 @@ For every beat, in order, give one staging:
 - `questions`: two to four yes-or-no questions about a still of this beat that must be
   answered yes when the picture is right, such as "Is the cash machine inside the shop,
   against the wall?" or "Is Artem sitting on the bed?". Ask about where people and things
-  are and what they do, never about colours or style.
+  are and what they do, never about colours or style. The people are flat figures with
+  no face: never ask about a smile, a look in the eyes or where somebody is looking, and
+  ask only about what this beat's own lines show.
+- A thing somebody carries or holds, a phone, a torch, a letter, is in their hand: say so
+  in the action ("Lena holds the walkie_talkie"), and the coder puts it on the person.
 
 What the stage can show:
 

@@ -275,7 +275,9 @@ async def stage_beat(
         feedback = f"\n\n{last}. Fix them and give the whole code again:\n" + "\n".join(
             f"- {f}" for f in faults
         )
-    if best is not None and len(best[2]) <= 1:
+    # A scene that draws, whatever a viewer still doubts in it, shows more of the beat than
+    # the plain stand-in does; the stand-in is for a beat with no scene that draws at all.
+    if best is not None:
         return SceneResult(best[0], best[1], ctx.settings.rounds, False, best[2], tries)
     plain = fallback(beat, ep.place(beat.place).kind, stood)
     report = await draw(plain)
