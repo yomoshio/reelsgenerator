@@ -102,3 +102,11 @@ async def test_a_code_answer_cut_at_the_limit_is_not_run() -> None:
     llm = Llm("http://x/v1", transport=httpx.MockTransport(reply))
     with pytest.raises(NoCode, match="cut off"):
         await llm.code("m", "s", "u")
+
+
+async def test_reasoning_is_off_unless_asked_for() -> None:
+    transport, sent = _replies("a", "b")
+    await Llm("http://box/v1", transport=transport).text("m", "s", "u")
+    await Llm("http://box/v1", transport=transport, reasoning="").text("m", "s", "u")
+    assert sent[0]["reasoning_effort"] == "none"
+    assert "reasoning_effort" not in sent[1]

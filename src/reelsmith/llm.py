@@ -30,11 +30,13 @@ class Llm:
         url: str,
         *,
         temperature: float = 0.7,
+        reasoning: str = "none",
         timeout: float = 900,
         transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
         self._url = url.rstrip("/") + "/chat/completions"
         self._temperature = temperature
+        self._reasoning = reasoning
         self._client = httpx.AsyncClient(timeout=timeout, transport=transport)
 
     async def close(self) -> None:
@@ -126,6 +128,8 @@ class Llm:
             "messages": messages,
             "temperature": self._temperature if temperature is None else temperature,
         }
+        if self._reasoning:
+            body["reasoning_effort"] = self._reasoning
         if max_tokens is not None:
             body["max_tokens"] = max_tokens
         if response_format is not None:

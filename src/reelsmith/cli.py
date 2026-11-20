@@ -84,7 +84,9 @@ def add(
     else:
 
         async def split() -> list[Source]:
-            llm = Llm(settings.llm_url, temperature=settings.temperature)
+            llm = Llm(
+                settings.llm_url, temperature=settings.temperature, reasoning=settings.reasoning
+            )
             try:
                 return await episodes(
                     Context(settings, llm, Styles(settings.styles)), look, body, title
@@ -104,7 +106,7 @@ def run(once: Annotated[bool, typer.Option(help="one pass over the stages")] = F
     settings = _settings()
 
     async def go() -> None:
-        llm = Llm(settings.llm_url, temperature=settings.temperature)
+        llm = Llm(settings.llm_url, temperature=settings.temperature, reasoning=settings.reasoning)
         speech = Speech(settings.speech_url)
         ctx = Context(settings, llm, Styles(settings.styles), speech)
         ctx.catalog = lambda text: catalog(settings, text)
@@ -244,7 +246,7 @@ def smoke() -> None:
     settings = _settings()
 
     async def go() -> list[tuple[str, float, str]]:
-        llm = Llm(settings.llm_url, temperature=0)
+        llm = Llm(settings.llm_url, temperature=0, reasoning=settings.reasoning)
         speech = Speech(settings.speech_url)
         results: list[tuple[str, float, str]] = []
 
