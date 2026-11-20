@@ -409,6 +409,16 @@ export async function libraryThing(name, file, colour, h = SMALL.test(name) ? 90
   };
 }
 
+// A thing drawn by an artist: an SVG from library/art, shown as it is at `h` px tall. It
+// stands where the runtime's own thing of that name would and takes its place.
+export async function artThing(file, meta) {
+  const image = await loadImage(readFileSync(file));
+  const h = meta.h, w = (h * image.width) / Math.max(image.height, 1);
+  const parts = meta.part === "seat" ? { seat: [0, -h * 0.5], top: [0, -h * 0.5] } : { top: [0, -h * 0.94], middle: [0, -h / 2] };
+  if (meta.part === "seat") delete parts.top;
+  return { w, h, on: "floor", art: true, back: !!meta.back, parts, draw: (ctx) => ctx.drawImage(image, -w / 2, -h, w, h) };
+}
+
 export function spec(name, library) {
   const found = FIXTURES[name] ?? library[name];
   if (!found) {

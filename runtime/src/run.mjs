@@ -10,7 +10,7 @@ import { Canvas, FontLibrary } from "skia-canvas";
 import { H, ScriptError, W } from "./places.mjs";
 import { makeStage } from "./stage.mjs";
 import { load } from "./sandbox.mjs";
-import { FIXTURES, libraryThing } from "./things.mjs";
+import { FIXTURES, artThing, libraryThing } from "./things.mjs";
 import { drawCard } from "./plates.mjs";
 import { seedOf } from "./places.mjs";
 
@@ -77,7 +77,20 @@ function luminance() {
   return sum / n;
 }
 
+// Things drawn by an artist take the place of the runtime's own of the same name.
+async function art() {
+  const dir = join(input.library, "..", "art");
+  let index = {};
+  try {
+    index = JSON.parse(readFileSync(join(dir, "index.json"), "utf8"));
+  } catch {
+    return;
+  }
+  for (const [name, meta] of Object.entries(index)) FIXTURES[name] = await artThing(join(dir, `${name}.svg`), meta);
+}
+
 try {
+  await art();
   const asked = [...input.code.matchAll(/thing\(\s*["'`]([^"'`]+)["'`]/g)].map((m) => m[1].replace(/#\d+$/, ""));
   const library = await libraryFor([...(input.beat.staging?.things ?? []), ...asked]);
   const stage = makeStage(input, library);
