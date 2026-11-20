@@ -73,6 +73,9 @@ only place and move them. They breathe and sway by themselves.
   `ivan.knock(door, { at })`: the near hand goes to the target.
 - `ivan.pose(name, { at })`: stand, walk, listen, look_down, sit, hold, knock, point, reach,
   arms_out.
+- `ivan.mood(name, { at })`: the face: neutral, happy, sad, worried, scared, angry,
+  surprised, tired. Give every person the mood the lines call for, and change it when the
+  story turns; `s.person("ivan", { mood: "worried" })` sets the first one.
 - `ivan.look(atm, { at })` or `ivan.look("left", { at })`: turns to face it.
 - `ivan.enter({ from: "right", at: "входит" })`: walks in from off the frame to their x.
 
