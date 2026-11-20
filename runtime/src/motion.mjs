@@ -130,7 +130,8 @@ export function makeMotion(decl, place) {
       return [target === "left" ? 0.15 * W : target === "right" ? 0.85 * W : W / 2, H * 0.42];
     }
     if (target.ref && target.part) return partPoint(target.ref, target.part, t);
-    if (typeof target.x === "number") return [px(target.x), typeof target.y === "number" ? (target.y <= 1.5 ? target.y * H : target.y) : FLOOR];
+    // A handle carries its own x for scene code to read; it is a thing or a person first.
+    if (!target.__ref && typeof target.x === "number") return [px(target.x), typeof target.y === "number" ? (target.y <= 1.5 ? target.y * H : target.y) : FLOOR];
     const ref = target.__ref ?? target.ref ?? target;
     if (ref.kind === "thing") {
       const b = thingBox(ref, t);

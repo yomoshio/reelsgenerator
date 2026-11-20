@@ -209,3 +209,11 @@ test("a feeling asked as a pose or as a mood shows on the face", () => {
   assert.equal(r.error, null);
   assert.deepEqual(r.ignored, ["mood glum"]);
 });
+
+test("a thing or a person as a target is the thing or the person, not the floor under it", () => {
+  const data = input(`function scene(s) { s.place("room"); const d = s.thing("door", { x: 0.8 }); s.person("artem", { x: 0.3 });
+    s.camera.push({ to: d, at: 0, until: 0.2, zoom: 2 }); }`);
+  data.keys = [3];
+  const door = run(data).graph[0].items.find((i) => i.id === "door").screen;
+  assert.ok(door[1] < 400 && door[1] + door[3] > 1000, JSON.stringify(door));
+});
