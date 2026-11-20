@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 
+from reelsmith import cli
 from reelsmith.jobs import Context, Job, JobError, Jobs, Source, Stage, Status, run_once
 from reelsmith.llm import Llm
 from reelsmith.settings import Settings
@@ -85,8 +86,6 @@ async def test_a_job_goes_through_every_stage_in_one_pass(tmp_path: Path) -> Non
 def test_a_job_sent_back_loses_the_work_of_later_steps(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    from reelsmith import cli
-
     monkeypatch.setenv("REELSMITH_JOBS", str(tmp_path))
     jobs = Jobs(tmp_path)
     job = jobs.create(Source(kind="idea", text="x"), "blackout")
