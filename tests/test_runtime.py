@@ -62,12 +62,12 @@ async def test_a_broken_scene_comes_back_as_an_error(tmp_path: Path) -> None:
     ep = _episode()
     words = _words(ep, 0)
     data = runtime.scene_input(
-        ep, 0, code="function scene(s) { s.thing('nothing'); }", words=words, seconds=3,
+        ep, 0, code="function scene(s) { undefined.x; }", words=words, seconds=3,
         style=STYLE, settings=_settings(tmp_path), keys=[1.0], out=tmp_path / "k" / "b",
     )  # fmt: skip
     report = await runtime.keys(_settings(tmp_path), data)
     assert report.faults() == [report.error]
-    assert "no thing 'nothing'" in str(report.error)
+    assert "TypeError" in str(report.error)
 
 
 def test_frames_stream_seconds_times_fps_frames(tmp_path: Path) -> None:

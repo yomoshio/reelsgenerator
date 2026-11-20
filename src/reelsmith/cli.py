@@ -84,7 +84,9 @@ def add(
     else:
 
         async def split() -> list[Source]:
-            llm = Llm(settings.llm_url, temperature=settings.temperature)
+            llm = Llm(
+                settings.llm_url, temperature=settings.temperature, reasoning=settings.reasoning
+            )
             try:
                 return await episodes(
                     Context(settings, llm, Styles(settings.styles)), look, body, title
@@ -104,7 +106,7 @@ def run(once: Annotated[bool, typer.Option(help="one pass over the stages")] = F
     settings = _settings()
 
     async def go() -> None:
-        llm = Llm(settings.llm_url, temperature=settings.temperature)
+        llm = Llm(settings.llm_url, temperature=settings.temperature, reasoning=settings.reasoning)
         speech = Speech(settings.speech_url)
         ctx = Context(settings, llm, Styles(settings.styles), speech)
         ctx.catalog = lambda text: catalog(settings, text)
@@ -193,10 +195,35 @@ def retry(
     job.error, job.tries = None, 0
     if status is not None:
         job.status = status
+        _forget(jobs.folder(job), status)
     elif job.status == Status.FAILED:
         job.status = job.failed_at or Status.NEW
     jobs.save(job)
     typer.echo(f"{job.id}  {job.status}")
+
+
+# What each step leaves in the job's folder. A job sent back loses the work of the later
+# steps: left in place, a scene of the old story would be taken for one of the new.
+_MADE = {
+    Status.NEW: ["plan.json", "episode.json"],
+    Status.WRITTEN: ["voice"],
+    Status.VOICED: ["scenes", "keys"],
+    Status.STAGED: ["clips"],
+    Status.RENDERED: ["final.mp4", "check.json", "post.txt", "storyboard.jpg"],
+}
+
+
+def _forget(folder: Path, status: Status) -> None:
+    steps = list(_MADE)
+    if status not in steps:
+        return
+    for step in steps[steps.index(status) :]:
+        for name in _MADE[step]:
+            made = folder / name
+            if made.is_dir():
+                shutil.rmtree(made)
+            else:
+                made.unlink(missing_ok=True)
 
 
 @app.command()
@@ -244,7 +271,7 @@ def smoke() -> None:
     settings = _settings()
 
     async def go() -> list[tuple[str, float, str]]:
-        llm = Llm(settings.llm_url, temperature=0)
+        llm = Llm(settings.llm_url, temperature=0, reasoning=settings.reasoning)
         speech = Speech(settings.speech_url)
         results: list[tuple[str, float, str]] = []
 

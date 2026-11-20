@@ -30,6 +30,7 @@ class Settings(BaseSettings):
     vision: str = "qwen3.5:27b"
     temperature: float = Field(default=0.7, ge=0, le=2)
     coder_temperature: float = Field(default=0.3, ge=0, le=2)
+    reasoning: str = "none"
 
     rewrites: int = Field(default=2, ge=0, description="Rewrites of a story that fails checks.")
     rounds: int = Field(default=4, ge=1, description="Rounds of a scene before the fallback.")

@@ -57,7 +57,7 @@ def _good(ep: Episode, n: int) -> str:
 
 async def test_a_runtime_error_goes_back_to_the_coder(tmp_path: Path) -> None:
     ep = _episode()
-    llm = FakeLlm().answer("code", "function scene(s) { s.thing('spaceship'); }", _good(ep, 0))
+    llm = FakeLlm().answer("code", "function scene(s) { undefined.x; }", _good(ep, 0))
     llm.answer("Looked", YES)
     result = await scenes.stage_beat(
         _ctx(tmp_path, llm), STYLE, ep, 0, timing=_timing(ep, 0), keys=tmp_path / "k", stood={}
@@ -65,7 +65,7 @@ async def test_a_runtime_error_goes_back_to_the_coder(tmp_path: Path) -> None:
     assert result.rounds == 2
     assert not result.fallback
     second = next(c for c in llm.calls if c[0] == "code" and "Your last code" in c[3])
-    assert "no thing 'spaceship'" in second[3]
+    assert "TypeError" in second[3]
 
 
 async def test_a_no_from_the_viewer_goes_back_too(tmp_path: Path) -> None:
@@ -87,7 +87,7 @@ async def test_a_no_from_the_viewer_goes_back_too(tmp_path: Path) -> None:
 
 async def test_after_the_last_round_the_plain_scene_is_drawn(tmp_path: Path) -> None:
     ep = _episode()
-    broken = "function scene(s) { s.person('nobody'); }"
+    broken = "function scene(s) { undefined.x; }"
     llm = FakeLlm().answer("code", broken, broken)
     result = await scenes.stage_beat(
         _ctx(tmp_path, llm, rounds=2), STYLE, ep, 0, timing=_timing(ep, 0), keys=tmp_path / "k",
@@ -95,6 +95,19 @@ async def test_after_the_last_round_the_plain_scene_is_drawn(tmp_path: Path) -> 
     )  # fmt: skip
     assert result.fallback
     assert result.report.error is None
+
+
+async def test_a_scene_that_draws_is_kept_over_the_plain_one(tmp_path: Path) -> None:
+    ep = _episode()
+    doubted = "function scene(s) { s.person('nobody'); }"
+    llm = FakeLlm().answer("code", doubted, doubted)
+    result = await scenes.stage_beat(
+        _ctx(tmp_path, llm, rounds=2), STYLE, ep, 0, timing=_timing(ep, 0), keys=tmp_path / "k",
+        stood={},
+    )  # fmt: skip
+    assert not result.fallback
+    assert result.code == doubted
+    assert result.left
 
 
 @pytest.mark.parametrize(
@@ -236,3 +249,16 @@ async def test_an_answer_without_code_is_a_round_not_a_crash(tmp_path: Path) -> 
     assert not result.fallback
     assert result.rounds == 2
     assert "had no code" in llm.calls[1][3]
+
+
+async def test_the_same_doubt_twice_running_ends_the_rounds(tmp_path: Path) -> None:
+    ep = _episode()
+    no = {"answers": [{"question": "q", "yes": False, "why": "he stands"}, *YES["answers"][1:]]}
+    llm = FakeLlm().answer("code", *[_good(ep, 0)] * 4).answer("Looked", no, no, no, no)
+    result = await scenes.stage_beat(
+        _ctx(tmp_path, llm, rounds=4), STYLE, ep, 0, timing=_timing(ep, 0), keys=tmp_path / "k",
+        stood={},
+    )  # fmt: skip
+    assert result.rounds == 2
+    assert not result.fallback
+    assert len(result.left) == 1
