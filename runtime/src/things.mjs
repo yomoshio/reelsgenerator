@@ -301,14 +301,18 @@ export function drawWater(ctx, ground, hero, level, t, p, walkers) {
 
 // A thing from the library: an SVG drawn flat in one colour of the palette, `h` px tall in
 // a room.
-export async function libraryThing(name, file, colour, h = 260) {
+// Library things a hand holds. The library has no sizes: without this a walkie-talkie
+// stands as tall as a wardrobe.
+const SMALL = /phone|walkie|radio|flashlight|torch|lantern|candle|key|lock|card|coin|wallet|cup|mug|glass|bottle|book|note|letter|paper|pen|knife|spoon|fork|plate|watch|clock|lighter|match|remote|tablet|camera|ticket|ring|pill|battery|bag|can|jar|toy/;
+
+export async function libraryThing(name, file, colour, h = SMALL.test(name) ? 90 : 260) {
   let svg = readFileSync(file, "utf8");
   svg = svg.replace(/fill="(?!none)[^"]*"/g, `fill="${colour}"`).replace(/fill:\s*(?!none)[^;"]+/g, `fill:${colour}`);
   if (!/fill=/.test(svg)) svg = svg.replace(/<path/g, `<path fill="${colour}"`);
   const image = await loadImage(Buffer.from(svg));
   const w = (h * image.width) / Math.max(image.height, 1);
   return {
-    w, h, on: "floor", parts: { top: [0, -h], middle: [0, -h / 2] },
+    w, h, on: "floor", small: h < 120, parts: { top: [0, -h], middle: [0, -h / 2] },
     draw(ctx) {
       ctx.drawImage(image, -w / 2, -h, w, h);
     },

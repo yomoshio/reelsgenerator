@@ -57,7 +57,7 @@ def _good(ep: Episode, n: int) -> str:
 
 async def test_a_runtime_error_goes_back_to_the_coder(tmp_path: Path) -> None:
     ep = _episode()
-    llm = FakeLlm().answer("code", "function scene(s) { s.thing('spaceship'); }", _good(ep, 0))
+    llm = FakeLlm().answer("code", "function scene(s) { undefined.x; }", _good(ep, 0))
     llm.answer("Looked", YES)
     result = await scenes.stage_beat(
         _ctx(tmp_path, llm), STYLE, ep, 0, timing=_timing(ep, 0), keys=tmp_path / "k", stood={}
@@ -65,7 +65,7 @@ async def test_a_runtime_error_goes_back_to_the_coder(tmp_path: Path) -> None:
     assert result.rounds == 2
     assert not result.fallback
     second = next(c for c in llm.calls if c[0] == "code" and "Your last code" in c[3])
-    assert "no thing 'spaceship'" in second[3]
+    assert "TypeError" in second[3]
 
 
 async def test_a_no_from_the_viewer_goes_back_too(tmp_path: Path) -> None:

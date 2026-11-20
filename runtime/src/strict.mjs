@@ -1,23 +1,27 @@
-// A model that writes scene code guesses names: `s.push`, `artem.sits`, `{ face: "left" }`.
-// Plain JavaScript answers a guess with "undefined is not a function", which tells the
-// model nothing; these answer with the names that do exist.
-
-import { ScriptError } from "./places.mjs";
+// A model that writes scene code guesses names: `s.plate`, `artem.shout`, `{ y: 0.4 }`.
+// Telling it so did not help: it sent the same guess back round after round. A guess is
+// now left out and written down, and the rest of the scene is drawn.
 
 const QUIET = new Set(["ref", "kind", "spec", "then", "toJSON", "constructor"]); // the runtime and the engine probe these
 
-export function strict(target, name) {
+// Swallows any chain of calls: s.plate("...").at("слово").
+export const nothing = new Proxy(function () {}, {
+  get: (o, key) => (typeof key === "symbol" ? undefined : nothing),
+  apply: () => nothing,
+});
+
+export function strict(target, name, ignored = []) {
   return new Proxy(target, {
     get(o, key) {
       if (typeof key === "symbol" || key in o || QUIET.has(key)) return o[key];
-      const has = Object.keys(o).filter((k) => !k.startsWith("__") && k !== "id");
-      throw new ScriptError(`${name} has no \`${key}\`; it has: ${has.join(", ")}`);
+      ignored.push(`${name}.${key}`);
+      return nothing;
     },
   });
 }
 
-export function options(opts, known, name) {
-  if (opts === null || typeof opts !== "object") throw new ScriptError(`${name} takes its options as an object, such as { ${known[0]}: ... }`);
-  const extra = Object.keys(opts).filter((k) => !known.includes(k));
-  if (extra.length) throw new ScriptError(`${name} has no option \`${extra.join("`, `")}\`; its options: ${known.join(", ")}`);
+export function options(opts, known, name, ignored = []) {
+  if (opts === null || typeof opts !== "object") return {};
+  for (const k of Object.keys(opts)) if (!known.includes(k)) ignored.push(`${name} option ${k}`);
+  return opts;
 }

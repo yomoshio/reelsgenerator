@@ -4,7 +4,7 @@
 //   card:   the closing card of an episode as raw frames
 // A report is {"ok", "error", "problems", "pngs", "graph"}.
 
-import { readFileSync, writeSync } from "node:fs";
+import { readFileSync, readdirSync, writeSync } from "node:fs";
 import { join } from "node:path";
 import { Canvas, FontLibrary } from "skia-canvas";
 import { H, ScriptError, W } from "./places.mjs";
@@ -36,16 +36,30 @@ if (input.mode === "card") {
   process.exit(0);
 }
 
+// The library thing a name means: the file of that name, or the shortest name that holds
+// every word of it, so `phone` finds `smartphone` and `walkie-talkie` finds `walkie_talkie`.
+function libraryFile(name, all) {
+  const wanted = name.toLowerCase().replace(/[^a-z0-9]+/g, "_");
+  if (all.includes(wanted)) return wanted;
+  const parts = wanted.split("_").filter((q) => q.length > 2);
+  if (!parts.length) return null;
+  const close = all.filter((k) => parts.every((q) => k.includes(q)));
+  return close.sort((a, b) => a.length - b.length || a.localeCompare(b))[0] ?? null;
+}
+
 async function libraryFor(names) {
   const found = {};
-  for (const name of names) {
+  let all = [];
+  try {
+    all = readdirSync(input.library).filter((f) => f.endsWith(".svg")).map((f) => f.slice(0, -4));
+  } catch {
+    // no library on this machine: only the runtime's own things exist
+  }
+  for (const name of new Set(names)) {
     if (FIXTURES[name]) continue;
-    const file = join(input.library, `${name}.svg`);
-    try {
-      found[name] = await libraryThing(name, file, input.palette.steel ?? "#68727F");
-    } catch {
-      // an unknown thing is reported when the scene asks for it
-    }
+    const file = libraryFile(name, all);
+    if (!file) continue; // an unknown thing is reported when the scene asks for it
+    found[name] = await libraryThing(name, join(input.library, `${file}.svg`), input.palette.steel ?? "#68727F");
   }
   return found;
 }
@@ -61,7 +75,8 @@ function luminance() {
 }
 
 try {
-  const library = await libraryFor(input.beat.staging?.things ?? []);
+  const asked = [...input.code.matchAll(/thing\(\s*["'`]([^"'`]+)["'`]/g)].map((m) => m[1]);
+  const library = await libraryFor([...(input.beat.staging?.things ?? []), ...asked]);
   const stage = makeStage(input, library);
   stage.run(load(input.code, seedOf(input.place.key)));
   if (input.mode === "frames") {
@@ -83,7 +98,7 @@ try {
     graph.push({ t, items: drawn.items, plates: drawn.plates });
     for (const p of stage.frameProblems({ t, ...drawn, luminance: luminance() })) problems.add(p);
   }
-  out({ ok: problems.size === 0, error: null, problems: [...problems], pngs, graph });
+  out({ ok: problems.size === 0, error: null, problems: [...problems], pngs, graph, ignored: stage.ignored() });
 } catch (exc) {
   if (input.mode === "frames") {
     process.stderr.write(String(exc?.message ?? exc) + "\n");

@@ -14,9 +14,9 @@ test("scene code has no require and no process", () => {
   assert.match(run(input(scene("process.exit(1)"))).error, /process is not defined/);
 });
 
-test("scene code never draws text", () => {
+test("text drawn by scene code is left out, plates draw the text", () => {
   const r = run(input(scene("s.draw((ctx) => ctx.fillText('x', 0, 0));")));
-  assert.match(r.error, /text on screen is drawn by plates/);
+  assert.equal(r.error, null);
 });
 
 test("a syntax error names its line", () => {

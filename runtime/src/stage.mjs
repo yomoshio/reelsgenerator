@@ -5,11 +5,11 @@
 // Where things are at a moment is motion.mjs; the camera, light, devices, plates and the
 // checks of what was declared each have a module of their own.
 
-import { options, strict } from "./strict.mjs";
+import { nothing, options, strict } from "./strict.mjs";
 import "./canvas.mjs";
 import { Canvas } from "skia-canvas";
 import { FLOOR, H, HERO, SCENE_BOTTOM, SCENE_TOP, ScriptError, W, makePlace, seedOf } from "./places.mjs";
-import { drawWater, spec } from "./things.mjs";
+import { FIXTURES, drawWater, spec } from "./things.mjs";
 import * as rig from "./rig.mjs";
 import { problems as frameProblems } from "./layout.mjs";
 import { bare, makeClock } from "./clock.mjs";
@@ -19,6 +19,22 @@ import { darkness, vignette } from "./light.mjs";
 import { DEVICES, sceneDevices, screenDevices } from "./devices.mjs";
 import { drawPlates, layPlates } from "./platelayout.mjs";
 import { declared } from "./checks.mjs";
+
+const PLATES = ["stamp", "status", "label", "rule_card", "plate", "caption", "text", "subtitle"];
+// Somebody in the crowd, in the greys of the place.
+const EXTRA = {
+  age: "adult", build: "average", skin: "light", hair: "short", hair_colour: "#2A2C33", face: [],
+  top: "jacket", top_colour: "#4A5160", bottom: "trousers", bottom_colour: "#2B2F3A",
+  shoes_colour: "#15171C", hat: "none", extras: [],
+};
+// What the model calls a pose the rig has under another name; a pose it does not have at
+// all is stood through.
+const ALIASES = {
+  shout: "arms_out", yell: "arms_out", scream: "arms_out", panic: "arms_out", shrug: "arms_out",
+  hit: "knock", slap: "knock", bang: "knock", push: "reach", tap: "reach", press: "reach", touch: "reach", type: "reach", swipe: "reach",
+  eat: "hold", carry: "hold", hold_phone: "hold", read: "look_down", sleep: "sit", lie: "sit", lie_down: "sit",
+  hear: "listen", wave: "point", show: "point",
+};
 
 // The longest walk in from off the frame, edge to edge at walking speed.
 const ENTER_SECONDS = 4;
@@ -30,7 +46,8 @@ export function makeStage(input, library = {}) {
   const seconds = input.seconds;
   const { at, time, revealTime } = makeClock(input.words, seconds);
   const cast = Object.fromEntries(input.characters.map((c) => [c.key, c]));
-  const decl = { place: null, things: [], people: [], moves: [], lights: [], devices: [], draws: [], events: 0 };
+  const decl = { place: null, things: [], people: [], moves: [], lights: [], devices: [], draws: [], events: 0, ignored: [] };
+  const handles = {};
   let sandbox = null;
 
   // --- the place --------------------------------------------------------------------------
@@ -40,17 +57,26 @@ export function makeStage(input, library = {}) {
     return decl.place;
   }
   const stagePlace = () => decl.place ?? setPlace();
+  function pose(name) {
+    if (rig.POSES[name]) return name;
+    decl.ignored.push(`pose ${name}`);
+    return ALIASES[name] ?? "stand";
+  }
   const where = makeMotion(decl, stagePlace);
   const { k, thingState, thingFoot, thingBox, personX, seatAt, personBones, ground } = where;
 
   // --- things -----------------------------------------------------------------------------
   function thing(name, opts = {}) {
-    options(opts, ["x", "scale", "flip", "state", "front", "level", "floor", "on"], `s.thing("${name}")`);
+    opts = options(opts, ["x", "scale", "flip", "state", "front", "level", "floor", "on"], `s.thing("${name}")`, decl.ignored);
+    // Plates are laid by the runtime from the beat's reveals, and a thing neither the runtime
+    // nor the library has cannot be drawn: both are left out, and whatever is done to them.
+    if (PLATES.includes(name) || !(FIXTURES[name] ?? library[name])) return decl.ignored.push(`s.thing("${name}")`), nothing;
     const s = spec(name, library);
     const count = decl.things.filter((t) => t.name === name).length;
-    const base = opts.on?.__ref ?? null;
-    if (opts.on && (!base || base.kind !== "thing")) throw new ScriptError("`on` takes a thing, such as { on: table }");
-    if (base && !["top", "seat"].some((q) => base.spec.parts[q])) throw new ScriptError(`nothing can stand on '${base.name}'; it has no top or seat`);
+    // A thing put on one with no top, a padlock on a door, hangs on its middle.
+    let base = opts.on?.__ref ?? opts.on?.ref ?? null;
+    if (base?.kind !== "thing") base = null;
+    if (opts.on && !base) decl.ignored.push(`s.thing("${name}") option on`);
     const t = {
       kind: "thing", name, id: count ? `${name}#${count + 1}` : name, spec: s, base,
       x: opts.x === undefined && base ? null : px(opts.x ?? 0.5), level: opts.level ?? opts.floor ?? 1,
@@ -71,38 +97,37 @@ export function makeStage(input, library = {}) {
         return handle;
       },
       part(partName) {
-        if (!s.parts[partName]) throw new ScriptError(`'${name}' has no part '${partName}'; parts: ${Object.keys(s.parts).join(", ")}`);
-        return { ref: t, part: partName };
+        if (s.parts[partName]) return { ref: t, part: partName };
+        decl.ignored.push(`${name}.part("${partName}")`);
+        return handle;
       },
       __ref: t,
-    }, name);
+    }, name, decl.ignored);
     return handle;
   }
 
   // --- people -----------------------------------------------------------------------------
   function person(key, opts = {}) {
-    options(opts, ["x", "facing", "pose", "level", "floor", "enter"], `s.person("${key}")`);
-    const card = cast[key]?.card;
-    if (!card) throw new ScriptError(`no character '${key}'; characters: ${Object.keys(cast).join(", ")}`);
-    if (decl.people.some((q) => q.key === key)) throw new ScriptError(`'${key}' is already on stage`);
+    opts = options(opts, ["x", "facing", "pose", "level", "floor", "enter"], `s.person("${key}")`, decl.ignored);
+    if (handles[key]) return handles[key];
+    // A name outside the cast is somebody in the crowd: a queue, a passer-by.
+    const card = cast[key]?.card ?? EXTRA;
     const pr = {
-      kind: "person", key, id: key, card, level: opts.level ?? opts.floor ?? 1,
+      kind: "person", key, id: key, card, extra: !cast[key], level: opts.level ?? opts.floor ?? 1,
       x0: px(opts.x ?? 0.5), facing0: opts.facing === "left" ? -1 : 1,
-      cues: [{ t: 0, pose: opts.pose ?? "stand", target: null }], walks: [], looks: [], sits: [],
+      cues: [{ t: 0, pose: pose(opts.pose ?? "stand"), target: null }], walks: [], looks: [], sits: [],
       appear: 0,
     };
     decl.people.push(pr);
     const aimed = (pose, target, o) => {
-      if (target === null || target === undefined) throw new ScriptError(`${key}.${pose} needs a target: a thing, a part of a thing or a person`);
-      pr.cues.push({ t: time(o.at), pose, target });
+      pr.cues.push({ t: time(o.at), pose, target: target ?? null });
       decl.events++;
       return handle;
     };
     const handle = strict({
       id: key,
       pose(name, o = {}) {
-        if (!rig.POSES[name]) throw new ScriptError(`no pose '${name}'; poses: ${Object.keys(rig.POSES).join(", ")}`);
-        pr.cues.push({ t: time(o.at), pose: name, target: o.target ?? null });
+        pr.cues.push({ t: time(o.at), pose: pose(name), target: o.target ?? null });
         decl.events++;
         return handle;
       },
@@ -114,11 +139,17 @@ export function makeStage(input, library = {}) {
         return handle;
       },
       sit(target, o = {}) {
-        const ref = target?.__ref ?? target?.ref;
-        if (!ref || !ref.spec?.parts?.seat) throw new ScriptError("sit needs a thing with a seat: bed, bench or chair");
+        if (target && !target.__ref && !target.ref) [target, o] = [null, target];
+        let ref = target?.__ref ?? target?.ref;
+        // Told to sit on a table or on nothing, a person takes the nearest seat on stage.
+        if (!ref?.spec?.parts?.seat) {
+          const seats = decl.things.filter((q) => q.spec.parts.seat);
+          ref = seats.sort((a, b) => Math.abs((a.x ?? 0) - pr.x0) - Math.abs((b.x ?? 0) - pr.x0))[0];
+          if (!ref) return decl.ignored.push(`${key}.sit with no seat on stage`), handle;
+        }
         const t0 = time(o.at);
         pr.sits.push({ t: t0, ref });
-        pr.walks.push({ t0: Math.max(0, t0 - 0.9), until: t0, to: target, seat: true });
+        pr.walks.push({ t0: Math.max(0, t0 - 0.9), until: t0, to: { __ref: ref }, seat: true });
         pr.cues.push({ t: t0, pose: "sit", target: null });
         decl.events++;
         return handle;
@@ -146,8 +177,10 @@ export function makeStage(input, library = {}) {
         decl.events++;
         return handle;
       },
+      part: () => handle,
       __ref: pr,
-    }, key);
+    }, key, decl.ignored);
+    handles[key] = handle;
     return handle;
   }
 
@@ -168,7 +201,7 @@ export function makeStage(input, library = {}) {
       decl.events++;
       return camera;
     },
-  }, "s.camera");
+  }, "s.camera", decl.ignored);
 
   function light(level, o = {}) {
     decl.lights.push({ t: time(o.at), level: Math.min(Math.max(level, 0), 1), flicker: !!o.flicker, until: o.until !== undefined ? time(o.until) : null });
@@ -176,7 +209,7 @@ export function makeStage(input, library = {}) {
   }
 
   function device(name, o = {}) {
-    if (!DEVICES.includes(name)) throw new ScriptError(`no device '${name}'; devices: ${DEVICES.join(", ")}`);
+    if (!DEVICES.includes(name)) return void decl.ignored.push(`s.device("${name}")`);
     decl.devices.push({ name, o, t0: time(o.at), t1: o.until !== undefined ? time(o.until) : seconds });
     decl.events++;
   }
@@ -186,10 +219,36 @@ export function makeStage(input, library = {}) {
   }
 
   const api = strict({
-    W, H, floor: FLOOR, seconds, words: input.words.map((w) => w.text),
+    W, H, width: W, height: H, floor: FLOOR, seconds, words: input.words.map((w) => w.text),
     place: (kind, opts) => (setPlace(kind, opts), undefined),
     thing, person, camera, light, device, draw, at,
-  }, "s");
+  }, "s", decl.ignored);
+
+  // The model places by eye and puts two things or two people on one spot. The later one
+  // steps aside; what the scene moves later it still moves from there.
+  function settle() {
+    const floor = decl.things.filter((q) => q.spec.on === "floor" && !q.spec.small && !q.base && q.x !== null);
+    for (let pass = 0; pass < 4; pass++) {
+      for (let i = 0; i < floor.length; i++) {
+        for (let j = i + 1; j < floor.length; j++) {
+          const [a, b] = [floor[i], floor[j]];
+          const need = ((a.spec.w * a.scale + b.spec.w * b.scale) / 2) * 0.8;
+          if (Math.abs(b.x - a.x) >= need) continue;
+          const side = b.x >= a.x ? 1 : -1;
+          const half = (b.spec.w * b.scale) / 2;
+          b.x = Math.min(Math.max(a.x + side * need, half), W - half);
+          if (Math.abs(b.x - a.x) < need) b.x = Math.min(Math.max(a.x - side * need, half), W - half);
+        }
+      }
+    }
+    const people = [...decl.people].sort((a, b) => a.x0 - b.x0);
+    for (let i = 1; i < people.length; i++) {
+      const apart = (people[i].extra && people[i - 1].extra ? 0.07 : 0.13) * W; // a crowd stands close
+      if (people[i].x0 - people[i - 1].x0 < apart) people[i].x0 = people[i - 1].x0 + apart;
+    }
+    const over = people.length ? people.at(-1).x0 - 0.92 * W : 0;
+    if (over > 0) for (const pr of people) pr.x0 = Math.max(pr.x0 - over, 0.06 * W);
+  }
 
   // --- a frame ----------------------------------------------------------------------------
   let backdrop = null;
@@ -231,7 +290,7 @@ export function makeStage(input, library = {}) {
       const lowest = Math.max(b.ankle_f[1], b.ankle_n[1]) + 0.065 * b.size * 0.35;
       const seated = seatAt(pr, t);
       const entering = pr.walks.some((w) => w.from !== undefined && t >= w.t0 && t < w.t0 + ENTER_SECONDS);
-      items.push({ id: pr.key, kind: "person", entering, box: rig.box(b), screen: boxToScreen(v, rig.box(b)), gap: seated ? 0 : ground(pr, b.hip[0]) - lowest });
+      items.push({ id: pr.key, kind: "person", extra: pr.extra, entering, box: rig.box(b), screen: boxToScreen(v, rig.box(b)), gap: seated ? 0 : ground(pr, b.hip[0]) - lowest });
     }
     for (const th of decl.things.filter((q) => q.spec.on === "fill")) {
       drawWater(ctx, place.support(W / 2, th.level), HERO * k(), thingState(th, t), t, p, walkers);
@@ -241,7 +300,7 @@ export function makeStage(input, library = {}) {
       const b = thingBox(th, t);
       const [x, y] = thingFoot(th, t);
       const stands = th.base ? "thing" : th.spec.on;
-      items.push({ id: th.id, kind: th.spec.on === "fill" ? "fill" : "thing", on: stands, box: b, screen: boxToScreen(v, b), gap: stands === "floor" ? place.support(x, th.level) - y : 0 });
+      items.push({ id: th.id, kind: th.spec.on === "fill" ? "fill" : "thing", small: !!th.spec.small, on: stands, box: b, screen: boxToScreen(v, b), gap: stands === "floor" ? place.support(x, th.level) - y : 0 });
     }
     custom(ctx, t, "front");
     sceneDevices(ctx, t, decl.devices, p, where);
@@ -268,9 +327,11 @@ export function makeStage(input, library = {}) {
       sandbox = box;
       box.run(api);
       stagePlace();
+      settle();
     },
     render,
-    declared: () => declared(decl, input),
+    declared: () => declared(decl, input, (name) => !!(FIXTURES[name] ?? library[name])),
+    ignored: () => [...new Set(decl.ignored)],
     frameProblems,
   };
 }
@@ -280,9 +341,7 @@ function guarded(ctx) {
   return new Proxy(ctx, {
     get(target, prop) {
       if (prop === "fillText" || prop === "strokeText") {
-        return () => {
-          throw new ScriptError("text on screen is drawn by plates; scene code never draws text");
-        };
+        return () => {}; // text on screen is drawn by plates
       }
       const value = target[prop];
       return typeof value === "function" ? value.bind(target) : value;

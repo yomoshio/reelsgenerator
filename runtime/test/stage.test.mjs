@@ -40,15 +40,18 @@ test("a still scene longer than five seconds is a problem", () => {
   assert.ok(r.problems.some((p) => /nothing moves/.test(p)));
 });
 
-test("two things put in the same spot are a problem", () => {
+test("of two things put in the same spot the later one steps aside", () => {
   const r = run(input(`function scene(s) { s.place("room"); s.thing("atm", { x: 0.3 }); s.thing("shelf", { x: 0.32 });
     s.person("artem", { x: 0.7 }).pose("point", { at: "слушает" }); }`));
-  assert.ok(r.problems.some((p) => /stand inside each other/.test(p)));
+  assert.deepEqual(r.problems, []);
+  const [atm, shelf] = ["atm", "shelf"].map((id) => r.graph[0].items.find((i) => i.id === id).box);
+  assert.ok(shelf[0] >= atm[0] + atm[2] * 0.5);
 });
 
-test("an unknown thing suggests close names", () => {
-  const r = run(input(`function scene(s) { s.thing("atmachine"); }`));
-  assert.match(r.error, /no thing 'atmachine'; did you mean atm/);
+test("a thing nobody can draw is left out with all that is done to it", () => {
+  const r = run(input(`function scene(s) { const x = s.thing("atmachine"); x.state(1, { at: "воду" }); s.person("artem").reach(x.part("screen"), { at: "воду" }); }`));
+  assert.equal(r.error, null);
+  assert.ok(r.ignored.includes('s.thing("atmachine")'));
 });
 
 test("the lens shows the scene, not an empty disc", () => {
@@ -91,9 +94,12 @@ test("a small thing stands on a table, not inside it", () => {
   assert.ok(Math.abs(chair.box[1] + chair.box[3] - table.box[1]) < 2);
 });
 
-test("nothing stands on a thing without a top", () => {
-  const r = run(input(`function scene(s) { const d = s.thing("door"); s.thing("chair", { on: d }); }`));
-  assert.match(r.error, /nothing can stand on 'door'/);
+test("a thing put on one without a top hangs on its middle", () => {
+  const r = run(input(`function scene(s) { s.place("room"); const d = s.thing("door", { x: 0.7 }); s.thing("chair", { on: d });
+    s.person("artem", { x: 0.3 }).pose("point", { at: "слушает" }); }`));
+  assert.equal(r.error, null);
+  const [door, chair] = ["door", "chair"].map((id) => r.graph[0].items.find((i) => i.id === id).box);
+  assert.ok(chair[1] + chair[3] < door[1] + door[3] - 50 && chair[1] + chair[3] > door[1]);
 });
 
 test("a person walks to a thing and to another person", () => {
@@ -115,10 +121,6 @@ test("a person walks to a thing and to another person", () => {
 });
 
 for (const [what, code, says] of [
-  ["a guessed method of the stage", `function scene(s) { s.place("room"); s.push({ zoom: 1.1 }); }`, /s has no `push`; it has: .*camera/],
-  ["a guessed method of a person", `function scene(s) { s.person("artem").sits(); }`, /artem has no `sits`; it has: .*sit/],
-  ["a guessed option", `function scene(s) { s.person("artem", { x: 0.4, y: 0.1, face: "left" }); }`, /no option `y`, `face`; its options: x, facing/],
-  ["a reach at nothing", `function scene(s) { s.person("artem").reach(undefined, { at: 1 }); }`, /artem\.reach needs a target/],
   ["code outside the scene function", `s.place("room");\nfunction scene(s) {}`, /only inside `function scene/],
 ]) {
   test(`${what} is answered with what exists`, () => {
@@ -144,6 +146,40 @@ test("a person still walking in from off the frame is not a problem", () => {
     s.place("room");
     s.person("artem", { x: 0.5 }).enter({ from: "right", at: "Артём" });
   }`));
+  assert.equal(r.error, null);
+  assert.deepEqual(r.problems, []);
+});
+
+for (const [what, code, left] of [
+  ["a guessed method of the stage", `function scene(s) { s.place("room"); s.plate("ОШИБКА").at("воду"); }`, "s.plate"],
+  ["a guessed method of a person", `function scene(s) { s.person("artem").shout({ at: "воду" }).pose("point"); }`, "artem.shout"],
+  ["a guessed option", `function scene(s) { s.person("artem", { x: 0.4, y: 0.1 }); }`, 's.person("artem") option y'],
+  ["a guessed pose", `function scene(s) { s.person("artem").pose("smile", { at: "воду" }); }`, "pose smile"],
+  ["a guessed device", `function scene(s) { s.person("artem"); s.device("stamp", { text: "x" }); }`, 's.device("stamp")'],
+]) {
+  test(`${what} is left out and the rest is drawn`, () => {
+    const r = run(input(code));
+    assert.equal(r.error, null);
+    assert.ok(r.ignored.includes(left), r.ignored.join("; "));
+  });
+}
+
+test("a moment is found by a phrase or by another form of the word", () => {
+  const r = run(input(`function scene(s) { const a = s.person("artem"); a.pose("point", { at: "слушает воду" }); a.pose("listen", { at: "кроватью" }); }`));
+  assert.equal(r.error, null);
+});
+
+test("a name outside the cast is somebody in the crowd, and a crowd may stand close", () => {
+  const r = run(input(`function scene(s) { s.place("shop"); s.person("artem", { x: 0.2 }).pose("point", { at: "воду" });
+    for (let i = 0; i < 4; i++) s.person("queue" + i, { x: 0.5 + i * 0.02 }); }`));
+  assert.equal(r.error, null);
+  assert.deepEqual(r.problems, []);
+  assert.equal(r.graph[0].items.filter((i) => i.extra).length, 4);
+});
+
+test("a person told to sit on nothing takes the nearest seat", () => {
+  const r = run(input(`function scene(s) { s.place("room"); const t = s.thing("table", { x: 0.3 }); s.thing("chair", { x: 0.6 });
+    s.person("artem", { x: 0.5 }).sit(t, { at: "сидит" }); }`));
   assert.equal(r.error, null);
   assert.deepEqual(r.problems, []);
 });

@@ -5,17 +5,18 @@
 import { FLOOR, H, HERO, SCENE_TOP, ScriptError, W, seedOf } from "./places.mjs";
 import { WATER } from "./things.mjs";
 import * as rig from "./rig.mjs";
+import { nothing } from "./strict.mjs";
 
 const WALK_SPEED = 260; // px a second
 
-export const px = (x) => (Math.abs(x) <= 1.5 ? x * W : x);
+export const px = (x) => (typeof x !== "number" || Number.isNaN(x) ? W / 2 : Math.abs(x) <= 1.5 ? x * W : x);
 
 export function makeMotion(decl, place) {
   const k = () => place().scale / HERO;
 
   // --- things -----------------------------------------------------------------------------
   function thingX(t, time_) {
-    let x = t.x ?? partPoint(t.base, t.base.spec.parts.top ? "top" : "seat", time_)[0];
+    let x = t.x ?? onPoint(t.base, time_)[0];
     for (const m of t.moves) x += (m.x - x) * rig.ease((time_ - m.t0) / Math.max(m.t1 - m.t0, 0.01));
     return x;
   }
@@ -26,7 +27,7 @@ export function makeMotion(decl, place) {
   }
   function thingFoot(t, time_) {
     const x = thingX(t, time_);
-    if (t.base) return [x, partPoint(t.base, t.base.spec.parts.top ? "top" : "seat", time_)[1]];
+    if (t.base) return [x, onPoint(t.base, time_)[1]];
     const ground = place().support(x, t.level);
     const on = t.spec.on;
     if (on === "wall") return [x, ground - (t.spec.lift ?? 0) * t.scale];
@@ -40,6 +41,13 @@ export function makeMotion(decl, place) {
     if (on === "tall") return [x - (w * t.scale) / 2, 0, w * t.scale, y];
     if (on === "fill") return [0, 0, W, H];
     return [x - (w * t.scale) / 2, y - h * t.scale, w * t.scale, h * t.scale];
+  }
+  // Where a thing put on another one rests: its top, its seat, or half-way up its front.
+  function onPoint(base, time_) {
+    const part = base.spec.parts.top ? "top" : base.spec.parts.seat ? "seat" : null;
+    if (part) return partPoint(base, part, time_);
+    const b = thingBox(base, time_);
+    return [b[0] + b[2] / 2, b[1] + b[3] * 0.55];
   }
   function partPoint(ref, partName, time_) {
     const [x, y] = thingFoot(ref, time_);
@@ -92,17 +100,28 @@ export function makeMotion(decl, place) {
     const ref = target?.__ref;
     if (ref?.kind === "thing" || ref?.kind === "person") {
       const box = ref.kind === "thing" ? thingBox(ref, t) : [x - 60, 0, 120, 0];
-      const gap = 40;
+      const gap = ref.kind === "thing" ? 40 : 90; // beside a person, not on top of them
       return from < x ? box[0] - gap : box[0] + box[2] + gap;
     }
     return x;
   }
   function targetPoint(target, t) {
     if (target === null || target === undefined) throw new ScriptError("a target is missing");
+    if (target === nothing) return [W / 2, H * 0.42]; // a thing that was left out
     if (typeof target === "number") return [px(target), FLOOR];
+    if (Array.isArray(target) && target.length && target.every((q) => typeof q !== "number")) {
+      const points = target.map((q) => targetPoint(q, t));
+      return [0, 1].map((i) => points.reduce((sum, q) => sum + q[i], 0) / points.length);
+    }
     if (Array.isArray(target)) return [px(target[0]), target[1] <= 1.5 ? target[1] * H : target[1]];
+    if (typeof target === "string") {
+      const named = decl.people.find((q) => q.key === target) ?? decl.things.find((q) => q.name === target || q.id === target);
+      if (named) return targetPoint({ __ref: named }, t);
+      return [target === "left" ? 0.15 * W : target === "right" ? 0.85 * W : W / 2, H * 0.42];
+    }
     if (target.ref && target.part) return partPoint(target.ref, target.part, t);
-    const ref = target.__ref ?? target;
+    if (typeof target.x === "number") return [px(target.x), typeof target.y === "number" ? (target.y <= 1.5 ? target.y * H : target.y) : FLOOR];
+    const ref = target.__ref ?? target.ref ?? target;
     if (ref.kind === "thing") {
       const b = thingBox(ref, t);
       return [b[0] + b[2] / 2, b[1] + b[3] * 0.35];
@@ -111,7 +130,7 @@ export function makeMotion(decl, place) {
       const b = personBones(ref, t);
       return b.head;
     }
-    throw new ScriptError("a target is a thing, a part of a thing, a person, or [x, y]");
+    return [W / 2, H * 0.42]; // a target the stage does not have: the middle of the scene
   }
 
   function seatAt(pr, t) {
