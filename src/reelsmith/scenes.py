@@ -97,7 +97,7 @@ def brief(ep: Episode, n: int, timing: Timing, stood: dict[str, float], note: st
     )
     kept = ", ".join(f"{k} at x={v}" for k, v in stood.items())
     parts = [
-        f"Place `{place.key}` ({place.kind}): {place.look}",
+        f'Place {place.name}, drawn by `s.place("{place.kind}")`: {place.look}',
         f"Characters in this beat:\n{people}" if people else "Nobody is in this beat.",
         f"Lines: {beat.text}",
         f"Words with the second each starts: {said}",

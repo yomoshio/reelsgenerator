@@ -48,7 +48,7 @@ export function problems(frame) {
     }
     const b = it.box;
     const out = Math.max(0, -b[0]) + Math.max(0, b[0] + b[2] - W);
-    if (it.kind !== "fill" && out > b[2] * 0.3) found.push(`${it.id} is mostly outside the frame ${at}; keep x between 0.1 and 0.9`);
+    if (it.kind !== "fill" && !it.entering && out > b[2] * 0.3) found.push(`${it.id} is mostly outside the frame ${at}; keep x between 0.1 and 0.9`);
     if (it.kind === "person" && (b[1] < SCENE_TOP - 40 || b[1] + b[3] > SCENE_BOTTOM + 60)) found.push(`${it.id} leaves the scene band ${at}; the area below y=${SCENE_BOTTOM} is for captions`);
   }
   const floor = items.filter((i) => i.kind === "thing" && i.on === "floor");

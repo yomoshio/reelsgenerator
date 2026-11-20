@@ -73,11 +73,12 @@ box() {
     local ssh=(ssh -i "$key" -p "${port:-22}" -o ServerAliveInterval=30)
     local rsync=(rsync -a -e "ssh -i '$key' -p ${port:-22}")
     # Code goes to the server and jobs come back; weights are never copied. A push deletes
-    # code files there that were deleted here and leaves the excluded paths alone.
+    # code files there that were deleted here and leaves the excluded paths alone: the thing
+    # library is one of them, each machine imports its own.
     local code=(--exclude .venv --exclude __pycache__ --exclude .mypy_cache --exclude .ruff_cache
         --exclude .pytest_cache --exclude node_modules --exclude review --exclude .git
         --exclude logs --exclude hf --exclude outbox --exclude voices --exclude jobs
-        --exclude studio --exclude .env --exclude backups
+        --exclude studio --exclude .env --exclude backups --exclude library
         --exclude '*.zip' --exclude '*.tar' --exclude '*.tar.gz')
     # -n: without it ssh swallows the rest of stdin and breaks `while read ...; do ./run.sh`.
     there() { "${ssh[@]}" -n "$host" "cd $dir && $*"; }

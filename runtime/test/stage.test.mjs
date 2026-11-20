@@ -138,3 +138,12 @@ test("a person who enters is not on stage before the word", () => {
   assert.equal(r.graph[0].items.some((i) => i.id === "artem"), false);
   assert.equal(r.graph.at(-1).items.some((i) => i.id === "artem"), true);
 });
+
+test("a person still walking in from off the frame is not a problem", () => {
+  const r = run(input(`function scene(s) {
+    s.place("room");
+    s.person("artem", { x: 0.5 }).enter({ from: "right", at: "Артём" });
+  }`));
+  assert.equal(r.error, null);
+  assert.deepEqual(r.problems, []);
+});

@@ -20,6 +20,9 @@ import { DEVICES, sceneDevices, screenDevices } from "./devices.mjs";
 import { drawPlates, layPlates } from "./platelayout.mjs";
 import { declared } from "./checks.mjs";
 
+// The longest walk in from off the frame, edge to edge at walking speed.
+const ENTER_SECONDS = 4;
+
 export { bare };
 
 export function makeStage(input, library = {}) {
@@ -227,7 +230,8 @@ export function makeStage(input, library = {}) {
       walkers.push(b.hip[0]);
       const lowest = Math.max(b.ankle_f[1], b.ankle_n[1]) + 0.065 * b.size * 0.35;
       const seated = seatAt(pr, t);
-      items.push({ id: pr.key, kind: "person", box: rig.box(b), screen: boxToScreen(v, rig.box(b)), gap: seated ? 0 : ground(pr, b.hip[0]) - lowest });
+      const entering = pr.walks.some((w) => w.from !== undefined && t >= w.t0 && t < w.t0 + ENTER_SECONDS);
+      items.push({ id: pr.key, kind: "person", entering, box: rig.box(b), screen: boxToScreen(v, rig.box(b)), gap: seated ? 0 : ground(pr, b.hip[0]) - lowest });
     }
     for (const th of decl.things.filter((q) => q.spec.on === "fill")) {
       drawWater(ctx, place.support(W / 2, th.level), HERO * k(), thingState(th, t), t, p, walkers);
