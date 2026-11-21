@@ -63,11 +63,13 @@ colours. `hidden: true` on any thing keeps it out of sight until someone takes i
 - `atm.state(2, { at: "ошибка" })`: change state, eased over a second. Water: 0 ankle,
   1 knee, 2 waist, 3 chest. Atm: 0 idle, 1 lit, 2 red error. Door: 0 shut, 1 open.
   Wardrobe: 0 upright, 1 fallen. Lamp: 0 off, 1 on.
+  Fireplace: 0 cold, 1 embers, 2 burning (as it starts), 3 roaring; it lights the room
+  around it by itself, also when `s.light` has made the room dark.
 - `atm.move({ to: 0.6, at: "двигает" })`: slide along the ground.
 - `atm.part("screen")`: a point to reach, point at, magnify or start ripples from.
 
 Parts: door handle, middle · window glass · bed seat, pillow · bench seat · chair seat ·
-table top · counter top, front · shelf top, middle · wardrobe door, top · atm screen, slot,
+fireplace hearth, mantel · table top · counter top, front · shelf top, middle · wardrobe door, top · atm screen, slot,
 keys · lamp bulb · railing rail · pipe middle, top · radiator top · water surface.
 
 ## People

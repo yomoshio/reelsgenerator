@@ -8,7 +8,7 @@
 import { nothing, options, strict } from "./strict.mjs";
 import "./canvas.mjs";
 import { Canvas } from "skia-canvas";
-import { FLOOR, H, HERO, SCENE_BOTTOM, SCENE_TOP, ScriptError, W, makePlace, seedOf } from "./places.mjs";
+import { FLOOR, H, HERO, SCENE_BOTTOM, SCENE_TOP, ScriptError, W, alpha, makePlace, seedOf } from "./places.mjs";
 import { FIXTURES, drawWater, spec } from "./things.mjs";
 import * as rig from "./rig.mjs";
 import { problems as frameProblems } from "./layout.mjs";
@@ -48,6 +48,9 @@ const FEELINGS = {
   think: "worried", sleepy: "tired", exhausted: "tired", sleep: "tired",
 };
 
+// Names the model gives a thing the runtime draws itself.
+const NAMED = { fire: "fireplace", hearth: "fireplace", fire_place: "fireplace", chimney: "fireplace", stove: "fireplace" };
+
 // The longest walk in from off the frame, edge to edge at walking speed.
 const ENTER_SECONDS = 4;
 
@@ -83,6 +86,7 @@ export function makeStage(input, library = {}) {
   function thing(name, opts = {}) {
     opts = options(opts, ["x", "scale", "flip", "state", "front", "level", "floor", "on", "hidden"], `s.thing("${name}")`, decl.ignored);
     name = String(name).replace(/#\d+$/, ""); // the brief calls a second door `door#2`
+    name = NAMED[name] ?? name;
     // Plates are laid by the runtime from the beat's reveals, and a thing neither the runtime
     // nor the library has cannot be drawn: both are left out, and whatever is done to them.
     if (PLATES.includes(name) || !known(name)) return decl.ignored.push(`s.thing("${name}")`), nothing;
@@ -101,7 +105,7 @@ export function makeStage(input, library = {}) {
       scale: holder ? Math.min((opts.scale ?? 1) * k(), (HELD / s.h) * k()) : (opts.scale ?? 1) * k(),
       flip: opts.flip ? -1 : 1, front: !!opts.front, hidden: !!opts.hidden, pocket: opts.hidden ? holder : null,
       rests: [], carried: !!holder,
-      states: [{ t: 0, n: opts.state ?? 0 }], moves: [],
+      states: [{ t: 0, n: opts.state ?? s.state ?? 0 }], moves: [],
     };
     decl.things.push(t);
     const handle = strict({
@@ -514,6 +518,23 @@ export function makeStage(input, library = {}) {
     custom(ctx, t, "front");
     sceneDevices(ctx, t, decl.devices, p, where);
     darkness(ctx, t, decl.lights, people, p, personBones);
+    // What burns lights what is near it, and shows through the dark.
+    for (const th of decl.things.filter((q) => q.spec.glow && !now.get(q).hidden)) {
+      const g = th.spec.glow(thingState(th, t));
+      if (!(g.a > 0)) continue;
+      const [x, y] = thingFoot(th, t);
+      const [gx, gy] = [x + g.at[0] * th.scale * th.flip, y + g.at[1] * th.scale];
+      const beat = 1 + 0.06 * Math.sin(t * 9.3) + 0.04 * Math.sin(t * 15.1 + 1);
+      const fall = ctx.createRadialGradient(gx, gy, 0, gx, gy, g.r * th.scale * beat);
+      fall.addColorStop(0, alpha(g.colour, g.a * beat));
+      fall.addColorStop(0.35, alpha(g.colour, g.a * 0.45));
+      fall.addColorStop(1, alpha(g.colour, 0));
+      ctx.save();
+      ctx.globalCompositeOperation = "screen";
+      ctx.fillStyle = fall;
+      ctx.fillRect(gx - g.r * 1.2, gy - g.r * 1.2, g.r * 2.4, g.r * 2.4);
+      ctx.restore();
+    }
     ctx.restore();
     vignette(ctx);
     screenDevices(ctx, t, v, decl.devices, p, where);

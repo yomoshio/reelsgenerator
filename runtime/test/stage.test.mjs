@@ -258,3 +258,15 @@ test("a thing thrown into the fire is gone, and two people who look at each othe
     `const fire = s.thing("fireplace", { x: 0.9 }); a.look(b); b.look(a); a.take(paw, { from: "pocket", at: 0 }); a.throw(paw, { to: fire, at: 1 });`, [3]);
   assert.equal(gone, undefined);
 });
+
+test("a fire is drawn by the runtime under the names a model gives it, and takes a state", () => {
+  const r = run(input(`function scene(s) {
+    s.place("room"); s.light(0.3);
+    const fire = s.thing("fire", { x: 0.7 });
+    fire.state(3, { at: 1 }); fire.state(0, { at: 3 });
+    s.person("artem", { x: 0.3 }).look(fire.part("hearth"));
+  }`));
+  assert.equal(r.error, null);
+  assert.deepEqual(r.ignored, []);
+  assert.ok(r.graph[0].items.some((i) => i.id === "fireplace"));
+});
