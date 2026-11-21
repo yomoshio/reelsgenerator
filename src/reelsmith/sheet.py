@@ -113,6 +113,8 @@ def faults(sheet: Sheet, cast: list[str], words: list[str], known: set[str]) -> 
             out.append(f"no word «{word}» in the lines")
     for act in sheet.acts:
         out.extend(_act_faults(act, things, people))
+    if not (sheet.acts or sheet.changes or sheet.camera):
+        out.append("nothing happens in the beat: give it acts on the narrator's words")
     for change in sheet.changes:
         if change.thing not in things:
             out.append(f"'{change.thing}' changes state but is not in `things`")

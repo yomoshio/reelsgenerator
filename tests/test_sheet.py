@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from reelsmith import runtime
+from reelsmith import runtime, scenes
 from reelsmith.scenes import carried
 from reelsmith.sheet import Act, Change, Item, Sheet, Shot, Stand, after, compose, faults
 from reelsmith.styles import Styles
@@ -84,3 +84,49 @@ async def test_the_code_of_a_sheet_draws_without_a_fault_or_a_guess(tmp_path: Pa
     last = {i["id"] for i in report.graph[-1]["items"]}
     assert "fireplace" in last
     assert "monkey_paw" not in last
+
+
+@pytest.mark.skipif(
+    shutil.which("node") is None or not (REPO / "runtime" / "node_modules").is_dir(),
+    reason="the runtime needs node and `npm ci` in runtime/",
+)
+async def test_a_sheet_that_fails_goes_back_with_the_reason_and_the_next_beat_starts_from_it(
+    tmp_path: Path,
+) -> None:
+    ep = _episode()
+    key = ep.beats[0].cast[0]
+    word = ep.beats[0].text.split()[1].strip(".,!?")
+    good = Sheet(
+        things=[Item(name="bed", where="left"), Item(name="amulet", on=key, hidden=True)],
+        people=[Stand(who=key, where="right")],
+        acts=[Act(who=key, does="take", what="amulet", on_word=word)],
+    )
+    bad = good.model_copy(update={"people": [Stand(who="nobody", where="right")]})
+    llm = FakeLlm().answer("Sheet", bad, good)
+    ctx = context(tmp_path, llm, staging="sheet", runtime=REPO / "runtime", library=tmp_path / "l")
+    style = Styles(REPO / "styles").get("blackout")
+    result = await scenes.sheet_beat(
+        ctx, style, ep, 0, timing=_timing(ep, 0), keys=tmp_path / "k", before=None
+    )
+    assert result is not None
+    assert result.rounds == 2
+    assert "nobody" in llm.calls[1][3]
+    assert 's.prop("amulet"' in result.code
+    left = after(result.sheet)  # type: ignore[arg-type]
+    llm.answer("Sheet", good)
+    await scenes.sheet_beat(
+        ctx, style, ep, 0, timing=_timing(ep, 0), keys=tmp_path / "k", before=left
+    )
+    assert f'"on":"{key}"' in llm.calls[2][3]
+
+
+async def test_a_beat_no_sheet_can_stage_is_left_to_the_coder(tmp_path: Path) -> None:
+    ep = _episode()
+    bad = Sheet(people=[Stand(who="nobody", where="right")])
+    llm = FakeLlm().answer("Sheet", bad, bad, bad)
+    ctx = context(tmp_path, llm, staging="sheet", runtime=REPO / "runtime", library=tmp_path / "l")
+    result = await scenes.sheet_beat(
+        ctx, Styles(REPO / "styles").get("blackout"), ep, 0, timing=_timing(ep, 0),
+        keys=tmp_path / "k", before=None,
+    )  # fmt: skip
+    assert result is None

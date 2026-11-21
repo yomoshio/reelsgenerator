@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -33,6 +34,11 @@ class Settings(BaseSettings):
     reasoning: str = "none"
 
     rewrites: int = Field(default=2, ge=0, description="Rewrites of a story that fails checks.")
+    staging: Literal["sheet", "coder"] = Field(
+        default="sheet",
+        description="sheet: a model fills a sheet and a program writes the scene; coder: a "
+        "model writes the scene code. A beat whose sheet fails goes to the coder.",
+    )
     rounds: int = Field(default=4, ge=1, description="Rounds of a scene before the fallback.")
     retakes: int = Field(default=2, ge=0, description="Retakes of a beat the narrator misread.")
     variants: int = Field(default=1, ge=1, le=5, description="Scenes the coder writes at first.")

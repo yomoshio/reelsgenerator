@@ -159,6 +159,32 @@ class StandIn:
         answers = [{"question": q, "yes": q != FIXED[0], "why": "rehearsal"} for q in questions]
         return json.dumps({"answers": answers})
 
+    def _sheet(self, user: str) -> str:
+        """A plain sheet: the staging's things at the walls, the cast between them, the first
+        of them turning to the first thing on a word in the middle."""
+        lines = re.search(r"^Lines: (.+)$", user, re.MULTILINE)
+        beat = next(b for b in self.ep.beats if lines and b.text == lines.group(1))
+        names = [t for t in (beat.staging.things if beat.staging else []) if t != "water"]
+        things = [
+            {"name": name, "where": where}
+            for name, where in zip(names, ["far_left", "far_right", "centre"], strict=False)
+        ]
+        people = [
+            {"who": key, "where": where}
+            for key, where in zip(beat.cast, ["left", "right", "centre"], strict=False)
+        ]
+        said = beat.text.split()
+        word = said[len(said) // 2].strip(".,!?:;«»—")
+        acts = [
+            {"on_word": word, "who": people[0]["who"], "does": "look", "what": things[0]["name"]}
+            for _ in [0]
+            if people and things
+        ]
+        camera = [
+            {"on_word": word, "move": "push", "to": p["who"], "zoom": 1.05} for p in people[:1]
+        ]
+        return json.dumps({"things": things, "people": people, "acts": acts, "camera": camera})
+
     def _code(self, user: str) -> str:
         lines = re.search(r"^Lines: (.+)$", user, re.MULTILINE)
         beat = next(b for b in self.ep.beats if lines and b.text == lines.group(1))

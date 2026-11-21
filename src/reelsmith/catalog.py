@@ -21,6 +21,7 @@ THINGS = {
     "bench": "a bench; parts: seat",
     "chair": "a chair; parts: seat",
     "table": "a table or workbench; parts: top",
+    "fireplace": "a hearth that burns: state 0 cold, 1 embers, 2 burning, 3 roaring; parts: hearth",
     "counter": "a shop counter; parts: top",
     "shelf": "shelves with goods; parts: top",
     "wardrobe": "a wardrobe; parts: door",

@@ -49,6 +49,7 @@ class FakeLlm:
 
 
 def context(tmp_path: Path, llm: FakeLlm, **settings: Any) -> Context:
+    settings.setdefault("staging", "coder")
     return Context(
         Settings(jobs=tmp_path / "jobs", styles=REPO / "styles", **settings),
         llm,  # type: ignore[arg-type]
