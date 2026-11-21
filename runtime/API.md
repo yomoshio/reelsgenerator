@@ -100,7 +100,7 @@ only place and move them. They breathe and sway by themselves.
     fire, a bin, water or a window it is gone; thrown to an x it lies on the floor there.
   - `ivan.drop(phone, { at: "роняет" })`: it falls from the hand to the floor.
   A thing thrown into the fire can be taken out of it again with `take`.
-- `ivan.pose(name, { at })`: stand, walk, listen, look_down, sit, hold, knock, point, reach,
+- `ivan.pose(name, { at })`: stand, walk, listen, look_down, sit, hold, carry, knock, point, reach,
   arms_out.
 - `ivan.mood(name, { at })`: the face: neutral, happy, sad, worried, scared, angry,
   surprised, tired. Give every person the mood the lines call for, and change it when the

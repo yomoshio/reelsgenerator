@@ -143,6 +143,8 @@ export function makeStage(input, library = {}) {
       w: wide, h: tall, on: "floor", small: true, parts: {},
       draw(ctx, state, t) {
         ctx.translate(0, -tall / 2);
+        ctx.shadowColor = "rgba(255,236,200,0.6)"; // a rim, so a dark thing reads in a dark room
+        ctx.shadowBlur = 7;
         sandbox.call(fn, guarded(ctx), t, state);
       },
     };
@@ -246,7 +248,7 @@ export function makeStage(input, library = {}) {
         if (!th.rests.length && !th.holder && (typeof o.from === "string" || th.hidden)) Object.assign(th, { hidden: true, pocket: pr });
         const was = lastRest(th);
         if (!was.pocket && was.holder !== pr) pr.cues.push({ t: Math.max(0, t0 - rig.EASE), pose: "reach", target: spotOf(th, was) });
-        pr.cues.push({ t: t0, pose: "hold", target: null });
+        pr.cues.push({ t: t0, pose: "carry", target: null });
         th.rests.push({ t: t0, takes: 0.3, holder: pr });
         decl.events++;
         return handle;
@@ -286,7 +288,7 @@ export function makeStage(input, library = {}) {
         pr.looks.push({ t: t0, target: { __ref: other } });
         other.looks.push({ t: t0, target: { __ref: pr } });
         pr.cues.push({ t: t0, pose: "reach", target: meet }, { t: t0 + rig.EASE + 0.6, pose: "stand", target: null });
-        other.cues.push({ t: t0, pose: "reach", target: theirs }, { t: t0 + rig.EASE + 0.25, pose: "hold", target: null });
+        other.cues.push({ t: t0, pose: "reach", target: theirs }, { t: t0 + rig.EASE + 0.25, pose: "carry", target: null });
         th.rests.push({ t: t0 + rig.EASE, takes: 0.25, holder: other });
         decl.events++;
         return handle;
