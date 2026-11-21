@@ -60,6 +60,8 @@ export function makeStage(input, library = {}) {
   const cast = Object.fromEntries(input.characters.map((c) => [c.key, c]));
   const decl = { place: null, things: [], people: [], moves: [], lights: [], devices: [], draws: [], events: 0, ignored: [] };
   const handles = {};
+  const props = {};
+  const known = (name) => props[name] ?? FIXTURES[name] ?? library[name];
   let sandbox = null;
 
   // --- the place --------------------------------------------------------------------------
@@ -75,16 +77,16 @@ export function makeStage(input, library = {}) {
     return ALIASES[name] ?? "stand";
   }
   const where = makeMotion(decl, stagePlace);
-  const { k, thingState, thingFoot, thingBox, personX, seatAt, personBones, ground } = where;
+  const { k, thingState, thingFoot, thingBox, rest, personX, seatAt, personBones, ground } = where;
 
   // --- things -----------------------------------------------------------------------------
   function thing(name, opts = {}) {
-    opts = options(opts, ["x", "scale", "flip", "state", "front", "level", "floor", "on"], `s.thing("${name}")`, decl.ignored);
+    opts = options(opts, ["x", "scale", "flip", "state", "front", "level", "floor", "on", "hidden"], `s.thing("${name}")`, decl.ignored);
     name = String(name).replace(/#\d+$/, ""); // the brief calls a second door `door#2`
     // Plates are laid by the runtime from the beat's reveals, and a thing neither the runtime
     // nor the library has cannot be drawn: both are left out, and whatever is done to them.
-    if (PLATES.includes(name) || !(FIXTURES[name] ?? library[name])) return decl.ignored.push(`s.thing("${name}")`), nothing;
-    const s = spec(name, library);
+    if (PLATES.includes(name) || !known(name)) return decl.ignored.push(`s.thing("${name}")`), nothing;
+    const s = props[name] ?? spec(name, library);
     const count = decl.things.filter((t) => t.name === name).length;
     // A thing put on one with no top, a padlock on a door, hangs on its middle.
     // A thing put on a person is in their hand, and goes where they go.
@@ -92,12 +94,13 @@ export function makeStage(input, library = {}) {
     const holder = base?.kind === "person" ? base : null;
     if (base?.kind !== "thing") base = null;
     if (opts.on && !base && !holder) decl.ignored.push(`s.thing("${name}") option on`);
-    if (holder && holder.cues[0].pose === "stand") holder.cues[0].pose = "hold";
+    if (holder && !opts.hidden && holder.cues[0].pose === "stand") holder.cues[0].pose = "hold";
     const t = {
       kind: "thing", name, id: count ? `${name}#${count + 1}` : name, spec: s, base, holder,
       x: opts.x === undefined && base ? null : px(opts.x ?? 0.5), level: opts.level ?? opts.floor ?? 1,
       scale: holder ? Math.min((opts.scale ?? 1) * k(), (HELD / s.h) * k()) : (opts.scale ?? 1) * k(),
-      flip: opts.flip ? -1 : 1, front: !!opts.front,
+      flip: opts.flip ? -1 : 1, front: !!opts.front, hidden: !!opts.hidden, pocket: opts.hidden ? holder : null,
+      rests: [], carried: !!holder,
       states: [{ t: 0, n: opts.state ?? 0 }], moves: [],
     };
     decl.things.push(t);
@@ -124,6 +127,24 @@ export function makeStage(input, library = {}) {
     return handle;
   }
 
+  // A thing neither the runtime nor the library has, drawn by the scene: a monkey's paw, a
+  // torn letter. It is a thing like any other: it can be carried, pointed at and labelled.
+  function prop(name, opts = {}) {
+    name = String(name);
+    const { draw: fn, w, h, size, ...rest_ } = opts ?? {};
+    if (typeof fn !== "function") return thing(name, rest_);
+    const tall = Math.min(Math.max(Number(h ?? size) || 70, 20), 400);
+    const wide = Math.min(Math.max(Number(w ?? size) || tall, 20), 400);
+    props[name] = {
+      w: wide, h: tall, on: "floor", small: true, parts: {},
+      draw(ctx, state, t) {
+        ctx.translate(0, -tall / 2);
+        sandbox.call(fn, guarded(ctx), t, state);
+      },
+    };
+    return thing(name, rest_);
+  }
+
   // --- people -----------------------------------------------------------------------------
   function person(key, opts = {}) {
     opts = options(opts, ["x", "facing", "pose", "mood", "level", "floor", "enter"], `s.person("${key}")`, decl.ignored);
@@ -143,6 +164,14 @@ export function makeStage(input, library = {}) {
     };
     if (opts.mood && !feel(opts.mood, 0)) decl.ignored.push(`mood ${opts.mood}`);
     decl.people.push(pr);
+    // A thing a person takes up is sized for a hand from the start.
+    const carriedThing = (target, verb) => {
+      const th = target?.__ref ?? target?.ref;
+      if (th?.kind !== "thing" || th.spec.on === "fill") return decl.ignored.push(`${key}.${verb} without a thing`), null;
+      th.carried = true;
+      th.scale = Math.min(th.scale, (HELD / th.spec.h) * k());
+      return th;
+    };
     const aimed = (pose, target, o) => {
       if ((target?.__ref ?? target?.ref) === pr) target = null; // a hand to one's own pocket
       pr.cues.push({ t: time(o.at), pose, target: target ?? null });
@@ -205,6 +234,82 @@ export function makeStage(input, library = {}) {
         decl.events++;
         return handle;
       },
+      take(target, o = {}) {
+        const th = carriedThing(target, "take");
+        if (!th) return handle;
+        const t0 = time(o.at);
+        // Out of a pocket it was never seen before; off a table the hand goes for it first.
+        if (!th.rests.length && !th.holder && (typeof o.from === "string" || th.hidden)) Object.assign(th, { hidden: true, pocket: pr });
+        const was = lastRest(th);
+        if (!was.pocket && was.holder !== pr) pr.cues.push({ t: Math.max(0, t0 - rig.EASE), pose: "reach", target: spotOf(th, was) });
+        pr.cues.push({ t: t0, pose: "hold", target: null });
+        th.rests.push({ t: t0, takes: 0.3, holder: pr });
+        decl.events++;
+        return handle;
+      },
+      put(target, o = {}) {
+        const th = carriedThing(target, "put");
+        if (!th) return handle;
+        const t0 = time(o.at);
+        const on = o.on ?? o.to;
+        const base = on?.__ref ?? on?.ref;
+        const r = base?.kind === "thing" && base !== th ? { base, x: o.x === undefined ? null : px(o.x) }
+          : { dropped: true, x: typeof on === "number" ? px(on) : o.x === undefined ? null : px(o.x) };
+        if (r.dropped && r.x === null) r.x = pr.x0 + pr.facing0 * 90;
+        const next = { t: t0 + rig.EASE * 0.7, takes: 0.2, ...r };
+        pr.cues.push({ t: t0, pose: "reach", target: spotOf(th, next) }, { t: t0 + rig.EASE + 0.5, pose: "stand", target: null });
+        th.rests.push(next);
+        decl.events++;
+        return handle;
+      },
+      give(target, o = {}) {
+        const th = carriedThing(target, "give");
+        const other = (o.to?.__ref ?? o.to?.ref ?? o.to)?.kind === "person" ? (o.to.__ref ?? o.to.ref ?? o.to) : decl.people.find((q) => q.key === o.to);
+        if (!th) return handle;
+        if (!other || other === pr) return decl.ignored.push(`${key}.give without a person in \`to\``), handle;
+        const t0 = time(o.at);
+        // Both hands meet half-way between them, at chest height.
+        const meet = { spot: (t) => {
+          const [a, b] = [where.walked(pr, t).x, where.walked(other, t).x];
+          const reach_ = Math.min(Math.abs(b - a) / 2, 120) * Math.sign(b - a || 1);
+          return [a + reach_, ground(pr, a) - where.size(pr) * 0.58];
+        } };
+        const theirs = { spot: (t) => {
+          const [a, b] = [where.walked(pr, t).x, where.walked(other, t).x];
+          const reach_ = Math.min(Math.abs(b - a) / 2, 120) * Math.sign(a - b || 1);
+          return [b + reach_, ground(other, b) - where.size(other) * 0.58];
+        } };
+        pr.looks.push({ t: t0, target: { __ref: other } });
+        other.looks.push({ t: t0, target: { __ref: pr } });
+        pr.cues.push({ t: t0, pose: "reach", target: meet }, { t: t0 + rig.EASE + 0.6, pose: "stand", target: null });
+        other.cues.push({ t: t0, pose: "reach", target: theirs }, { t: t0 + rig.EASE + 0.25, pose: "hold", target: null });
+        th.rests.push({ t: t0 + rig.EASE, takes: 0.25, holder: other });
+        decl.events++;
+        return handle;
+      },
+      throw(target, o = {}) {
+        const th = carriedThing(target, "throw");
+        if (!th) return handle;
+        const t0 = time(o.at);
+        const to = o.to ?? pr.x0 / W + pr.facing0 * 0.3;
+        const into = (to?.__ref ?? to?.ref)?.name ?? "";
+        const gone = o.gone ?? /fire|stove|oven|bin|trash|well|water|window|river|pit|hole/.test(into);
+        const land = typeof to === "number" ? { dropped: true, x: px(to) } : { point: (to?.__ref ?? to?.ref) === th ? [0.5, 0.5] : to };
+        pr.looks.push({ t: t0, target: to });
+        pr.cues.push({ t: t0, pose: "point", target: typeof to === "number" ? [px(to), FLOOR - 200] : land.point }, { t: t0 + 1.1, pose: "stand", target: null });
+        th.rests.push({ t: t0 + 0.18, takes: 0.55, how: "throw", hidden: !!gone, ...land });
+        decl.events++;
+        return handle;
+      },
+      drop(target, o = {}) {
+        const th = carriedThing(target, "drop");
+        if (!th) return handle;
+        const t0 = time(o.at);
+        pr.cues.push({ t: t0, pose: "stand", target: null });
+        th.rests.push({ t: t0, takes: 0.38, how: "drop", dropped: true, x: null, under: pr });
+        decl.events++;
+        return handle;
+      },
       part: () => handle,
       mood(name, o = {}) {
         if (!feel(name, time(o.at))) decl.ignored.push(`mood ${name}`);
@@ -217,6 +322,13 @@ export function makeStage(input, library = {}) {
     handles[key] = handle;
     return handle;
   }
+
+  const lastRest = (th) => th.rests.at(-1) ?? { first: true, holder: th.holder, base: th.base, hidden: th.hidden, pocket: th.pocket };
+  // The middle of a thing where it rests, for a hand to go to.
+  const spotOf = (th, r) => ({ spot: (t) => {
+    const [x, y] = where.restFoot(th, r, t);
+    return [x, y - (th.spec.h * th.scale) / 2];
+  } });
 
   // --- camera, light, devices, drawing ----------------------------------------------------
   const camera = strict({
@@ -255,13 +367,13 @@ export function makeStage(input, library = {}) {
   const api = strict({
     W, H, width: W, height: H, floor: FLOOR, seconds, words: input.words.map((w) => w.text),
     place: (kind, opts) => (setPlace(kind, opts), undefined),
-    thing, person, camera, light, device, draw, at,
+    thing, prop, person, camera, light, device, draw, at,
   }, "s", decl.ignored);
 
   // The model places by eye and puts two things or two people on one spot. The later one
   // steps aside; what the scene moves later it still moves from there.
   function settle() {
-    const floor = decl.things.filter((q) => q.spec.on === "floor" && !q.spec.small && !q.spec.flat && !q.base && !q.holder && q.x !== null);
+    const floor = decl.things.filter((q) => q.spec.on === "floor" && !q.spec.small && !q.spec.flat && !q.base && !q.holder && !q.carried && q.x !== null);
     for (let pass = 0; pass < 4; pass++) {
       for (let i = 0; i < floor.length; i++) {
         for (let j = i + 1; j < floor.length; j++) {
@@ -342,10 +454,13 @@ export function makeStage(input, library = {}) {
     applyView(ctx, v);
     ctx.drawImage(backdrop, 0, 0);
     custom(ctx, t, "back");
+    const now = new Map(decl.things.map((q) => [q, rest(q, t)]));
+    const held = (q) => now.get(q).holder;
+    const based = (q) => now.get(q).base;
     const drawThing = (th) => {
       const [x, y] = thingFoot(th, t);
       // What stands on the floor darkens it underneath.
-      if (th.spec.on === "floor" && !th.base && !th.holder && !th.spec.flat) {
+      if (th.spec.on === "floor" && !th.base && !th.carried && !th.spec.flat) {
         ctx.save();
         ctx.filter = "blur(10px)";
         ctx.beginPath();
@@ -361,22 +476,22 @@ export function makeStage(input, library = {}) {
       ctx.restore();
     };
     const items = [];
-    const free = decl.things.filter((q) => !q.holder);
+    const free = decl.things.filter((q) => !held(q) && !now.get(q).hidden && !now.get(q).flying);
     const people = [...decl.people].sort((a, b) => ground(a, personX(a, t).x) - ground(b, personX(b, t).x));
     // Whoever serves at a counter stands behind it: it is drawn over their legs.
     const over = new Set(free.filter((q) => q.name === "counter" && decl.people.some((pr) => pr.behind === q)));
-    const front = (q) => q.front || over.has(q) || (q.base && (q.base.front || over.has(q.base)));
+    const front = (q) => q.front || over.has(q) || (based(q) && (based(q).front || over.has(based(q))));
     for (const th of free.filter((q) => q.spec.on !== "floor" && q.spec.on !== "fill")) drawThing(th);
     // A door and a railing are part of the wall: furniture stands in front of them.
-    const standing = free.filter((q) => q.spec.on === "floor" && !q.base && !front(q));
+    const standing = free.filter((q) => q.spec.on === "floor" && !based(q) && !front(q));
     for (const th of [...standing.filter((q) => q.spec.flat), ...standing.filter((q) => !q.spec.flat)]) drawThing(th);
-    for (const th of free.filter((q) => q.base && !front(q))) drawThing(th);
+    for (const th of free.filter((q) => based(q) && !front(q))) drawThing(th);
     const walkers = [];
     for (const pr of people) {
       if (t < pr.appear) continue; // not in yet: `enter` brings them in from off the frame
       const b = personBones(pr, t);
       rig.draw(ctx, b, pr.card);
-      for (const th of decl.things.filter((q) => q.holder === pr)) drawThing(th);
+      for (const th of decl.things.filter((q) => held(q) === pr && !now.get(q).hidden)) drawThing(th);
       walkers.push(b.hip[0]);
       const lowest = Math.max(b.ankle_f[1], b.ankle_n[1]) + 0.065 * b.size * 0.35;
       const seated = seatAt(pr, t);
@@ -386,13 +501,14 @@ export function makeStage(input, library = {}) {
     for (const th of free.filter((q) => q.spec.on === "fill")) {
       drawWater(ctx, place.support(W / 2, th.level), HERO * k(), thingState(th, t), t, p, walkers);
     }
-    for (const th of free.filter((q) => q.spec.on === "floor" && !q.base && front(q))) drawThing(th);
-    for (const th of free.filter((q) => q.base && front(q))) drawThing(th);
+    for (const th of free.filter((q) => q.spec.on === "floor" && !based(q) && front(q))) drawThing(th);
+    for (const th of free.filter((q) => based(q) && front(q))) drawThing(th);
+    for (const th of decl.things.filter((q) => now.get(q).flying && !now.get(q).hidden)) drawThing(th);
     for (const th of decl.things) {
-      if (th.holder && t < th.holder.appear) continue;
+      if (now.get(th).hidden || (held(th) && t < held(th).appear)) continue;
       const b = thingBox(th, t);
       const [x, y] = thingFoot(th, t);
-      const stands = th.holder ? "hand" : th.base ? "thing" : th.spec.on;
+      const stands = held(th) || now.get(th).flying ? "hand" : based(th) ? "thing" : th.spec.on;
       items.push({ id: th.id, kind: th.spec.on === "fill" ? "fill" : "thing", small: !!th.spec.small || !!th.spec.flat, on: stands, box: b, screen: boxToScreen(v, b), gap: 0 });
     }
     custom(ctx, t, "front");
@@ -423,7 +539,7 @@ export function makeStage(input, library = {}) {
       settle();
     },
     render,
-    declared: () => declared(decl, input, (name) => !!(FIXTURES[name] ?? library[name])),
+    declared: () => declared(decl, input, (name) => !!known(name)),
     ignored: () => [...new Set(decl.ignored)],
     frameProblems,
   };

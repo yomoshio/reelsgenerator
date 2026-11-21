@@ -115,7 +115,7 @@ export function reach(shoulder, target, size, facing) {
   const toward = (Math.atan2(dx, dy) * 180) / Math.PI;
   const inner = (Math.acos((a * a + d * d - b * b) / (2 * a * d)) * 180) / Math.PI;
   const elbow = (Math.acos((a * a + b * b - d * d) / (2 * a * b)) * 180) / Math.PI;
-  return [toward + inner, -(180 - elbow)];
+  return [toward - inner, 180 - elbow];
 }
 
 // Breath, a little sway, and the swing of legs and arms when walking.

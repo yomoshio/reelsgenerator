@@ -31,18 +31,57 @@ export function makeMotion(decl, place) {
     for (const st of t.states.slice(1)) level += (st.n - level) * rig.ease((time_ - st.t) / 1.2);
     return level;
   }
-  function thingFoot(t, time_) {
-    if (t.holder) {
-      const hand = personBones(t.holder, time_).hand_n;
-      return [hand[0], hand[1] + (t.spec.h * t.scale) / 2];
+  // Where a thing is at rest: in a hand, in a pocket, on another thing, at a point it was
+  // thrown to, or on the ground. The first rest is how the scene declared it.
+  function restFoot(t, r, time_) {
+    const tall = t.spec.h * t.scale;
+    if (r.pocket) {
+      const { x, facing } = personX(r.pocket, time_);
+      return [x + facing * 14, ground(r.pocket, x) - size(r.pocket) * 0.48];
     }
-    const x = thingX(t, time_);
-    if (t.base) return [x, onPoint(t.base, time_)[1]];
+    if (r.holder) {
+      const hand = personBones(r.holder, time_).hand_n;
+      return [hand[0], hand[1] + tall / 2];
+    }
+    if (r.point) {
+      const [x, y] = targetPoint(r.point, time_);
+      return [x, y + tall / 2];
+    }
+    const x = r.first ? thingX(t, time_) : r.under ? personBones(r.under, r.t).hand_n[0] : (r.x ?? onPoint(r.base, time_)[0]);
+    if (r.base) return [x, onPoint(r.base, time_)[1]];
+    if (r.dropped) return [x, place().support(x, t.level) + row("people")];
     const on = t.spec.on;
-    const ground = place().support(x, t.level) + (on === "floor" && !t.spec.flat && !t.spec.back ? row("furniture") : 0);
-    if (on === "wall") return [x, ground - (t.spec.lift ?? 0) * t.scale];
+    const ground_ = place().support(x, t.level) + (on === "floor" && !t.spec.flat && !t.spec.back ? row("furniture") : 0);
+    if (on === "wall") return [x, ground_ - (t.spec.lift ?? 0) * t.scale];
     if (on === "ceiling") return [x, SCENE_TOP + 10];
-    return [x, ground];
+    return [x, ground_];
+  }
+  const first = (t) => ({ t: 0, first: true, holder: t.holder, base: t.base, pocket: t.pocket, hidden: t.hidden });
+  // The rest a thing is in or on its way to, the one it left, and how far along it is.
+  function passage(t, time_) {
+    let prev = null;
+    let cur = first(t);
+    for (const r of t.rests ?? []) if (time_ >= r.t) [prev, cur] = [cur, r];
+    const q = prev ? Math.min((time_ - cur.t) / cur.takes, 1) : 1;
+    return { prev, cur, q };
+  }
+  function rest(t, time_) {
+    const { prev, cur, q } = passage(t, time_);
+    const flying = q < 1;
+    return {
+      holder: flying ? null : (cur.holder ?? null), base: flying ? null : (cur.base ?? null), flying,
+      hidden: flying ? !!(prev.hidden && cur.hidden) : !!cur.hidden,
+    };
+  }
+  function thingFoot(t, time_) {
+    const { prev, cur, q } = passage(t, time_);
+    const to = restFoot(t, cur, time_);
+    if (q >= 1) return to;
+    const from = restFoot(t, prev, time_);
+    // A thrown thing rises and falls, a dropped one gathers speed, a handed one glides.
+    const e = cur.how === "throw" ? q : cur.how === "drop" ? q * q : rig.ease(q);
+    const rise = cur.how === "throw" ? Math.sin(Math.PI * q) * Math.max(140, Math.abs(to[0] - from[0]) * 0.3) : 0;
+    return [from[0] + (to[0] - from[0]) * e, from[1] + (to[1] - from[1]) * e - rise];
   }
   function thingBox(t, time_) {
     const [x, y] = thingFoot(t, time_);
@@ -81,6 +120,13 @@ export function makeMotion(decl, place) {
 
   // The x a person stands at and which way they face at time t.
   function personX(pr, t) {
+    let { x, facing, walking } = walked(pr, t);
+    for (const l of pr.looks) if (t >= l.t) facing = lookFacing(l.target, x, facing, t);
+    return { x, facing, walking };
+  }
+  // The same before anyone turns to look: two people who look at each other each need only
+  // where the other stands.
+  function walked(pr, t) {
     let x = pr.x0;
     let facing = pr.facing0;
     let walking = false;
@@ -94,13 +140,13 @@ export function makeMotion(decl, place) {
       if (Math.abs(goal - from) > 2) facing = goal > from ? 1 : -1;
       walking = q < 1 && Math.abs(goal - from) > 20;
     }
-    for (const l of pr.looks) if (t >= l.t) facing = lookFacing(l.target, x, facing, t);
     return { x, facing, walking };
   }
   function lookFacing(target, x, facing, t) {
     if (target === "left") return -1;
     if (target === "right") return 1;
-    const [tx] = targetPoint(target, t);
+    const who = target?.__ref ?? target?.ref ?? decl.people.find((q) => q.key === target);
+    const [tx] = who?.kind === "person" ? [walked(who, t).x] : targetPoint(target, t);
     return tx === x ? facing : tx > x ? 1 : -1;
   }
   // Where a walk ends: beside a thing or a person, on the side the walker comes from.
@@ -129,6 +175,7 @@ export function makeMotion(decl, place) {
       if (named) return targetPoint({ __ref: named }, t);
       return [target === "left" ? 0.15 * W : target === "right" ? 0.85 * W : W / 2, H * 0.42];
     }
+    if (Object.hasOwn(target, "spot")) return target.spot(t);
     if (target.ref && target.part) return partPoint(target.ref, target.part, t);
     // A handle carries its own x for scene code to read; it is a thing or a person first.
     if (!target.__ref && typeof target.x === "number") return [px(target.x), typeof target.y === "number" ? (target.y <= 1.5 ? target.y * H : target.y) : FLOOR];
@@ -192,5 +239,5 @@ export function makeMotion(decl, place) {
     return out;
   }
 
-  return { k, thingState, thingFoot, thingBox, personX, targetPoint, seatAt, personBones, ground };
+  return { k, thingState, thingFoot, thingBox, rest, restFoot, passage, size, personX, walked, targetPoint, seatAt, personBones, ground };
 }
