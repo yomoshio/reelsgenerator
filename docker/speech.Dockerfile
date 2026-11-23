@@ -18,7 +18,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && python3.12 -m venv /opt/venv
 
 RUN pip install torch==${TORCH} torchaudio==${TORCHAUDIO} --index-url https://download.pytorch.org/whl/cu128 \
-    && pip install "qwen-tts${QWEN_TTS:+==${QWEN_TTS}}" "fastapi>=0.115,<1" "uvicorn[standard]>=0.30" "soundfile>=0.12" "faster-whisper>=1.1,<2" "python-multipart>=0.0.9"
+    && pip install "qwen-tts${QWEN_TTS:+==${QWEN_TTS}}" "fastapi>=0.115,<1" "uvicorn[standard]>=0.30" "soundfile>=0.12" "faster-whisper>=1.1,<2" "av>=15,<17" "python-multipart>=0.0.9"
 
 WORKDIR /srv
 COPY services/speech/app.py services/speech/design_voice.py ./

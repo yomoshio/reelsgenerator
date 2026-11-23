@@ -18,6 +18,8 @@
 #   ./run.sh rehearse [--beats 4]            весь путь от идеи до ролика без моделей, с заглушками
 #
 # Арендованный сервер (адрес в .env: SERVER_HOST, SERVER_PORT, SERVER_KEY, VAST_INSTANCE):
+#   ./run.sh box rent [--vram 80] [--price 2.5] [--dry-run]
+#                                            арендовать сервер на vast.ai и вписать его адрес в .env
 #   ./run.sh box install                     залить проект, поставить модели, включить сторож
 #   ./run.sh box run                         залить задачи и провести их на сервере
 #   ./run.sh box pull                        забрать задачи и голоса
@@ -61,6 +63,11 @@ here() {
 }
 
 box() {
+    if [[ ${1:-} == rent ]]; then
+        shift
+        python3 scripts/rent.py "$@"
+        return
+    fi
     local host port key dir
     host=$(setting SERVER_HOST)
     [[ -n $host ]] || { echo "впишите в .env адрес сервера: SERVER_HOST=root@1.2.3.4, SERVER_PORT, SERVER_KEY" >&2; exit 1; }
@@ -73,11 +80,12 @@ box() {
     local ssh=(ssh -i "$key" -p "${port:-22}" -o ServerAliveInterval=30)
     local rsync=(rsync -a -e "ssh -i '$key' -p ${port:-22}")
     # Code goes to the server and jobs come back; weights are never copied. A push deletes
-    # code files there that were deleted here and leaves the excluded paths alone.
+    # code files there that were deleted here and leaves the excluded paths alone: the thing
+    # library is one of them, each machine imports its own.
     local code=(--exclude .venv --exclude __pycache__ --exclude .mypy_cache --exclude .ruff_cache
         --exclude .pytest_cache --exclude node_modules --exclude review --exclude .git
         --exclude logs --exclude hf --exclude outbox --exclude voices --exclude jobs
-        --exclude studio --exclude .env --exclude backups
+        --exclude studio --exclude .env --exclude backups --exclude library
         --exclude '*.zip' --exclude '*.tar' --exclude '*.tar.gz')
     # -n: without it ssh swallows the rest of stdin and breaks `while read ...; do ./run.sh`.
     there() { "${ssh[@]}" -n "$host" "cd $dir && $*"; }
@@ -101,7 +109,9 @@ box() {
             push
             mkdir -p jobs
             "${rsync[@]}" jobs/ "$host:$dir/jobs/"
-            there "mkdir -p logs && nohup .venv/bin/reelsmith run >> logs/run.log 2>&1 < /dev/null &"
+            # In brackets: a bare `a && b &` backgrounds a shell that keeps the SSH channel open,
+            # and this command would hang until the last job is done.
+            there "mkdir -p logs && (nohup .venv/bin/reelsmith run >> logs/run.log 2>&1 < /dev/null &)"
             echo "задачи идут на сервере; ход: ./run.sh box logs, забрать: ./run.sh box pull" ;;
         pull)
             mkdir -p jobs voices

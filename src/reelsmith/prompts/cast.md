@@ -8,7 +8,10 @@ Fill the card from the look, choosing the nearest value the rig has:
 - `build`: slim, average or heavy.
 - `skin`: light, medium or dark.
 - `hair`: short, long, bun, braids, bald, curly, ponytail, or cap for hair under a cap.
-- `face`: any of beard, mustache, glasses, freckles that the look names.
+- `face`: any of beard, mustache, glasses, freckles that the look names. Stubble is not a
+  beard.
+- `hair_colour`: the colour the look gives; when it gives none, a dark brown or black for
+  the young and grey only for the old. Never a colour of the palette.
 - `top`: shirt, sweater, jacket, coat, raincoat, dress, gown (a long formal dress), uniform
   or apron.
 - `bottom`: trousers, skirt, long_skirt or shorts. A dress or gown goes with long_skirt.

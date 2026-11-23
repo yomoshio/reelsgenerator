@@ -48,21 +48,21 @@ export function problems(frame) {
     }
     const b = it.box;
     const out = Math.max(0, -b[0]) + Math.max(0, b[0] + b[2] - W);
-    if (it.kind !== "fill" && out > b[2] * 0.3) found.push(`${it.id} is mostly outside the frame ${at}; keep x between 0.1 and 0.9`);
+    if (it.kind !== "fill" && !it.entering && out > b[2] * 0.3) found.push(`${it.id} is mostly outside the frame ${at}; keep x between 0.1 and 0.9`);
     if (it.kind === "person" && (b[1] < SCENE_TOP - 40 || b[1] + b[3] > SCENE_BOTTOM + 60)) found.push(`${it.id} leaves the scene band ${at}; the area below y=${SCENE_BOTTOM} is for captions`);
   }
-  const floor = items.filter((i) => i.kind === "thing" && i.on === "floor");
+  const floor = items.filter((i) => i.kind === "thing" && i.on === "floor" && !i.small);
   for (let i = 0; i < floor.length; i++)
     for (let j = i + 1; j < floor.length; j++)
       if (share(floor[i].box, floor[j].box) > 0.35) found.push(`${floor[i].id} and ${floor[j].id} stand inside each other ${at}; move one along x`);
   const people = items.filter((i) => i.kind === "person");
-  for (let i = 0; i < people.length; i++)
-    for (let j = i + 1; j < people.length; j++)
-      if (share(people[i].box, people[j].box) > 0.5) found.push(`${people[i].id} and ${people[j].id} overlap ${at}; put them apart`);
+  const named = people.filter((i) => !i.extra); // a crowd overlaps, and two who walk together nearly do
+  for (let i = 0; i < named.length; i++)
+    for (let j = i + 1; j < named.length; j++)
+      if (share(named[i].box, named[j].box) > 0.75) found.push(`${named[i].id} and ${named[j].id} overlap ${at}; put them apart`);
   for (const plate of plates)
     for (const person of people)
       if (share(plate.box, person.screen ?? person.box) > 0.25 && plate.pinned) found.push(`the plate '${plate.text}' covers ${person.id} ${at}`);
   if (luminance < 10) found.push(`the frame is almost black ${at} (mean ${luminance.toFixed(0)}); light the scene`);
-  if (luminance > 70) found.push(`the frame is too bright ${at} (mean ${luminance.toFixed(0)}); the channel is dark`);
   return found;
 }

@@ -52,6 +52,12 @@ pipeline() {
     note "node $(node -v), $(ffmpeg -version | head -1 | cut -d' ' -f1-3)"
     (cd runtime && npm ci --no-audit --no-fund --loglevel=error)
     local python
+    if ! command -v python3.12 >/dev/null && ! python3 -c 'import sys; sys.exit(sys.version_info < (3, 12))' 2>/dev/null; then
+        # Ubuntu 22.04, the image of a rented box, ships Python 3.10.
+        command -v add-apt-repository >/dev/null || as_root apt-get install -y software-properties-common
+        as_root add-apt-repository -y ppa:deadsnakes/ppa
+        as_root apt-get install -y python3.12 python3.12-venv
+    fi
     python=$(command -v python3.12 || command -v python3)
     "$python" -c 'import sys; sys.exit(sys.version_info < (3, 12))' \
         || fail "Нужен Python 3.12 или новее."

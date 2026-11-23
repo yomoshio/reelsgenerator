@@ -126,7 +126,7 @@ export function drawHud(ctx, text, t, start, p) {
 // A stamp is as wide as the frame allows at most; `stampSize` gives its box before it is laid.
 export function stampSize(ctx, text) {
   const full = measure(ctx, text, 104) + 90;
-  const size = Math.floor(104 * Math.min(1, (W - 120) / full));
+  const size = Math.floor(104 * Math.min(1, (W - 220) / full)); // tilted, it needs room at both ends
   return { size, w: measure(ctx, text, size) + 90 * (size / 104), h: Math.round(size * 1.63) };
 }
 

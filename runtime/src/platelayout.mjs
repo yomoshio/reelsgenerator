@@ -45,9 +45,10 @@ export function layPlates(ctx, input, decl, where, revealTime) {
     }
     if (r.kind === "stamp") {
       const { w, h } = plates.stampSize(ctx, r.text);
-      const taken = [...decl.people.map((q) => rig.box(where.personBones(q, r.start))), ...laid.filter((q) => q.box).map((q) => q.box)];
+      const card = rules.some((q) => q.start <= r.start) ? [[0, 0, W, RULE_BOTTOM]] : [];
+      const taken = [...decl.people.map((q) => rig.box(where.personBones(q, r.start))), ...laid.filter((q) => q.box).map((q) => q.box), ...card];
       const covers = (cy) => taken.reduce((sum, b) => sum + overlap([W / 2 - w / 2, cy - h / 2, w, h], b), 0);
-      const spots = [(SCENE_TOP + SCENE_BOTTOM) / 2, SCENE_TOP + 40 + h / 2, SCENE_BOTTOM - 60 - h / 2];
+      const spots = [(SCENE_TOP + SCENE_BOTTOM) / 2, SCENE_TOP + 70 + h / 2, SCENE_BOTTOM - 60 - h / 2];
       plate.cy = spots.reduce((best, cy) => (covers(cy) < covers(best) ? cy : best));
       plate.box = [W / 2 - w / 2, plate.cy - h / 2, w, h];
     }
@@ -56,15 +57,26 @@ export function layPlates(ctx, input, decl, where, revealTime) {
   return laid;
 }
 
+const RULE_BOTTOM = 170; // the rule card and its tilt end here
+
+// Where a pill goes on the screen so that it lies on no plate already there: where it was
+// laid if that is free, else the nearest free row under or over it.
+function clear(at_, [w, h], taken) {
+  const x = Math.min(Math.max(at_[0], 24), W - w - 24);
+  const rows = [0, 1, 2, -1, 3, -2, 4, -3, 5].map((k) => Math.min(Math.max(at_[1] + k * (h + 14), 24), SCENE_BOTTOM - h - 10));
+  return [x, rows.find((y) => taken.every((q) => overlap([x, y, w, h], q) === 0)) ?? rows[0]];
+}
+
 export function drawPlates(ctx, laid, t, v, p) {
   const shown = [];
-  for (const pl of laid) {
-    if (t < pl.start || t >= pl.end) continue;
-    if (pl.kind === "rule_card") shown.push({ text: pl.text, box: plates.drawRuleCard(ctx, pl.text, t, pl.start, p) });
+  const now = laid.filter((pl) => t >= pl.start && t < pl.end);
+  const pills = (pl) => !["rule_card", "hud", "stamp"].includes(pl.kind);
+  for (const pl of [...now.filter((q) => !pills(q)), ...now.filter(pills)]) {
+    if (pl.kind === "rule_card") shown.push({ text: pl.text, card: true, box: plates.drawRuleCard(ctx, pl.text, t, pl.start, p) });
     else if (pl.kind === "hud") shown.push({ text: pl.text, box: plates.drawHud(ctx, pl.text, t, pl.start, p) });
     else if (pl.kind === "stamp") shown.push({ text: pl.text, box: plates.drawStamp(ctx, pl.text, t, pl.start, p, pl.cy) });
     else {
-      const at_ = toScreen(v, pl.at);
+      const at_ = clear(toScreen(v, pl.at), [pl.box[2], pl.box[3]], shown.map((q) => (q.card ? [0, 0, W, RULE_BOTTOM] : q.box)));
       const target = pl.target ? toScreen(v, pl.target) : null;
       const moved = { ...pl, at: at_, target };
       if (pl.kind === "status") plates.drawStatus(ctx, moved, t, p);

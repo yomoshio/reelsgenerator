@@ -36,10 +36,12 @@ s.thing("lamp", { x: 0.5, state: 1 });            // hangs from the ceiling; sta
 const shelf = s.thing("shelf", { x: 0.8, front: true });  // drawn in front of people
 const table = s.thing("table", { x: 0.3 });
 s.thing("candle_holder", { on: table, scale: 0.5 });      // stands on the table's top
+s.thing("padlock", { on: door });                         // hangs on the door
+s.thing("smartphone", { on: ivan });                      // in Ivan's hand, goes where he goes
 ```
 
 Options: `x`, `scale` (1 is natural), `flip`, `state`, `front`, `level` (the floor of a
-section), `on` (another thing with a top or a seat to stand on). Things stand on the
+section), `on` (a thing to stand or hang on, or a person who holds it; declare the person first). Things stand on the
 ground by themselves; never give a y. Small things from the library, such as a candle, a
 phone or a necklace, usually stand `on` a table, a counter or a shelf, at `scale` 0.3–0.6.
 
@@ -71,6 +73,9 @@ only place and move them. They breathe and sway by themselves.
   `ivan.knock(door, { at })`: the near hand goes to the target.
 - `ivan.pose(name, { at })`: stand, walk, listen, look_down, sit, hold, knock, point, reach,
   arms_out.
+- `ivan.mood(name, { at })`: the face: neutral, happy, sad, worried, scared, angry,
+  surprised, tired. Give every person the mood the lines call for, and change it when the
+  story turns; `s.person("ivan", { mood: "worried" })` sets the first one.
 - `ivan.look(atm, { at })` or `ivan.look("left", { at })`: turns to face it.
 - `ivan.enter({ from: "right", at: "входит" })`: walks in from off the frame to their x.
 
