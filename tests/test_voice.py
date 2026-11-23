@@ -1,10 +1,12 @@
 import json
 from pathlib import Path
 
+import httpx
+
 from reelsmith.captions import Word
 from reelsmith.jobs import Jobs, Source
 from reelsmith.story import Episode
-from reelsmith.voice import added, align, voice
+from reelsmith.voice import Speech, added, align, voice
 from tests.fakes import DATA, FakeLlm, FakeSpeech, context
 
 
@@ -54,3 +56,39 @@ async def test_a_take_with_added_words_is_read_again(tmp_path: Path) -> None:
     assert timing["beats"][0]["words"][0]["text"] == ep.beats[0].text.split()[0]
     assert (folder / "voice" / "beat02.wav").is_file()
     assert speech.unloaded
+
+
+async def test_chatterbox_reads_and_the_speech_service_listens() -> None:
+    asked: list[str] = []
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        asked.append(str(request.url))
+        if request.url.path == "/words":
+            return httpx.Response(200, json=[])
+        return httpx.Response(200, content=b"RIFF")
+
+    speech = Speech(
+        "http://ears:8000", reader="http://mouth:8001", transport=httpx.MockTransport(answer)
+    )
+    await speech.speak("Свет гаснет.", "narrator", "ru")
+    await speech.words(b"RIFF", "ru")
+    await speech.unload()
+    await speech.close()
+    assert asked == [
+        "http://mouth:8001/speak", "http://ears:8000/words",
+        "http://ears:8000/unload", "http://mouth:8001/unload",
+    ]  # fmt: skip
+
+
+async def test_without_a_reader_the_speech_service_reads_too() -> None:
+    asked: list[str] = []
+
+    def answer(request: httpx.Request) -> httpx.Response:
+        asked.append(str(request.url))
+        return httpx.Response(200, content=b"RIFF")
+
+    speech = Speech("http://ears:8000", transport=httpx.MockTransport(answer))
+    await speech.speak("Свет гаснет.", "narrator", "ru")
+    await speech.unload()
+    await speech.close()
+    assert asked == ["http://ears:8000/speak", "http://ears:8000/unload"]

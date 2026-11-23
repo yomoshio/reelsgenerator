@@ -8,7 +8,11 @@
 | Строка | По умолчанию | Что это |
 | --- | --- | --- |
 | `REELSMITH_LLM_URL` | `http://localhost:11434/v1` | Языковые модели: любой сервер с OpenAI-совместимым API, ollama или vLLM |
-| `REELSMITH_SPEECH_URL` | `http://localhost:8000` | Сервис речи |
+| `REELSMITH_SPEECH_URL` | `http://localhost:8000` | Сервис речи: время слов (whisper) и чтение голосом Qwen3-TTS |
+| `REELSMITH_TTS` | `chatterbox` | Кто читает текст диктора. `chatterbox`: Chatterbox Multilingual в сервисе `voice`, читает живее. `qwen`: Qwen3-TTS в сервисе речи, как было раньше |
+| `REELSMITH_VOICE_URL` | `http://localhost:8001` | Сервис `voice` с Chatterbox |
+| `CHATTERBOX_EXAGGERATION` | `0.55` | Выразительность чтения: 0.25 ровно, 0.5 обычно, 0.8 драматично. Читается при запуске сервиса `voice` |
+| `CHATTERBOX_CFG` | `0.4` | Темп и собранность: ниже — медленнее и вдумчивее |
 
 ## Кто что делает
 

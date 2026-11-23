@@ -255,6 +255,7 @@ def main() -> None:
     env = os.environ | {
         "REELSMITH_LLM_URL": f"{url}/v1",
         "REELSMITH_SPEECH_URL": url,
+        "REELSMITH_VOICE_URL": url,
         "REELSMITH_JOBS": str(args.jobs),
         "REELSMITH_OUTBOX": str(args.jobs / "outbox"),
         "REELSMITH_EDITOR": "",

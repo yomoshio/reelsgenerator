@@ -21,6 +21,11 @@ class Settings(BaseSettings):
 
     llm_url: str = "http://localhost:11434/v1"
     speech_url: str = "http://localhost:8000"
+    tts: Literal["chatterbox", "qwen"] = Field(
+        default="chatterbox",
+        description="Who reads the narrator: Chatterbox at voice_url, or Qwen3-TTS in speech.",
+    )
+    voice_url: str = "http://localhost:8001"
 
     style: str = "blackout"
     language: str = "ru"
@@ -45,6 +50,10 @@ class Settings(BaseSettings):
     tries: int = Field(default=3, ge=1, description="Failed steps before a job is failed.")
     workers: int = Field(default=0, ge=0, description="Beats rendered at once; 0 is every core.")
     min_free_gb: float = Field(default=2.0, ge=0)
+
+    def reader(self) -> str:
+        """The address of the service that reads aloud, when it is not the speech service."""
+        return self.voice_url if self.tts == "chatterbox" else ""
 
     def cores(self) -> int:
         return self.workers or os.cpu_count() or 1

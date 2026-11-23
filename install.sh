@@ -142,6 +142,11 @@ models() {
     chmod a+rwx hf voices
     docker compose build speech
     docker compose up -d llm speech
+    if [[ $(grep -s '^REELSMITH_TTS=' .env | tail -1 | cut -d= -f2-) != qwen ]]; then
+        say "Голос диктора: Chatterbox"
+        docker compose build voice
+        docker compose up -d voice
+    fi
     say "Языковые модели: из .env, а чего там нет, по умолчанию"
     local model
     local wanted='from reelsmith.settings import Settings as S; s = S(); print(*{s.planner, s.director, s.coder, s.vision, s.editor} - {""})'

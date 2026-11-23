@@ -42,7 +42,9 @@ here() {
     local command=${1:-help}
     shift || true
     case $command in
-        up) docker compose up -d llm speech ;;
+        up)
+            if [[ $(setting REELSMITH_TTS) == qwen ]]; then docker compose up -d llm speech
+            else docker compose up -d llm speech voice; fi ;;
         down) docker compose down ;;
         logs) docker compose logs --tail 100 -f "$@" ;;
         voice)
@@ -122,7 +124,7 @@ box() {
         logs) there "tail -n 60 -f logs/run.log" ;;
         tunnel)
             echo "модели сервера видны здесь, пока открыто это окно; Ctrl+C закрывает туннель"
-            "${ssh[@]}" -N -L 11434:localhost:11434 -L 8000:localhost:8000 "$host" ;;
+            "${ssh[@]}" -N -L 11434:localhost:11434 -L 8000:localhost:8000 -L 8001:localhost:8001 "$host" ;;
         autostop)
             mkdir -p logs
             nohup python3 scripts/autostop.py "$@" >> logs/autostop.log 2>&1 < /dev/null &
