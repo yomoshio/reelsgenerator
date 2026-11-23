@@ -25,6 +25,10 @@ BED_LEVEL = 0.35
 BED_FLOOR = 0.25  # the bed is never ducked deeper than 12 dB
 
 
+STUCK_BASE = 180.0  # seconds a beat may take to draw whatever its length
+STUCK_PER_SECOND = 30.0
+
+
 class RenderError(Exception):
     pass
 
@@ -158,8 +162,25 @@ async def render_beat(
         stderr=asyncio.subprocess.PIPE,
     )
     os.close(read)
-    _, node_err = await node.communicate(json.dumps(data, ensure_ascii=False).encode())
-    _, encode_err = await encoder.communicate()
+
+    async def drawn() -> tuple[bytes, bytes]:
+        _, node_err = await node.communicate(json.dumps(data, ensure_ascii=False).encode())
+        _, encode_err = await encoder.communicate()
+        return node_err, encode_err
+
+    # A scene's own drawing can stall inside the canvas, where the runtime's clock does not
+    # reach it. A beat draws in a few times its length; one far past that is stuck.
+    limit = STUCK_BASE + STUCK_PER_SECOND * timing.seconds
+    try:
+        node_err, encode_err = await asyncio.wait_for(drawn(), limit)
+    except TimeoutError:
+        for process in (node, encoder):
+            if process.returncode is None:
+                process.kill()
+            await process.wait()
+        raise RenderError(
+            f"beat {n + 1} was still drawing after {limit:.0f} s: its scene is stuck"
+        ) from None
     if node.returncode:
         raise RenderError(f"beat {n + 1} did not draw: {node_err.decode().strip()[-400:]}")
     if encoder.returncode:

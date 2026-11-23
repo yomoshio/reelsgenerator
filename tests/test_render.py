@@ -1,3 +1,4 @@
+import asyncio
 import json
 import shutil
 import subprocess
@@ -110,3 +111,30 @@ def test_words_that_bring_up_plates_are_stressed() -> None:
 
 def test_joins_fall_in_the_middle_of_every_dissolve() -> None:
     assert assemble.joins([4.0, 6.0, 1.6]) == [3.875, 9.625]
+
+
+@pytest.mark.parametrize("fails_at", [0.0, 0.6])
+async def test_a_scene_that_breaks_while_drawing_fails_the_beat_at_once(
+    tmp_path: Path, fails_at: float
+) -> None:
+    ctx, _, folder, ep = _job(tmp_path, 1)
+    (folder / "scenes" / "beat01.js").write_text(
+        'function scene(s) { s.place("room"); s.draw((ctx, t) => { '
+        f"const hand = t < {fails_at} ? [1, 2] : null; ctx.fillRect(hand[0], hand[1], 5, 5); }}); }}"
+    )
+    timing = scenes.timings(folder)[0]
+    with pytest.raises(render.RenderError, match=r"beat 1 did not draw.*null"):
+        await asyncio.wait_for(
+            render.render_beat(ctx.settings, STYLE, ep, 0, timing=timing, folder=folder), 30
+        )
+
+
+async def test_a_beat_that_never_finishes_drawing_is_stopped(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ctx, _, folder, ep = _job(tmp_path, 1)
+    monkeypatch.setattr(render, "STUCK_BASE", 0.05)
+    monkeypatch.setattr(render, "STUCK_PER_SECOND", 0.0)
+    timing = scenes.timings(folder)[0]
+    with pytest.raises(render.RenderError, match="still drawing"):
+        await render.render_beat(ctx.settings, STYLE, ep, 0, timing=timing, folder=folder)
