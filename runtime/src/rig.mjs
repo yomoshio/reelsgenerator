@@ -34,8 +34,8 @@ export const POSES = {
 };
 
 const SKIN = { light: "#E8C0A0", medium: "#C69670", dark: "#7A543A" };
-const RIM = "rgba(160,178,210,0.3)"; // the faint light from behind that lifts a figure off a dark wall
-const OUT = "rgba(6,8,14,0.9)"; // the contour
+const RIM = "rgba(160,178,210,0.1)"; // the faint light from behind that lifts a figure off a dark wall
+const OUT = "rgba(9,12,22,0.42)"; // the contour: a soft dark edge, never a black line
 
 // What a face shows. `tilt` turns the brows: above zero the inner ends go up, worry; below,
 // down, anger. `open` is how wide the eyes are, `mouth` the curve of the lips from a frown
@@ -151,6 +151,12 @@ export function blend(from, to, p) {
   return out;
 }
 
+function mix(colour, toward, k) {
+  const a = shade(colour, 1).match(/[\d.]+/g).map(Number), b = shade(toward, 1).match(/[\d.]+/g).map(Number);
+  return `rgb(${a.map((v, i) => Math.round(v + (b[i] - v) * k)).join(",")})`;
+}
+const AIR = "#27344E";
+
 function shade(colour, k) {
   let r, g, b;
   if (colour.startsWith("rgb")) [r, g, b] = colour.match(/[\d.]+/g).map(Number);
@@ -211,7 +217,7 @@ function limb(ctx, points, widths, colour, f) {
     ctx.fill();
   }
   for (const [a, b, wa, wb] of segs) {
-    capsule(ctx, a, b, wa + 3.5, wb + 3.5);
+    capsule(ctx, a, b, wa + 2.6, wb + 2.6);
     ctx.fillStyle = OUT;
     ctx.fill();
   }
@@ -280,8 +286,9 @@ export function draw(ctx, b, card, alpha = 1) {
   const s = b.size;
   const f = b.facing;
   const w = BUILD[card.build] ?? 1;
-  const skin = SKIN[card.skin] ?? SKIN.light;
-  const top = card.top_colour, legs = card.bottom_colour, shoes = card.shoes_colour;
+  // Clothes and skin lean to the colour of the air: a red coat in a dark room is a dark red.
+  const skin = mix(SKIN[card.skin] ?? SKIN.light, AIR, 0.16);
+  const top = mix(card.top_colour, AIR, 0.3), legs = mix(card.bottom_colour, AIR, 0.34), shoes = mix(card.shoes_colour, AIR, 0.4);
   const long = card.bottom === "long_skirt" || card.top === "gown";
   const coat = card.top === "coat" || card.top === "raincoat";
   const bare = card.bottom === "shorts" || card.bottom === "skirt";
@@ -377,7 +384,7 @@ export function draw(ctx, b, card, alpha = 1) {
   ctx.lineWidth = 9;
   ctx.strokeStyle = RIM;
   ctx.stroke();
-  ctx.lineWidth = 4;
+  ctx.lineWidth = 3;
   ctx.strokeStyle = OUT;
   ctx.stroke();
   ctx.fillStyle = lit(cloth, Math.min(left[0], hipL[0]), Math.max(right[0], hipR[0]));
@@ -480,6 +487,7 @@ export function draw(ctx, b, card, alpha = 1) {
 // sits between them, and the brows and the mouth carry the mood.
 function head(ctx, b, card, skin) {
   const s = b.size, f = b.facing;
+  card = { ...card, hair_colour: mix(card.hair_colour?.startsWith("#") ? card.hair_colour : "#2A2022", AIR, 0.22) };
   const [hx, hy] = b.head;
   const r = HEAD * s * (card.age === "child" ? 1.12 : 1);
   const hair = card.hair_colour;
@@ -559,7 +567,7 @@ function head(ctx, b, card, skin) {
     const ry = Math.max(rx * 0.86 * open, rx * 0.08);
     ctx.beginPath();
     ctx.ellipse(ex, ey, rx, ry, 0, 0, 2 * Math.PI);
-    ctx.fillStyle = "#F4F0E8";
+    ctx.fillStyle = "#D9D5CC";
     ctx.fill();
     ctx.save();
     ctx.clip();

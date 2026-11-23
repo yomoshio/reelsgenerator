@@ -17,16 +17,23 @@ const box = (ctx, x, y, w, h, colour) => {
     return;
   }
   ctx.fillStyle = OUT;
-  ctx.fillRect(x - 2.5, y - 2.5, w + 5, h + 5);
+  ctx.beginPath();
+  ctx.roundRect(x - 2, y - 2, w + 4, h + 4, 5);
+  ctx.fill();
   const g = ctx.createLinearGradient(0, y, 0, y + h);
-  g.addColorStop(0, shade(colour, 1.12));
-  g.addColorStop(1, shade(colour, 0.8));
+  g.addColorStop(0, shade(colour, 1.1));
+  g.addColorStop(1, shade(colour, 0.78));
   ctx.fillStyle = g;
-  ctx.fillRect(x, y, w, h);
-  ctx.fillStyle = alpha("#FFFFFF", 0.16);
-  ctx.fillRect(x, y, w, Math.min(3, h / 4));
-  ctx.fillStyle = "rgba(0,0,0,0.22)";
-  ctx.fillRect(x, y, Math.min(w * 0.12, 9), h);
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, 3);
+  ctx.fill();
+  ctx.fillStyle = alpha("#C8D6F0", 0.13);
+  ctx.fillRect(x + 2, y, w - 4, Math.min(2.5, h / 4));
+  const side = ctx.createLinearGradient(x, 0, x + Math.min(w * 0.3, 30), 0);
+  side.addColorStop(0, "rgba(0,0,0,0.26)");
+  side.addColorStop(1, "rgba(0,0,0,0)");
+  ctx.fillStyle = side;
+  ctx.fillRect(x, y, Math.min(w * 0.3, 30), h);
 };
 // The top of a table or a seat, seen a little from above: it runs back from the front edge
 // at (x, y), `depth` px up the picture, narrowing as it goes.
@@ -50,7 +57,7 @@ const slab = (ctx, x, y, w, depth, colour) => {
   ctx.fillStyle = g;
   ctx.fill();
 };
-const OUT = "rgba(6,8,14,0.9)";
+const OUT = "rgba(9,12,22,0.42)";
 const line = (ctx, pts, width, colour) => {
   ctx.beginPath();
   ctx.moveTo(...pts[0]);
@@ -76,7 +83,7 @@ const round = (ctx, x, y, w, h, r, colour) => {
   ctx.fill();
 };
 
-const WOOD = "#70523A", WOOD_DARK = "#4E3828", STEEL = "#68727F", STEEL_LIT = "#B6C0CC";
+const WOOD = "#5F4C40", WOOD_DARK = "#43382F", STEEL = "#5E6878", STEEL_LIT = "#A9B4C4";
 
 // on: floor stands on the ground; wall hangs `lift` px above it; ceiling hangs from the top;
 // tall runs from the ground to the top of the frame; fill covers the whole place.
@@ -270,7 +277,7 @@ export const FIXTURES = {
       const r = rng(seed);
       slab(ctx, -180, -518, 360, 24, shade(p.wall, 0.9));
       box(ctx, -180, -520, 360, 520, shade(p.wall, 0.75));
-      const tones = ["#B8443A", "#D9B44A", "#4A7A9A", "#6A8A4A", "#C6C0B0", "#8A5A9A"];
+      const tones = ["#8A4640", "#A08A52", "#46647E", "#586E4C", "#8E8C86", "#6C5078"];
       for (let k = 0; k < 5; k++) {
         const y = -500 + k * 100;
         box(ctx, -180, y + 86, 360, 12, shade(p.line, 1.5));
@@ -462,6 +469,16 @@ export async function libraryThing(name, file, colour, h = SMALL.test(name) ? 90
       ctx.drawImage(made, -w / 2 - pad, -h - pad, w + 2 * pad, h + 2 * pad);
     },
   };
+}
+
+// A thing drawn by an artist: an SVG from library/art, shown as it is at `h` px tall. It
+// stands where the runtime's own thing of that name would and takes its place.
+export async function artThing(file, meta) {
+  const image = await loadImage(readFileSync(file));
+  const h = meta.h, w = (h * image.width) / Math.max(image.height, 1);
+  const parts = meta.part === "seat" ? { seat: [0, -h * 0.5], top: [0, -h * 0.5] } : { top: [0, -h * 0.94], middle: [0, -h / 2] };
+  if (meta.part === "seat") delete parts.top;
+  return { w, h, on: "floor", art: true, back: !!meta.back, parts, draw: (ctx) => ctx.drawImage(image, -w / 2, -h, w, h) };
 }
 
 export function spec(name, library) {

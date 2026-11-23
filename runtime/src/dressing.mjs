@@ -6,8 +6,8 @@
 import { W, alpha, rng, shade } from "./places.mjs";
 import { overlap } from "./layout.mjs";
 
-const OUT = "rgba(6,8,14,0.9)";
-const WOOD = "#5A4230";
+const OUT = "rgba(9,12,22,0.42)";
+const WOOD = "#4E4038";
 
 function framed(ctx, x, y, w, h, colour) {
   ctx.fillStyle = OUT;
@@ -89,7 +89,7 @@ function books(ctx, cx, cy, r) {
   const w = 230;
   const x = cx - w / 2;
   let bx = x + 10;
-  const tones = ["#8A3A34", "#A88A3A", "#3A5E7A", "#51693A", "#8E8878", "#6A4678"];
+  const tones = ["#6E3E3C", "#85744A", "#3C5670", "#4A5C42", "#77756E", "#59456A"];
   while (bx < x + w - 70) {
     const bw = 16 + r() * 14, bh = 52 + r() * 34;
     framed(ctx, bx, cy - bh, bw, bh, tones[Math.floor(r() * tones.length)]);
@@ -122,7 +122,7 @@ function plant(ctx, cx, floor, r) {
     const a = -Math.PI / 2 + (k - 4) * 0.3 + (r() - 0.5) * 0.2, len = 120 + r() * 90;
     const tip = [cx + Math.cos(a) * len, floor - 86 + Math.sin(a) * len];
     const mid = [cx + Math.cos(a) * len * 0.5 + 18 * Math.sign(k - 4.5), floor - 86 + Math.sin(a) * len * 0.55];
-    for (const [width, tone] of [[30, OUT], [24, k % 2 ? "#33583E" : "#3F6B4A"]]) {
+    for (const [width, tone] of [[30, OUT], [24, k % 2 ? "#2F4A40" : "#38584A"]]) {
       ctx.beginPath();
       ctx.moveTo(cx, floor - 80);
       ctx.quadraticCurveTo(mid[0] - width / 2, mid[1], ...tip);
@@ -141,11 +141,11 @@ function plant(ctx, cx, floor, r) {
   ctx.strokeStyle = OUT;
   ctx.stroke();
   const g = ctx.createLinearGradient(cx - 46, 0, cx + 46, 0);
-  g.addColorStop(0, "#6A4634");
-  g.addColorStop(1, "#9A6A4C");
+  g.addColorStop(0, "#54403A");
+  g.addColorStop(1, "#7A5C4C");
   ctx.fillStyle = g;
   ctx.fill();
-  framed(ctx, cx - 50, floor - 96, 100, 14, "#8A5E44");
+  framed(ctx, cx - 50, floor - 96, 100, 14, "#6E5448");
 }
 
 // `taken` are the boxes of the scene's things; `walls` is how far the side walls come in.
@@ -179,7 +179,7 @@ export function dress(ctx, taken, floor, p, seed, walls) {
   ctx.restore();
 
   // A rug across the middle of the floor, seen from above and from the side at once.
-  const tone = ["#6E2F2C", "#2F4E5E", "#5A4A2C"][Math.floor(r() * 3)];
+  const tone = ["#4E2E34", "#2C4254", "#463E34"][Math.floor(r() * 3)];
   const [x0, x1, y0, y1] = [W * 0.2, W * 0.8, floor + 44, floor + 150];
   const rug = (grow, colour) => {
     ctx.beginPath();
