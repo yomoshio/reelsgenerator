@@ -67,6 +67,8 @@ new → written → voiced → staged → rendered → assembled → approved | 
 | `src/reelsmith/voice.py` | Клиент сервиса речи, дубли, выравнивание слов |
 | `src/reelsmith/scenes.py` | Круг анкеты, круг кодера, вопросы зрению, безопасная сцена |
 | `src/reelsmith/sheet.py` | Анкета сцены: схема, проверка, сборка кода, состояние комнаты после бита |
+| `src/reelsmith/graph.py` | Стадии по одной для графового редактора: что пропустить, что переделать |
+| `comfyui/reelsmith_nodes/` | Узлы ComfyUI поверх `graph.py` ([comfyui.md](comfyui.md)) |
 | `src/reelsmith/runtime.py` | Запуск движка из Python |
 | `src/reelsmith/render.py`, `assemble.py` | Клипы битов и итоговый ролик |
 | `src/reelsmith/llm.py` | Один клиент для всех моделей через OpenAI-совместимый API |
