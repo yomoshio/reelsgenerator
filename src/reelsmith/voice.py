@@ -31,9 +31,17 @@ class SpeechError(Exception):
 
 class Speech:
     def __init__(
-        self, url: str, *, timeout: float = 600, transport: httpx.AsyncBaseTransport | None = None
+        self,
+        url: str,
+        *,
+        reader: str = "",
+        timeout: float = 600,
+        transport: httpx.AsyncBaseTransport | None = None,
     ) -> None:
+        """`reader` is the address of the service that reads aloud, when it is not the one
+        that listens: Chatterbox beside the speech service."""
         self._url = url.rstrip("/")
+        self._reader = reader.rstrip("/")
         self._client = httpx.AsyncClient(timeout=timeout, transport=transport)
 
     async def close(self) -> None:
@@ -41,7 +49,7 @@ class Speech:
 
     async def speak(self, text: str, voice: str, language: str) -> bytes:
         response = await self._post(
-            "/speak", json={"text": text, "voice": voice, "language": language}
+            "/speak", at=self._reader, json={"text": text, "voice": voice, "language": language}
         )
         return response.content
 
@@ -55,12 +63,15 @@ class Speech:
 
     async def unload(self) -> None:
         await self._post("/unload")
+        if self._reader:
+            await self._post("/unload", at=self._reader)
 
-    async def _post(self, path: str, **kwargs: object) -> httpx.Response:
+    async def _post(self, path: str, at: str = "", **kwargs: object) -> httpx.Response:
+        url = at or self._url
         try:
-            response = await self._client.post(self._url + path, **kwargs)  # type: ignore[arg-type]
+            response = await self._client.post(url + path, **kwargs)  # type: ignore[arg-type]
         except httpx.HTTPError as exc:
-            raise SpeechError(f"the speech service is unreachable at {self._url}: {exc}") from exc
+            raise SpeechError(f"the speech service is unreachable at {url}: {exc}") from exc
         if response.status_code >= httpx.codes.BAD_REQUEST:
             raise SpeechError(
                 f"speech {path} answered {response.status_code}: {response.text[:300]}"
