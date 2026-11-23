@@ -90,6 +90,9 @@ export function makeStage(input, library = {}) {
     // Plates are laid by the runtime from the beat's reveals, and a thing neither the runtime
     // nor the library has cannot be drawn: both are left out, and whatever is done to them.
     if (PLATES.includes(name) || !known(name)) return decl.ignored.push(`s.thing("${name}")`), nothing;
+    // `s.thing("door")` said again with nothing new is the door already standing.
+    const same = decl.things.find((q) => q.name === name);
+    if (same && !Object.keys(opts).length) return same.handle;
     const s = props[name] ?? spec(name, library);
     const count = decl.things.filter((t) => t.name === name).length;
     // A thing put on one with no top, a padlock on a door, hangs on its middle.
@@ -128,6 +131,7 @@ export function makeStage(input, library = {}) {
       },
       __ref: t,
     }, name, decl.ignored);
+    t.handle = handle;
     return handle;
   }
 
@@ -379,37 +383,74 @@ export function makeStage(input, library = {}) {
   // The model places by eye and puts two things or two people on one spot. The later one
   // steps aside; what the scene moves later it still moves from there.
   function settle() {
-    const floor = decl.things.filter((q) => q.spec.on === "floor" && !q.spec.small && !q.spec.flat && !q.base && !q.holder && !q.carried && q.x !== null);
-    for (let pass = 0; pass < 4; pass++) {
-      for (let i = 0; i < floor.length; i++) {
-        for (let j = i + 1; j < floor.length; j++) {
-          const [a, b] = [floor[i], floor[j]];
-          const need = ((a.spec.w * a.scale + b.spec.w * b.scale) / 2) * 0.8;
-          if (Math.abs(b.x - a.x) >= need) continue;
-          const side = b.x >= a.x ? 1 : -1;
-          const half = (b.spec.w * b.scale) / 2;
-          b.x = Math.min(Math.max(a.x + side * need, half), W - half);
-          if (Math.abs(b.x - a.x) < need) b.x = Math.min(Math.max(a.x - side * need, half), W - half);
-        }
-      }
-    }
-    // Nobody stands inside a table: a person put on its spot stands at its nearer end, and
-    // one put behind a counter serves from behind it. Nothing stands in a side wall.
-    const tables = decl.things.filter((q) => q.spec.on === "floor" && !q.base && !q.holder && q.spec.parts.top && !q.spec.parts.seat && !q.spec.small && !q.spec.back && q.x !== null);
-    const beside = (x) => {
-      for (const q of tables) {
-        const half = (q.spec.w * q.scale) / 2;
-        if (q.name === "counter" || Math.abs(x - q.x) >= half + 40) continue;
-        const side = x >= q.x ? 1 : -1;
-        const out = q.x + side * (half + 64);
-        return out > 0.08 * W && out < 0.92 * W ? out : q.x - side * (half + 64);
-      }
-      return x;
-    };
     const edge = (stagePlace().walls ?? 0) + 70;
+    const [left, right] = [edge - 60, W - edge + 60];
+    // Nothing that stands on the floor hides another such thing: they keep their order and
+    // move apart, and when the room is too narrow for all of them they share the overlap.
+    const floor = decl.things
+      .filter((q) => q.spec.on === "floor" && !q.spec.small && !q.base && !q.holder && !q.carried && q.x !== null)
+      .sort((u, v) => u.x - v.x);
+    const wide = (q) => q.spec.w * q.scale * 0.94;
+    // A room with more furniture than wall has it a little smaller, as a wider shot would.
+    const fit = (right - left) / Math.max(floor.reduce((sum, q) => sum + wide(q), 0), 1);
+    if (fit < 1) for (const q of floor) q.scale *= Math.max(fit, 0.7);
+    const all = floor.reduce((sum, q) => sum + wide(q), 0);
+    const squeeze = Math.min(1, (right - left) / Math.max(all, 1));
+    const room = (q) => wide(q) * squeeze;
+    floor.forEach((q, i) => {
+      const least = i ? floor[i - 1].x + (room(floor[i - 1]) + room(q)) / 2 : left + room(q) / 2;
+      q.x = Math.max(q.x, least);
+    });
+    for (let i = floor.length - 1; i >= 0; i--) {
+      const q = floor[i];
+      const most = i < floor.length - 1 ? floor[i + 1].x - (room(floor[i + 1]) + room(q)) / 2 : right - room(q) / 2;
+      q.x = Math.min(q.x, most);
+    }
+    // People stand where the floor is free: beside the furniture, not in front of the fire,
+    // the door or the table the scene is about, and not on each other. What one sits on and
+    // the counter one serves at are theirs to stand at.
+    const solid = floor.filter((q) => !q.spec.parts.seat && q.name !== "counter" && q.name !== "railing");
+    const BODY = 58;
+    const gapsOf = (things) => {
+      const gaps = [];
+      let from = edge;
+      for (const q of things) {
+        const half = (q.spec.w * q.scale) / 2 - 18;
+        if (q.x - half - from >= 2 * BODY) gaps.push([from + BODY, q.x - half - BODY]);
+        from = Math.max(from, q.x + half);
+      }
+      if (W - edge - from >= 2 * BODY) gaps.push([from + BODY, W - edge - BODY]);
+      return gaps;
+    };
+    // In a room too full for that, a person may stand before a table, which is low, but
+    // still not before what the eye must see: a fire, a door, a cash machine.
+    const tiers = [gapsOf(solid), gapsOf(solid.filter((q) => !q.spec.parts.top || q.spec.back || q.spec.flat))];
+    const stood = [];
+    const free = (x, apart) => {
+      for (const gaps of tiers) {
+        let best = null;
+        for (const [lo, hi] of gaps) {
+          const near = Math.min(Math.max(x, lo), hi);
+          for (const c of [near, ...stood.flatMap((o) => [o - apart, o + apart])]) {
+            if (c < lo || c > hi || stood.some((o) => Math.abs(o - c) < apart - 1)) continue;
+            if (best === null || Math.abs(c - x) < Math.abs(best - x)) best = c;
+          }
+        }
+        if (best !== null) return best;
+      }
+      return null;
+    };
+    const beside = (x) => {
+      const inside = solid.some((q) => Math.abs(x - q.x) < (q.spec.w * q.scale) / 2 - 18 + BODY);
+      return inside ? (free(x, 0) ?? x) : x;
+    };
     for (const pr of decl.people) {
-      pr.behind = tables.find((q) => q.name === "counter" && Math.abs(pr.x0 - q.x) < (q.spec.w * q.scale) / 2) ?? null;
-      pr.x0 = Math.min(Math.max(beside(pr.x0), edge), W - edge);
+      pr.behind = floor.find((q) => q.name === "counter" && Math.abs(pr.x0 - q.x) < (q.spec.w * q.scale) / 2) ?? null;
+      const apart = (pr.extra ? 0.07 : 0.13) * W;
+      const seated = pr.sits.some((st) => st.t <= 0.01 && st.ref);
+      const spot = pr.behind || seated ? null : free(pr.x0, apart);
+      pr.x0 = Math.min(Math.max(spot ?? pr.x0, edge), W - edge);
+      if (spot !== null) stood.push(spot);
       for (const w of pr.walks) if (typeof w.to === "number") w.to = Math.min(Math.max(beside(px(w.to)), edge), W - edge);
     }
     for (const q of decl.things) {
@@ -428,7 +469,14 @@ export function makeStage(input, library = {}) {
     const taken = [];
     for (const pr of decl.people) {
       for (const w of pr.walks) {
-        if (typeof w.to !== "number") continue;
+        if (typeof w.to !== "number") {
+          // Two who walk to the same door stop one behind the other.
+          const ref = w.to?.__ref ?? w.to?.ref;
+          const ahead = ref && !w.seat ? taken.filter((q) => q.ref === ref && q.pr !== pr && Math.abs(q.t0 - w.t0) < 3).length : 0;
+          if (ref && !w.seat) taken.push({ pr, t0: w.t0, ref, goal: NaN });
+          w.shift = ahead * 0.12 * W;
+          continue;
+        }
         let goal = px(w.to);
         const back = goal >= pr.x0 ? -1 : 1;
         while (taken.some((q) => q.pr !== pr && Math.abs(q.t0 - w.t0) < 2 && Math.abs(q.goal - goal) < 0.1 * W)) goal += back * 0.11 * W;

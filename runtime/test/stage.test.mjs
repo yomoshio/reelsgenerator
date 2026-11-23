@@ -270,3 +270,19 @@ test("a fire is drawn by the runtime under the names a model gives it, and takes
   assert.deepEqual(r.ignored, []);
   assert.ok(r.graph[0].items.some((i) => i.id === "fireplace"));
 });
+
+test("a full room keeps its furniture in a row and nobody stands before the fire or the door", () => {
+  const r = run(input(`function scene(s) {
+    s.place("room");
+    s.thing("fireplace", { x: 0.3 }); s.thing("table", { x: 0.4 }); s.thing("door", { x: 0.5 });
+    s.thing("door");
+    s.person("artem", { x: 0.3 }).pose("listen", { at: "слушает" });
+  }`));
+  assert.equal(r.error, null);
+  const of = (id) => r.graph[0].items.find((i) => i.id === id).box;
+  const [fire, table, door, artem] = ["fireplace", "table", "door", "artem"].map(of);
+  assert.ok(!r.graph[0].items.some((i) => i.id === "door#2"));
+  assert.ok(fire[0] + fire[2] * 0.9 <= table[0] + 1 && table[0] + table[2] * 0.9 <= door[0] + 1);
+  const mid = artem[0] + artem[2] / 2;
+  for (const b of [fire, door]) assert.ok(mid < b[0] + 20 || mid > b[0] + b[2] - 20);
+});

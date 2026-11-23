@@ -45,6 +45,11 @@ section), `on` (a thing to stand or hang on, or a person who holds it; declare t
 ground by themselves; never give a y. Small things from the library, such as a candle, a
 phone or a necklace, usually stand `on` a table, a counter or a shelf, at `scale` 0.3–0.6.
 
+The runtime keeps things and people from hiding each other: furniture stands in a row in
+the order of its x and shrinks a little in a full room, and people are moved to the free
+floor beside it, never in front of a fire or a door. So give each thing its own x, well
+apart (a room holds three large things), and say `s.thing("door")` once.
+
 A thing the list above and the library do not have, you draw yourself, once:
 
 ```js

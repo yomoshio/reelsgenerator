@@ -133,7 +133,7 @@ export function makeMotion(decl, place) {
     for (const w of [...pr.walks].sort((a, b) => a.t0 - b.t0)) {
       if (t < w.t0) break;
       const from = w.from ?? x;
-      const goal = w.seat ? targetPoint(w.to, w.t0)[0] - 30 * Math.sign(targetPoint(w.to, w.t0)[0] - from || 1) : targetX(w.to, w.t0, from);
+      const goal = w.seat ? targetPoint(w.to, w.t0)[0] - 30 * Math.sign(targetPoint(w.to, w.t0)[0] - from || 1) : shifted(targetX(w.to, w.t0, from), from, w.shift ?? 0);
       const dur = w.until !== null ? Math.max(w.until - w.t0, 0.1) : Math.max(Math.abs(goal - from) / WALK_SPEED, 0.3);
       const q = Math.min((t - w.t0) / dur, 1);
       x = from + (goal - from) * (w.seat ? rig.ease(q) : q);
@@ -142,6 +142,7 @@ export function makeMotion(decl, place) {
     }
     return { x, facing, walking };
   }
+  const shifted = (goal, from, by) => goal + (from < goal ? -by : by);
   function lookFacing(target, x, facing, t) {
     if (target === "left") return -1;
     if (target === "right") return 1;
@@ -156,7 +157,7 @@ export function makeMotion(decl, place) {
     const ref = target?.__ref;
     if (ref?.kind === "thing" || ref?.kind === "person") {
       const box = ref.kind === "thing" ? thingBox(ref, t) : [x - 60, 0, 120, 0];
-      const gap = ref.kind === "thing" ? 40 : 90; // beside a person, not on top of them
+      const gap = ref.kind === "thing" ? 40 : 135; // beside a person, not on top of them
       return from < x ? box[0] - gap : box[0] + box[2] + gap;
     }
     return x;
