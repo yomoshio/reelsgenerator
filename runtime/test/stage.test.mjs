@@ -217,3 +217,56 @@ test("a thing or a person as a target is the thing or the person, not the floor 
   const door = run(data).graph[0].items.find((i) => i.id === "door").screen;
   assert.ok(door[1] < 400 && door[1] + door[3] > 1000, JSON.stringify(door));
 });
+
+const CARRY = `function scene(s) {
+  s.place("room");
+  const table = s.thing("table", { x: 0.5 });
+  const a = s.person("artem", { x: 0.25 });
+  const b = s.person("lena", { x: 0.75, facing: "left" });
+  const paw = s.prop("monkey_paw", { size: 70, draw: (ctx) => { ctx.fillStyle = "#6B4A2E"; ctx.fillRect(-20, -30, 40, 60); } });
+  BODY
+}`;
+function carry(body, keys) {
+  const data = input(CARRY.replace("BODY", body), { seconds: 5, keys });
+  data.beat.cast = ["artem", "lena"];
+  data.characters.push({ key: "lena", name: "Лена", look: "", card: CARD });
+  const r = run(data);
+  assert.equal(r.error, null);
+  assert.deepEqual(r.ignored, []);
+  return r.graph.map((g) => g.items.find((i) => i.id === "monkey_paw"));
+}
+
+test("a prop out of a pocket is unseen, then in the hand, then on the table where it stays", () => {
+  const [hidden, inHand, onTable, later] = carry(
+    `a.take(paw, { from: "pocket", at: 1 }); a.put(paw, { on: table, at: 2 });`, [0.5, 1.6, 3.2, 4.5]);
+  assert.equal(hidden, undefined);
+  assert.equal(inHand.on, "hand");
+  assert.equal(onTable.on, "thing");
+  assert.deepEqual(onTable.box, later.box);
+});
+
+test("a thing given ends in the other hand, thrown it flies, dropped it lies on the floor", () => {
+  const [mine, theirs, flying, lying] = carry(
+    `a.take(paw, { from: "pocket", at: 0 }); a.give(paw, { to: b, at: 1 }); b.throw(paw, { to: 0.4, at: 2.5 }); `, [0.6, 2.2, 2.95, 4.5]);
+  assert.ok(mine.box[0] < 540 && theirs.box[0] > 540);
+  assert.ok(flying.box[1] < (theirs.box[1] + lying.box[1]) / 2 - 60);
+  assert.ok(lying.box[1] > theirs.box[1] + 200);
+});
+
+test("a thing thrown into the fire is gone, and two people who look at each other do not loop", () => {
+  const [gone] = carry(
+    `const fire = s.thing("fireplace", { x: 0.9 }); a.look(b); b.look(a); a.take(paw, { from: "pocket", at: 0 }); a.throw(paw, { to: fire, at: 1 });`, [3]);
+  assert.equal(gone, undefined);
+});
+
+test("a fire is drawn by the runtime under the names a model gives it, and takes a state", () => {
+  const r = run(input(`function scene(s) {
+    s.place("room"); s.light(0.3);
+    const fire = s.thing("fire", { x: 0.7 });
+    fire.state(3, { at: 1 }); fire.state(0, { at: 3 });
+    s.person("artem", { x: 0.3 }).look(fire.part("hearth"));
+  }`));
+  assert.equal(r.error, null);
+  assert.deepEqual(r.ignored, []);
+  assert.ok(r.graph[0].items.some((i) => i.id === "fireplace"));
+});

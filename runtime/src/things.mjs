@@ -180,6 +180,68 @@ export const FIXTURES = {
       box(ctx, -65, -140, 130, 18, WOOD);
     },
   },
+  fireplace: {
+    w: 360, h: 400, on: "floor", back: true, state: 2, parts: { hearth: [0, -90], fire: [0, -90], top: [0, -330], mantel: [0, -330] },
+    // The light a fire gives the room: none cold, a little from embers, more when it roars.
+    glow: (s) => ({ at: [0, -110], r: 260 + 190 * Math.min(s, 3), a: [0, 0.2, 0.42, 0.6][Math.round(Math.min(Math.max(s, 0), 3))], colour: "#FF9A3C" }),
+    draw(ctx, s, t, p, seed) {
+      const STONE = "#6E6660", STONE_DARK = "#4A4541";
+      box(ctx, -180, -330, 360, 330, STONE);
+      for (let row = 0; row < 7; row++) {
+        for (let col = -3; col < 4; col++) {
+          const bx = col * 56 + (row % 2 ? 28 : 0) - 26, by = -322 + row * 46;
+          if (bx < -176 || bx + 52 > 176) continue;
+          ctx.fillStyle = shade(STONE, 0.86 + ((row * 7 + col * 13 + 40) % 5) * 0.05);
+          ctx.fillRect(bx, by, 52, 42);
+        }
+      }
+      round(ctx, -116, -236, 232, 236, 22, "#0B0907");
+      slab(ctx, -200, -362, 400, 30, WOOD);
+      box(ctx, -200, -362, 400, 34, WOOD);
+      box(ctx, -190, -24, 380, 24, STONE_DARK);
+      const heat = Math.min(Math.max(s, 0), 3);
+      // Logs, and the coals between them, which glow as long as there is any heat.
+      for (const [lx, a] of [[-52, -0.12], [34, 0.15]]) {
+        ctx.save();
+        ctx.translate(lx, -42);
+        ctx.rotate(a);
+        round(ctx, -62, -15, 124, 30, 14, heat > 0.2 ? "#3B2416" : "#2A211B");
+        ctx.restore();
+      }
+      if (heat > 0.05) {
+        for (let i = 0; i < 9; i++) {
+          const pulse = 0.55 + 0.45 * Math.sin(t * (2 + (i % 3)) + i * 1.7);
+          ctx.fillStyle = `rgba(255,${90 + 60 * pulse},30,${Math.min(heat, 1) * (0.5 + 0.5 * pulse)})`;
+          ctx.beginPath();
+          ctx.ellipse(-88 + i * 22, -30 - (i % 2) * 8, 11, 6, 0, 0, 2 * Math.PI);
+          ctx.fill();
+        }
+      }
+      const tall = Math.max(0, heat - 1);
+      if (tall > 0.02) {
+        const tongue = (x, w, h, colour, phase) => {
+          const sway = Math.sin(t * 5.3 + phase) * w * 0.35 + Math.sin(t * 8.9 + phase * 2) * w * 0.15;
+          const lift = h * (0.86 + 0.14 * Math.sin(t * 7.1 + phase * 1.3));
+          ctx.beginPath();
+          ctx.moveTo(x - w, -36);
+          ctx.bezierCurveTo(x - w * 1.1, -36 - lift * 0.5, x + sway - w * 0.3, -36 - lift * 0.7, x + sway, -36 - lift);
+          ctx.bezierCurveTo(x + sway + w * 0.4, -36 - lift * 0.6, x + w * 1.1, -36 - lift * 0.45, x + w, -36);
+          ctx.closePath();
+          ctx.fillStyle = colour;
+          ctx.fill();
+        };
+        const k = 0.55 + 0.45 * Math.min(tall, 2) / 2 + (tall > 1 ? 0.25 : 0);
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(-116, -236, 232, 236);
+        ctx.clip();
+        for (const [x, w, h, ph] of [[-60, 30, 120, 0], [48, 32, 130, 2.1], [-8, 44, 185, 4.0], [-34, 26, 150, 1.2], [26, 26, 160, 3.1]]) tongue(x, w, h * k, "#E2571B", ph + (seed % 5));
+        for (const [x, w, h, ph] of [[-40, 22, 105, 0.6], [30, 24, 115, 2.6], [-4, 32, 150, 4.4]]) tongue(x, w, h * k, "#FF9E2C", ph);
+        for (const [x, w, h, ph] of [[-14, 14, 80, 1.1], [14, 14, 88, 3.4]]) tongue(x, w, h * k, "#FFE7A0", ph);
+        ctx.restore();
+      }
+    },
+  },
   table: {
     w: 380, h: 240, on: "floor", parts: { top: [0, -240] },
     draw(ctx) {

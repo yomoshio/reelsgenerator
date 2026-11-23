@@ -26,6 +26,7 @@ export const POSES = {
   look_down: { head: 8, nod: 0.5, lean: 4, arm_f: -14, arm_n: 14 },
   sit: { leg_f: 82, shin_f: -84, leg_n: 88, shin_n: -90, arm_f: 18, fore_f: 40, arm_n: 26, fore_n: 44, lean: -3 },
   hold: { arm_f: 20, fore_f: 95, arm_n: 25, fore_n: 90 },
+  carry: { arm_n: 16, fore_n: 72 },
   knock: { arm_n: 75, fore_n: 60 },
   point: { arm_n: 100, fore_n: 0 },
   reach: { arm_n: 80, fore_n: 10 },
@@ -115,7 +116,7 @@ export function reach(shoulder, target, size, facing) {
   const toward = (Math.atan2(dx, dy) * 180) / Math.PI;
   const inner = (Math.acos((a * a + d * d - b * b) / (2 * a * d)) * 180) / Math.PI;
   const elbow = (Math.acos((a * a + b * b - d * d) / (2 * a * b)) * 180) / Math.PI;
-  return [toward + inner, -(180 - elbow)];
+  return [toward - inner, 180 - elbow];
 }
 
 // Breath, a little sway, and the swing of legs and arms when walking.

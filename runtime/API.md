@@ -45,14 +45,31 @@ section), `on` (a thing to stand or hang on, or a person who holds it; declare t
 ground by themselves; never give a y. Small things from the library, such as a candle, a
 phone or a necklace, usually stand `on` a table, a counter or a shelf, at `scale` 0.3–0.6.
 
+A thing the list above and the library do not have, you draw yourself, once:
+
+```js
+const paw = s.prop("monkey_paw", { size: 70, on: table, draw: (ctx, t) => {
+  ctx.fillStyle = "#6B4A2E";                       // 0,0 is the middle of a size × size box
+  ctx.beginPath(); ctx.ellipse(0, 10, 18, 24, 0, 0, 2 * Math.PI); ctx.fill();
+  for (let i = -2; i <= 2; i++) ctx.fillRect(i * 8 - 3, -32, 6, 26);   // five dry fingers
+} });
+```
+
+It is then a thing like any other: it takes `x`, `on` and `hidden`, people take, put, give
+and throw it, the camera and a lens go to it, and a plate can point at it. Use the name
+the brief gives the thing. Keep the drawing small and plain: a silhouette in two or three
+colours. `hidden: true` on any thing keeps it out of sight until someone takes it.
+
 - `atm.state(2, { at: "ошибка" })`: change state, eased over a second. Water: 0 ankle,
   1 knee, 2 waist, 3 chest. Atm: 0 idle, 1 lit, 2 red error. Door: 0 shut, 1 open.
   Wardrobe: 0 upright, 1 fallen. Lamp: 0 off, 1 on.
+  Fireplace: 0 cold, 1 embers, 2 burning (as it starts), 3 roaring; it lights the room
+  around it by itself, also when `s.light` has made the room dark.
 - `atm.move({ to: 0.6, at: "двигает" })`: slide along the ground.
 - `atm.part("screen")`: a point to reach, point at, magnify or start ripples from.
 
 Parts: door handle, middle · window glass · bed seat, pillow · bench seat · chair seat ·
-table top · counter top, front · shelf top, middle · wardrobe door, top · atm screen, slot,
+fireplace hearth, mantel · table top · counter top, front · shelf top, middle · wardrobe door, top · atm screen, slot,
 keys · lamp bulb · railing rail · pipe middle, top · radiator top · water surface.
 
 ## People
@@ -71,7 +88,19 @@ only place and move them. They breathe and sway by themselves.
   a seat (bed, bench, chair), walking to it first.
 - `ivan.reach(atm.part("slot"), { at: "карту" })`, `ivan.point(atm, { at })`,
   `ivan.knock(door, { at })`: the near hand goes to the target.
-- `ivan.pose(name, { at })`: stand, walk, listen, look_down, sit, hold, knock, point, reach,
+- Things change hands. These are what make a story visible: who has the letter, where the
+  key went. Use them whenever the lines say take, put, hand over, throw or drop.
+  - `ivan.take(phone, { at: "берёт" })`: the hand goes to the thing where it lies and takes
+    it. `ivan.take(paw, { from: "pocket", at: "достаёт" })`: out of a pocket; the thing is
+    not seen before that.
+  - `ivan.put(phone, { on: table, at: "кладёт" })`: lays it on a thing, where it stays.
+    Without `on` it goes on the floor beside him.
+  - `ivan.give(phone, { to: anna, at: "отдаёт" })`: both reach, and it ends in her hand.
+  - `ivan.throw(paw, { to: fireplace, at: "бросает" })`: it flies in an arc. Thrown into a
+    fire, a bin, water or a window it is gone; thrown to an x it lies on the floor there.
+  - `ivan.drop(phone, { at: "роняет" })`: it falls from the hand to the floor.
+  A thing thrown into the fire can be taken out of it again with `take`.
+- `ivan.pose(name, { at })`: stand, walk, listen, look_down, sit, hold, carry, knock, point, reach,
   arms_out.
 - `ivan.mood(name, { at })`: the face: neutral, happy, sad, worried, scared, angry,
   surprised, tired. Give every person the mood the lines call for, and change it when the
