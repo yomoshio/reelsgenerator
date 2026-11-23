@@ -15,7 +15,7 @@ import { problems as frameProblems } from "./layout.mjs";
 import { bare, makeClock } from "./clock.mjs";
 import { makeMotion, px } from "./motion.mjs";
 import { applyView, boxToScreen, view } from "./camera.mjs";
-import { darkness, vignette } from "./light.mjs";
+import { darkness, grade, vignette } from "./light.mjs";
 import { DEVICES, sceneDevices, screenDevices } from "./devices.mjs";
 import { drawPlates, layPlates } from "./platelayout.mjs";
 import { declared } from "./checks.mjs";
@@ -573,6 +573,10 @@ export function makeStage(input, library = {}) {
     }
     custom(ctx, t, "front");
     sceneDevices(ctx, t, decl.devices, p, where);
+    // Lamps that are on, and where no lamp is declared, the light the place itself has.
+    const lamps = decl.things.filter((q) => q.name === "lamp").map((q) => [thingFoot(q, t)[0], thingFoot(q, t)[1] + 150 * q.scale, Math.min(Math.max(thingState(q, t), 0), 1)]);
+    if (!lamps.length && place.rows) lamps.push([W * 0.55, SCENE_TOP + 40, 0.55]);
+    grade(ctx, lamps, place.floor, p);
     darkness(ctx, t, decl.lights, people, p, personBones);
     // What burns lights what is near it, and shows through the dark.
     for (const th of decl.things.filter((q) => q.spec.glow && !now.get(q).hidden)) {
@@ -592,7 +596,7 @@ export function makeStage(input, library = {}) {
       ctx.restore();
     }
     ctx.restore();
-    vignette(ctx);
+    vignette(ctx, t);
     screenDevices(ctx, t, v, decl.devices, p, where);
     const shown = drawPlates(ctx, laid, t, v, p);
     custom(ctx, t, "top");
