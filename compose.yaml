@@ -41,5 +41,23 @@ services:
       - ./voices:/voices
     restart: unless-stopped
 
+  # The narrator read by Chatterbox; the pipeline uses it when REELSMITH_TTS=chatterbox.
+  voice:
+    <<: *gpu
+    build:
+      context: .
+      dockerfile: docker/voice.Dockerfile
+    image: reelsmith/voice:local
+    environment:
+      CHATTERBOX_EXAGGERATION: "${CHATTERBOX_EXAGGERATION:-0.55}"
+      CHATTERBOX_CFG: "${CHATTERBOX_CFG:-0.4}"
+      CHATTERBOX_TEMPERATURE: "${CHATTERBOX_TEMPERATURE:-0.75}"
+    ports:
+      - "127.0.0.1:8001:8001"
+    volumes:
+      - ./hf:/hf
+      - ./voices:/voices
+    restart: unless-stopped
+
 volumes:
   ollama:

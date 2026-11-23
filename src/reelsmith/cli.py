@@ -107,7 +107,7 @@ def run(once: Annotated[bool, typer.Option(help="one pass over the stages")] = F
 
     async def go() -> None:
         llm = Llm(settings.llm_url, temperature=settings.temperature, reasoning=settings.reasoning)
-        speech = Speech(settings.speech_url)
+        speech = Speech(settings.speech_url, reader=settings.reader())
         ctx = Context(settings, llm, Styles(settings.styles), speech)
         ctx.catalog = lambda text: catalog(settings, text)
         jobs = Jobs(settings.jobs)
@@ -272,7 +272,7 @@ def smoke() -> None:
 
     async def go() -> list[tuple[str, float, str]]:
         llm = Llm(settings.llm_url, temperature=0, reasoning=settings.reasoning)
-        speech = Speech(settings.speech_url)
+        speech = Speech(settings.speech_url, reader=settings.reader())
         results: list[tuple[str, float, str]] = []
 
         async def timed(name: str, call: Awaitable[str]) -> None:
