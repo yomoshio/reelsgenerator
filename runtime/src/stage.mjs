@@ -392,7 +392,9 @@ export function makeStage(input, library = {}) {
       .sort((u, v) => u.x - v.x);
     const wide = (q) => q.spec.w * q.scale * 0.94;
     // A room with more furniture than wall has it a little smaller, as a wider shot would.
-    const fit = (right - left) / Math.max(floor.reduce((sum, q) => sum + wide(q), 0), 1);
+    // The people who stand need floor between it too.
+    const standing = decl.people.filter((pr) => !pr.extra && !pr.sits.some((st) => st.t <= 0.01 && st.ref)).length;
+    const fit = (right - left - standing * 0.15 * W) / Math.max(floor.reduce((sum, q) => sum + wide(q) * (q.spec.parts.seat ? 0.4 : 1), 0), 1);
     if (fit < 1) for (const q of floor) q.scale *= Math.max(fit, 0.7);
     const all = floor.reduce((sum, q) => sum + wide(q), 0);
     const squeeze = Math.min(1, (right - left) / Math.max(all, 1));
@@ -433,7 +435,8 @@ export function makeStage(input, library = {}) {
           const near = Math.min(Math.max(x, lo), hi);
           for (const c of [near, ...stood.flatMap((o) => [o - apart, o + apart])]) {
             if (c < lo || c > hi || stood.some((o) => Math.abs(o - c) < apart - 1)) continue;
-            if (best === null || Math.abs(c - x) < Math.abs(best - x)) best = c;
+            const cost = (q) => Math.abs(q - x) + (stood.some((o) => q < o) ? W : 0); // keep the order left to right
+            if (best === null || cost(c) < cost(best)) best = c;
           }
         }
         if (best !== null) return best;
@@ -444,15 +447,18 @@ export function makeStage(input, library = {}) {
       const inside = solid.some((q) => Math.abs(x - q.x) < (q.spec.w * q.scale) / 2 - 18 + BODY);
       return inside ? (free(x, 0) ?? x) : x;
     };
-    for (const pr of decl.people) {
+    const placed = [];
+    for (const pr of [...decl.people].sort((u, v) => u.x0 - v.x0)) {
       pr.behind = floor.find((q) => q.name === "counter" && Math.abs(pr.x0 - q.x) < (q.spec.w * q.scale) / 2) ?? null;
-      const apart = (pr.extra ? 0.07 : 0.13) * W;
+      const apart = (pr.extra ? 0.07 : 0.16) * W;
       const seated = pr.sits.some((st) => st.t <= 0.01 && st.ref);
       const spot = pr.behind || seated ? null : free(pr.x0, apart);
       pr.x0 = Math.min(Math.max(spot ?? pr.x0, edge), W - edge);
-      if (spot !== null) stood.push(spot);
+      if (spot !== null) stood.push(spot), placed.push(pr);
       for (const w of pr.walks) if (typeof w.to === "number") w.to = Math.min(Math.max(beside(px(w.to)), edge), W - edge);
     }
+    // Whoever was put further right stands further right, whichever gap each one found.
+    [...stood].sort((u, v) => u - v).forEach((x, i) => (placed[i].x0 = x));
     for (const q of decl.things) {
       if (q.x === null || q.spec.on === "fill" || q.spec.on === "tall") continue;
       const half = Math.min((q.spec.w * q.scale) / 2, W / 2 - edge + 60);

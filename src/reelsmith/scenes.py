@@ -19,6 +19,8 @@ from reelsmith.captions import WIDTH, Word
 from reelsmith.jobs import Context, Job
 from reelsmith.llm import NoCode
 from reelsmith.runtime import Report
+from reelsmith.sheet import Sheet, after, compose
+from reelsmith.sheet import faults as sheet_faults
 from reelsmith.story import Beat, Episode, Reveal, prompt
 from reelsmith.styles import Style
 from reelsmith.text import words
@@ -48,6 +50,7 @@ class SceneResult:
     fallback: bool
     left: list[str]
     tries: list[dict[str, object]] = field(default_factory=list)
+    sheet: Sheet | None = None
 
 
 @dataclass
@@ -82,7 +85,16 @@ def positions(report: Report | None) -> dict[str, float]:
     }
 
 
-def brief(ep: Episode, n: int, timing: Timing, stood: dict[str, float], note: str) -> str:
+CODE = (
+    "Write `function scene(s) { ... }` for this beat only, with these characters, things "
+    "and words, in one ```js block."
+)
+SHEET_ROUNDS = 3
+
+
+def brief(
+    ep: Episode, n: int, timing: Timing, stood: dict[str, float], note: str, *, ask: str = CODE
+) -> str:
     beat = ep.beats[n]
     place = ep.place(beat.place)
     stage = beat.staging
@@ -110,8 +122,7 @@ def brief(ep: Episode, n: int, timing: Timing, stood: dict[str, float], note: st
         if kept
         else "",
         f"Notes from a person who watched it: {note}" if note else "",
-        "Write `function scene(s) { ... }` for this beat only, with these characters, things "
-        "and words, in one ```js block.",
+        ask,
     ]
     return "\n".join(p for p in parts if p)
 
@@ -293,6 +304,65 @@ async def stage_beat(
     return SceneResult(plain, report, done, True, left, tries)
 
 
+async def sheet_beat(
+    ctx: Context,
+    style: Style,
+    ep: Episode,
+    n: int,
+    *,
+    timing: Timing,
+    keys: Path,
+    before: Sheet | None,
+    note: str = "",
+) -> SceneResult | None:
+    """The beat staged through a sheet: the planner fills it, a program checks it and writes
+    the scene from it. A sheet that cannot be staged goes back with the reasons; None after
+    the last round, and the beat is then the coder's."""
+    beat = ep.beats[n]
+    kind = ep.place(beat.place).kind
+    looks = " ".join([ep.place(beat.place).look, beat.staging.action if beat.staging else ""])
+    listed = ctx.catalog(looks).things if ctx.catalog else runtime.catalog(ctx.settings).things
+    known = set(listed) | set(runtime.library_index(ctx.settings))
+    ask = (
+        f"Things you can name: {', '.join(listed)}.\n"
+        + (
+            "The place as the last beat left it; start from it:\n"
+            f"{before.model_dump_json(exclude_defaults=True)}\n"
+            if before
+            else ""
+        )
+        + "Fill the sheet for this beat."
+    )
+    task = brief(ep, n, timing, {}, note, ask=ask)
+    said = [w.text for w in timing.words]
+    tries: list[dict[str, object]] = []
+    feedback = ""
+    for done in range(1, SHEET_ROUNDS + 1):
+        sheet = await ctx.llm.json(ctx.settings.planner, prompt("sheet"), task + feedback, Sheet)
+        named = known | {i.name for i in sheet.things}
+        wrong = sheet_faults(sheet, beat.cast, said, named)
+        report = None
+        if not wrong:
+            code = compose(sheet, kind, {}, known)
+            data = runtime.scene_input(
+                ep, n, code=code, words=timing.words, seconds=timing.seconds, style=style,
+                settings=ctx.settings, carried=carried(ep, n),
+                keys=[0.4, timing.seconds / 2, max(timing.seconds - 0.3, 0.5)],
+                out=keys / f"beat{n + 1:02d}",
+            )  # fmt: skip
+            report = await runtime.keys(ctx.settings, data)
+            wrong = [report.error] if report.error else []
+        tries.append({"sheet": sheet.model_dump(exclude_defaults=True), "faults": wrong})
+        if report is not None and not wrong:
+            return SceneResult(code, report, done, False, report.problems, tries, sheet)
+        feedback = (
+            f"\n\nYour last sheet:\n{sheet.model_dump_json(exclude_defaults=True)}\n"
+            "It cannot be staged. Mend it and give the whole sheet again:\n"
+            + "\n".join(f"- {f}" for f in wrong)
+        )
+    return None
+
+
 def timings(folder: Path) -> list[Timing]:
     raw = json.loads((folder / "voice" / "timing.json").read_text(encoding="utf-8"))
     return [
@@ -315,18 +385,30 @@ async def stage(job: Job, folder: Path, ctx: Context) -> None:
         json.loads(notes_file.read_text(encoding="utf-8")) if notes_file.is_file() else {}
     )
     last: dict[str, Report] = {}
+    left_as: dict[str, Sheet] = {}
     for n, beat in enumerate(ep.beats):
         name = f"beat{n + 1:02d}"
         done = scenes / f"{name}.json"
         if (scenes / f"{name}.js").is_file() and done.is_file() and str(n + 1) not in notes:
-            graph = json.loads(done.read_text(encoding="utf-8"))["graph"]
-            last[beat.place] = Report(True, None, graph=graph)
+            kept = json.loads(done.read_text(encoding="utf-8"))
+            last[beat.place] = Report(True, None, graph=kept["graph"])
+            if kept.get("sheet"):
+                left_as[beat.place] = after(Sheet.model_validate(kept["sheet"]))
             continue
-        result = await stage_beat(
-            ctx, style, ep, n, timing=beats[n], keys=folder / "keys",
-            stood=positions(last.get(beat.place)), note=notes.get(str(n + 1), ""),
-        )  # fmt: skip
+        result = None
+        if ctx.settings.staging == "sheet":
+            result = await sheet_beat(
+                ctx, style, ep, n, timing=beats[n], keys=folder / "keys",
+                before=left_as.get(beat.place), note=notes.get(str(n + 1), ""),
+            )  # fmt: skip
+        if result is None:
+            result = await stage_beat(
+                ctx, style, ep, n, timing=beats[n], keys=folder / "keys",
+                stood=positions(last.get(beat.place)), note=notes.get(str(n + 1), ""),
+            )  # fmt: skip
         last[beat.place] = result.report
+        if result.sheet:
+            left_as[beat.place] = after(result.sheet)
         (scenes / f"{name}.js").write_text(result.code, encoding="utf-8")
         done.write_text(
             json.dumps(
@@ -335,6 +417,9 @@ async def stage(job: Job, folder: Path, ctx: Context) -> None:
                     "fallback": result.fallback,
                     "left": result.left,
                     "tries": result.tries,
+                    "sheet": result.sheet.model_dump(exclude_defaults=True)
+                    if result.sheet
+                    else None,
                     "graph": result.report.graph,
                 },
                 ensure_ascii=False,
