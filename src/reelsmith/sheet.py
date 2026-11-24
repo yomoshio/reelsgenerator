@@ -304,7 +304,8 @@ def compose(
         lines.append(f"{_var(change.thing)}.state({change.state}, {{ at: {at} }});")
     for light in (x for x in sheet.lights if x.on_word):
         lines.append(
-            f"s.light({max(light.level, DIMMEST)}, {{ at: {_at(light.on_word, light.occurrence)} }});"
+            f"s.light({max(light.level, DIMMEST)}, "
+            f"{{ at: {_at(light.on_word, light.occurrence)} }});"
         )
     for shot in sheet.camera:
         at = _at(shot.on_word, shot.occurrence)
