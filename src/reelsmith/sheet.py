@@ -22,6 +22,7 @@ Verb = Literal[
     "knock", "enter", "feel",
 ]  # fmt: skip
 CARRY = {"take", "put", "give", "throw", "drop"}
+DIMMEST = 0.38  # a model asks for 0.1 and the stage goes black; dark must still be seen
 PLAIN = "(ctx) => { ctx.fillStyle = '#8A7A5C'; ctx.fillRect(-22, -16, 44, 32); }"
 
 
@@ -259,7 +260,7 @@ def compose(
     names = {i.name for i in sheet.things} | {p.who for p in sheet.people}
     lines = [f"s.place({json.dumps(kind)});"]
     for light in (x for x in sheet.lights if not x.on_word):
-        lines.append(f"s.light({light.level});")
+        lines.append(f"s.light({max(light.level, DIMMEST)});")
 
     def ref(name: str) -> str:
         if name in names:
@@ -302,7 +303,9 @@ def compose(
         at = _at(change.on_word, change.occurrence)
         lines.append(f"{_var(change.thing)}.state({change.state}, {{ at: {at} }});")
     for light in (x for x in sheet.lights if x.on_word):
-        lines.append(f"s.light({light.level}, {{ at: {_at(light.on_word, light.occurrence)} }});")
+        lines.append(
+            f"s.light({max(light.level, DIMMEST)}, {{ at: {_at(light.on_word, light.occurrence)} }});"
+        )
     for shot in sheet.camera:
         at = _at(shot.on_word, shot.occurrence)
         if shot.move == "back" or not shot.to:
