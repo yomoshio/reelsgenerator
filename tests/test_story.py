@@ -1,7 +1,5 @@
 from pathlib import Path
 
-import pytest
-
 from reelsmith import story
 from reelsmith.catalog import Catalog
 from reelsmith.jobs import Jobs, Source

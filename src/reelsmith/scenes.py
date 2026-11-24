@@ -370,6 +370,11 @@ async def sheet_beat(
             "It cannot be staged. Mend it and give the whole sheet again:\n"
             + "\n".join(f"- {f}" for f in wrong)
         )
+    # Why no sheet staged the beat is kept beside the scene the coder then writes.
+    (keys.parent / "scenes").mkdir(parents=True, exist_ok=True)
+    (keys.parent / "scenes" / f"beat{n + 1:02d}.sheet.json").write_text(
+        json.dumps(tries, ensure_ascii=False, indent=1), encoding="utf-8"
+    )
     return None
 
 

@@ -206,10 +206,17 @@ export function makeMotion(decl, place) {
     const before = cues.length > 1 ? cues[cues.length - 2] : null;
     const angles = (cue) => {
       const a = rig.poseAngles(walking && cue.pose !== "sit" ? "walk" : cue.pose);
-      if (cue.target && ["reach", "point", "knock"].includes(cue.pose)) {
+      // A hand aimed at the thing it holds would need itself to be found: the pose stays plain.
+      if (cue.target && !pr.aiming && ["reach", "point", "knock"].includes(cue.pose)) {
+        pr.aiming = true;
         const standing = rig.bones([x, ground(pr, x)], a, s, facing);
         const shoulder = standing.shoulder_n;
-        const goal = targetPoint(cue.target, t);
+        let goal;
+        try {
+          goal = targetPoint(cue.target, t);
+        } finally {
+          pr.aiming = false;
+        }
         if (cue.pose === "point") {
           const ang = (Math.atan2((goal[0] - shoulder[0]) * facing, goal[1] - shoulder[1]) * 180) / Math.PI;
           a.arm_n = ang;

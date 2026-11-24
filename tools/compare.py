@@ -20,7 +20,8 @@ def row(folder: Path, price: float) -> dict[str, str]:
         if entry["step"] in took and not str(entry.get("note", "")).startswith("failed"):
             took[entry["step"]] = entry["seconds"]
     beats = [
-        json.loads(p.read_text(encoding="utf-8")) for p in sorted(folder.glob("scenes/beat*.json"))
+        json.loads(p.read_text(encoding="utf-8"))
+        for p in sorted(folder.glob("scenes/beat[0-9][0-9].json"))
     ]
     sheets = [b for b in beats if b.get("sheet")]
     coded = [b for b in beats if not b.get("sheet")]
