@@ -61,17 +61,15 @@ class Timing:
 
 
 def carried(ep: Episode, n: int) -> list[Reveal]:
-    """Plates kept up from earlier beats: the last rule card, and every other plate marked
-    to stay for the episode."""
-    kept: list[Reveal] = []
+    """Plates kept up from earlier beats: the last rule card and the last count. A model marks
+    most of its plates to stay for the episode, and eight of them then cover the stage; a
+    label or a stamp belongs to the beat that says it."""
+    kept: dict[str, Reveal] = {}
     for beat in ep.beats[:n]:
         for r in beat.reveals:
-            if r.persist != "episode":
-                continue
-            if r.kind == "rule_card":
-                kept = [k for k in kept if k.kind != "rule_card"]
-            kept.append(r)
-    return kept
+            if r.persist == "episode" and r.kind in ("rule_card", "count", "hud"):
+                kept[r.kind] = r
+    return list(kept.values())
 
 
 def positions(report: Report | None) -> dict[str, float]:
