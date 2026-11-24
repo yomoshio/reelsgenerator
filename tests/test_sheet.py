@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 
 from reelsmith import runtime, scenes
+from reelsmith.llm import closed
 from reelsmith.scenes import carried
 from reelsmith.sheet import Act, Change, Item, Sheet, Shot, Stand, after, compose, faults
 from reelsmith.styles import Styles
@@ -130,3 +131,10 @@ async def test_a_beat_no_sheet_can_stage_is_left_to_the_coder(tmp_path: Path) ->
         keys=tmp_path / "k", before=None,
     )  # fmt: skip
     assert result is None
+
+
+def test_a_json_answer_left_one_bracket_short_is_closed() -> None:
+    cut = '{"people": [{"who": "a", "where": "left"}], "camera": [{"move": "back", "zoom": 1.35}'
+    assert Sheet.model_validate_json(closed(cut)).camera[0].zoom == 1.35
+    assert closed('{"a": "x]y"}') == '{"a": "x]y"}'
+    assert closed('{"a": ["b",') == '{"a": ["b"]}'

@@ -17,7 +17,7 @@ from pydantic import BaseModel
 from reelsmith import runtime
 from reelsmith.captions import WIDTH, Word
 from reelsmith.jobs import Context, Job
-from reelsmith.llm import NoCode
+from reelsmith.llm import LlmError, NoCode
 from reelsmith.runtime import Report
 from reelsmith.sheet import Sheet, after, compose
 from reelsmith.sheet import faults as sheet_faults
@@ -338,7 +338,17 @@ async def sheet_beat(
     tries: list[dict[str, object]] = []
     feedback = ""
     for done in range(1, SHEET_ROUNDS + 1):
-        sheet = await ctx.llm.json(ctx.settings.planner, prompt("sheet"), task + feedback, Sheet)
+        try:
+            sheet = await ctx.llm.json(
+                ctx.settings.planner, prompt("sheet"), task + feedback, Sheet
+            )
+        except LlmError as exc:
+            tries.append({"sheet": None, "faults": [str(exc)[:300]]})
+            feedback = (
+                "\n\nYour last answer was not a whole sheet. Give the sheet again as JSON only, "
+                "with at most six acts."
+            )
+            continue
         named = known | {i.name for i in sheet.things}
         wrong = sheet_faults(sheet, beat.cast, said, named)
         report = None

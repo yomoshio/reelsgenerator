@@ -14,6 +14,9 @@ from pydantic import BaseModel, ValidationError
 _FENCE = re.compile(r"```(?:js|javascript|mjs)?[ \t]*\n(.*?)(?:```|\Z)", re.DOTALL)
 _SCENE = re.compile(r"function\s+scene\s*\(.*", re.DOTALL)
 CODE_TOKENS = 4000  # a scene is some forty lines; room is left for a model that thinks first
+JSON_TOKENS = (
+    12000  # the longest answer is a cut of twenty beats; without a limit a model can run on
+)
 
 
 class LlmError(Exception):
@@ -56,17 +59,17 @@ class Llm:
             "type": "json_schema",
             "json_schema": {"name": schema.__name__, "schema": schema.model_json_schema()},
         }
-        answer = await self._chat(model, messages, response_format)
+        answer = await self._chat(model, messages, response_format, max_tokens=JSON_TOKENS)
         try:
-            return schema.model_validate_json(answer)
+            return schema.model_validate_json(closed(answer))
         except ValidationError as exc:
             messages += [
                 {"role": "assistant", "content": answer},
                 _message("user", f"That answer does not fit the schema: {exc}. Answer again."),
             ]
-        answer = await self._chat(model, messages, response_format)
+        answer = await self._chat(model, messages, response_format, max_tokens=JSON_TOKENS)
         try:
-            return schema.model_validate_json(answer)
+            return schema.model_validate_json(closed(answer))
         except ValidationError as exc:
             raise LlmError(f"{model} gave no valid {schema.__name__}: {exc}") from exc
 
@@ -145,6 +148,23 @@ class Llm:
             return str(choice["message"]["content"]), str(choice.get("finish_reason") or "stop")
         except (KeyError, IndexError, json.JSONDecodeError) as exc:
             raise LlmError(f"{model} answered in an unknown shape: {response.text[:300]}") from exc
+
+
+def closed(answer: str) -> str:
+    """The answer with the brackets it left open closed. A model sometimes stops a JSON
+    answer one bracket short; what it wrote is whole but for that."""
+    stack: list[str] = []
+    quoted = escaped = False
+    for ch in answer:
+        if quoted:
+            quoted, escaped = (ch != '"' or escaped), (ch == "\\" and not escaped)
+        elif ch == '"':
+            quoted = True
+        elif ch in "{[":
+            stack.append("}" if ch == "{" else "]")
+        elif ch in "}]" and stack:
+            stack.pop()
+    return answer.rstrip().rstrip(",") + ('"' if quoted else "") + "".join(reversed(stack))
 
 
 def _message(role: str, text: str, images: Sequence[Path] = ()) -> dict[str, object]:

@@ -506,14 +506,32 @@ async def cut(ctx: Context, style: Style, outline: Outline) -> tuple[Episode, li
     return await _best(draft, check, ctx.settings.rewrites)
 
 
+PLAIN_CARD = Card(
+    age="adult", build="average", skin="light", hair="short", hair_colour="#2A2C33",
+    top="jacket", top_colour="#4A5160", bottom="trousers", bottom_colour="#2B2F3A",
+    shoes_colour="#15171C",
+)  # fmt: skip
+
+
 async def cast(ctx: Context, style: Style, ep: Episode) -> Episode:
     """Every character with the card the rig draws them from."""
     system = prompt("cast", palette=", ".join(f"{k} {v}" for k, v in style.palette.items()))
     user = "\n".join(f"`{c.key}` {c.name}: {c.look}" for c in ep.characters)
     made = await ctx.llm.json(ctx.settings.director, system, user, Cast)
     cards = {c.key: c.card for c in made.cards}
-    if missing := [c.key for c in ep.characters if c.key not in cards]:
-        raise ValueError(f"no card for {', '.join(missing)}")
+    # The model renames keys now and then (`mister_white` for `mr_white`). A card for every
+    # character in the order asked is taken by its place; a character still without one is
+    # asked for again, and then drawn plain rather than failing the whole story.
+    if len(made.cards) == len(ep.characters) and set(cards) != {c.key for c in ep.characters}:
+        cards = {c.key: given.card for c, given in zip(ep.characters, made.cards, strict=True)}
+    if missing := [c for c in ep.characters if c.key not in cards]:
+        again = "\n".join(f"`{c.key}` {c.name}: {c.look}" for c in missing)
+        more = await ctx.llm.json(ctx.settings.director, system, again, Cast)
+        got = {c.key: c.card for c in more.cards}
+        for c, given in zip(missing, more.cards, strict=False):
+            cards[c.key] = got.get(c.key, given.card)
+    for c in ep.characters:
+        cards.setdefault(c.key, PLAIN_CARD)
     people = [c.model_copy(update={"card": cards[c.key]}) for c in ep.characters]
     return ep.model_copy(update={"characters": people})
 

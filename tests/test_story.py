@@ -192,11 +192,19 @@ async def test_the_write_stage_leaves_a_staged_cast_episode(tmp_path: Path) -> N
     assert (jobs.folder(job) / "plan.json").is_file()
 
 
-async def test_a_missing_card_stops_the_stage(tmp_path: Path) -> None:
+async def test_cards_under_other_keys_are_taken_in_order_and_a_missing_one_is_plain(
+    tmp_path: Path,
+) -> None:
     ep = _golden()
-    llm = FakeLlm().answer("Cast", {"cards": []})
-    with pytest.raises(ValueError, match="no card for artem"):
-        await story.cast(context(tmp_path, llm), STYLE, ep)
+    card = story.PLAIN_CARD.model_copy(update={"top_colour": "#AA0000"}).model_dump()
+    renamed = {"cards": [{"key": f"mister_{c.key}", "card": card} for c in ep.characters]}
+    made = await story.cast(context(tmp_path, FakeLlm().answer("Cast", renamed)), STYLE, ep)
+    assert all(c.card and c.card.top_colour == "#AA0000" for c in made.characters)
+
+    llm = FakeLlm().answer("Cast", {"cards": []}, {"cards": []})
+    plain = await story.cast(context(tmp_path, llm), STYLE, ep)
+    assert all(c.card == story.PLAIN_CARD for c in plain.characters)
+    assert len(llm.calls) == 2
 
 
 async def test_a_director_who_stages_nothing_is_asked_again(tmp_path: Path) -> None:
