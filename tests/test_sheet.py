@@ -103,7 +103,11 @@ async def test_a_sheet_that_fails_goes_back_with_the_reason_and_the_next_beat_st
         acts=[Act(who=key, does="take", what="amulet", on_word=word)],
     )
     bad = good.model_copy(update={"people": [Stand(who="nobody", where="right")]})
-    llm = FakeLlm().answer("Sheet", bad, good)
+    llm = (
+        FakeLlm()
+        .answer("Sheet", bad, good)
+        .answer("code", "(ctx) => { ctx.fillRect(-9, -9, 18, 18); }")
+    )
     ctx = context(tmp_path, llm, staging="sheet", runtime=REPO / "runtime", library=tmp_path / "l")
     style = Styles(REPO / "styles").get("blackout")
     result = await scenes.sheet_beat(
@@ -113,12 +117,13 @@ async def test_a_sheet_that_fails_goes_back_with_the_reason_and_the_next_beat_st
     assert result.rounds == 2
     assert "nobody" in llm.calls[1][3]
     assert 's.prop("amulet"' in result.code
+    assert "fillRect(-9, -9, 18, 18)" in result.code
     left = after(result.sheet)  # type: ignore[arg-type]
-    llm.answer("Sheet", good)
+    llm.answer("Sheet", good).answer("code", "(ctx) => { ctx.fillRect(0, 0, 4, 4); }")
     await scenes.sheet_beat(
         ctx, style, ep, 0, timing=_timing(ep, 0), keys=tmp_path / "k", before=left
     )
-    assert f'"on":"{key}"' in llm.calls[2][3]
+    assert f'"on":"{key}"' in llm.calls[3][3]
 
 
 async def test_a_beat_no_sheet_can_stage_is_left_to_the_coder(tmp_path: Path) -> None:
@@ -187,3 +192,31 @@ def test_made_up_names_become_the_runtimes_things_and_a_room_holds_three_large_o
     assert len([n for n in names if n in ("door", "table", "fireplace", "bed")]) == 3
     assert next(i for i in made.things if i.name == "monkey_paw").on in ("table", "")
     assert made.changes == []
+
+
+@pytest.mark.skipif(
+    shutil.which("node") is None or not (REPO / "runtime" / "node_modules").is_dir(),
+    reason="the runtime needs node and `npm ci` in runtime/",
+)
+async def test_a_drawing_that_breaks_the_scene_is_dropped_and_the_thing_drawn_plain(
+    tmp_path: Path,
+) -> None:
+    ep = _episode()
+    key = ep.beats[0].cast[0]
+    word = ep.beats[0].text.split()[1].strip(".,!?")
+    sheet = Sheet(
+        things=[Item(name="amulet", on=key)],
+        people=[Stand(who=key, where="right")],
+        acts=[Act(who=key, does="look", what="amulet", on_word=word)],
+    )
+    llm = FakeLlm().answer("Sheet", sheet).answer("code", "(ctx) => { ctx.nothing.here(); }")
+    ctx = context(tmp_path, llm, staging="sheet", runtime=REPO / "runtime", library=tmp_path / "l")
+    props: dict[str, str] = {}
+    result = await scenes.sheet_beat(
+        ctx, Styles(REPO / "styles").get("blackout"), ep, 0, timing=_timing(ep, 0),
+        keys=tmp_path / "k", before=None, props=props,
+    )  # fmt: skip
+    assert result is not None
+    assert result.rounds == 1
+    assert "nothing.here" not in result.code
+    assert props == {"amulet": ""}

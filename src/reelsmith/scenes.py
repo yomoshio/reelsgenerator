@@ -9,6 +9,7 @@ place, its things in a row, the people standing, a slow push in. The episode nev
 on one bad beat."""
 
 import json
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -314,6 +315,7 @@ async def sheet_beat(
     keys: Path,
     before: Sheet | None,
     note: str = "",
+    props: dict[str, str] | None = None,
 ) -> SceneResult | None:
     """The beat staged through a sheet: the planner fills it, a program checks it and writes
     the scene from it. A sheet that cannot be staged goes back with the reasons; None after
@@ -355,7 +357,8 @@ async def sheet_beat(
         wrong = sheet_faults(sheet, beat.cast, said, named, everyone)
         report = None
         if not wrong:
-            code = compose(sheet, kind, {}, known)
+            drawn = await drawings(ctx, sheet, known, {} if props is None else props)
+            code = compose(sheet, kind, drawn, known)
             data = runtime.scene_input(
                 ep, n, code=code, words=timing.words, seconds=timing.seconds, style=style,
                 settings=ctx.settings, carried=carried(ep, n),
@@ -363,6 +366,14 @@ async def sheet_beat(
                 out=keys / f"beat{n + 1:02d}",
             )  # fmt: skip
             report = await runtime.keys(ctx.settings, data)
+            if report.error and drawn:
+                # A drawing that breaks the scene is not worth a round: the thing is drawn
+                # plain, and the broken drawing is forgotten.
+                for name in list(drawn):
+                    if props is not None:
+                        props[name] = ""
+                data["code"] = code = compose(sheet, kind, {}, known)
+                report = await runtime.keys(ctx.settings, data)
             wrong = [report.error] if report.error else []
         tries.append({"sheet": sheet.model_dump(exclude_defaults=True), "faults": wrong})
         if report is not None and not wrong:
@@ -378,6 +389,27 @@ async def sheet_beat(
         json.dumps(tries, ensure_ascii=False, indent=1), encoding="utf-8"
     )
     return None
+
+
+_DRAWING = re.compile(r"^\(\s*ctx[^)]*\)\s*=>\s*\{[\s\S]*\}$")
+
+
+async def drawings(
+    ctx: Context, sheet: Sheet, known: set[str], props: dict[str, str]
+) -> dict[str, str]:
+    """A drawing for every thing of the sheet that neither the runtime nor the library has,
+    made once an episode by the coder and kept in `props`; an empty one means the coder's
+    drawing failed and the thing stays plain."""
+    for name in [i.name for i in sheet.things if i.name not in known and i.name not in props]:
+        try:
+            made = await ctx.llm.code(
+                ctx.settings.coder, prompt("prop"), f"Draw: {name.replace('_', ' ')}"
+            )
+        except (NoCode, LlmError):
+            made = ""
+        made = made.strip().rstrip(";")
+        props[name] = made if _DRAWING.match(made) and "fillText" not in made else ""
+    return {i.name: props[i.name] for i in sheet.things if props.get(i.name)}
 
 
 def timings(folder: Path) -> list[Timing]:
@@ -403,6 +435,10 @@ async def stage(job: Job, folder: Path, ctx: Context) -> None:
     )
     last: dict[str, Report] = {}
     left_as: dict[str, Sheet] = {}
+    props_file = scenes / "props.json"
+    props: dict[str, str] = (
+        json.loads(props_file.read_text(encoding="utf-8")) if props_file.is_file() else {}
+    )
     for n, beat in enumerate(ep.beats):
         name = f"beat{n + 1:02d}"
         done = scenes / f"{name}.json"
@@ -416,8 +452,9 @@ async def stage(job: Job, folder: Path, ctx: Context) -> None:
         if ctx.settings.staging == "sheet":
             result = await sheet_beat(
                 ctx, style, ep, n, timing=beats[n], keys=folder / "keys",
-                before=left_as.get(beat.place), note=notes.get(str(n + 1), ""),
+                before=left_as.get(beat.place), note=notes.get(str(n + 1), ""), props=props,
             )  # fmt: skip
+            props_file.write_text(json.dumps(props, ensure_ascii=False, indent=1), encoding="utf-8")
         if result is None:
             result = await stage_beat(
                 ctx, style, ep, n, timing=beats[n], keys=folder / "keys",
