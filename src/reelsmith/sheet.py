@@ -6,6 +6,7 @@ code cannot name a call the runtime lacks; the runtime keeps things from hiding 
 next beat in that place begins, and `faults` names what in a sheet cannot be staged."""
 
 import json
+import re
 from collections.abc import Callable
 from typing import Literal
 
@@ -77,6 +78,27 @@ class Sheet(BaseModel):
     lights: list[Light] = Field(default_factory=list, max_length=3)
 
 
+# What the runtime draws itself, large enough to fill a wall; a room holds three of them.
+LARGE = ["fireplace", "table", "bed", "wardrobe", "shelf", "counter", "atm", "bench", "door"]
+FIXTURES = [*LARGE, "window", "chair", "lamp", "railing", "pipe", "radiator", "water"]
+# Names a model gives to what is no thing at all: weather, light, sound, and the plates.
+_NO_THING = re.compile(
+    r"rain|snow|wind|storm|fog|mist|dark|night|shadow|silence|sound|noise|voice|smoke|"
+    r"^(plate|label|count|stamp|status|rule|text|caption)_|_(plate|label|stamp|card|text)$"
+)
+
+
+def plain(name: str) -> str | None:
+    """The runtime's own thing a made-up name means (`round_table` is a table), the name
+    itself when it means none, and None for what cannot stand on a stage."""
+    if name in FIXTURES:
+        return name
+    if _NO_THING.search(name):
+        return None
+    parts = name.split("_")
+    return next((f for f in FIXTURES if f in parts or f + "s" in parts), name)
+
+
 def mend(sheet: Sheet, known_people: set[str]) -> Sheet:
     """The sheet with its small slips put right, as a person reading it would: a thing said
     to lie on something that is not there lies on the floor, a thing someone carries but
@@ -84,7 +106,15 @@ def mend(sheet: Sheet, known_people: set[str]) -> Sheet:
     act by or at nobody are dropped. What is left for `faults` is what only the writer of
     the sheet can decide."""
     people = {p.who for p in sheet.people}
-    things = [i.model_copy() for i in sheet.things if i.name not in people]
+    renamed = {i.name: plain(i.name) for i in sheet.things}
+    sheet = _renamed(sheet, renamed)
+    things: list[Item] = []
+    for item in sheet.things:
+        if item.name not in people and item.name not in {t.name for t in things}:
+            things.append(item.model_copy())
+    used = {x for a in sheet.acts for x in (a.what, a.to)} | {c.thing for c in sheet.changes}
+    large = sorted((i for i in things if i.name in LARGE), key=lambda i: i.name not in used)
+    things = [i for i in things if i.name not in {x.name for x in large[3:]}]
     names = {i.name for i in things}
     for item in things:
         if item.on and item.on not in names | people:
@@ -112,6 +142,28 @@ def mend(sheet: Sheet, known_people: set[str]) -> Sheet:
             "acts": acts,
             "changes": [c for c in sheet.changes if c.thing in names],
             "camera": [c for c in sheet.camera if not c.to or c.to in names | people],
+        }
+    )
+
+
+def _renamed(sheet: Sheet, names: dict[str, str | None]) -> Sheet:
+    """The sheet with things called by their plain names, and without those that have none."""
+
+    def new(name: str) -> str:
+        return names.get(name, name) or ""
+
+    return sheet.model_copy(
+        update={
+            "things": [
+                i.model_copy(update={"name": new(i.name), "on": new(i.on)})
+                for i in sheet.things
+                if new(i.name)
+            ],
+            "acts": [
+                a.model_copy(update={"what": new(a.what), "to": new(a.to)}) for a in sheet.acts
+            ],
+            "changes": [c.model_copy(update={"thing": new(c.thing)}) for c in sheet.changes],
+            "camera": [c.model_copy(update={"to": new(c.to)}) for c in sheet.camera],
         }
     )
 

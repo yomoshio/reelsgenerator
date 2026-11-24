@@ -168,3 +168,22 @@ def test_small_slips_in_a_sheet_are_mended_not_refused() -> None:
         faults(with_lena, ["artem"], words, {"window", "table", "monkey_paw"}, {"artem", "lena"})
         == []
     )
+
+
+def test_made_up_names_become_the_runtimes_things_and_a_room_holds_three_large_ones() -> None:
+    sheet = Sheet(
+        things=[Item(name=n) for n in ("door", "round_table", "heavy_rain", "fireplace", "bed")]
+        + [Item(name="monkey_paw", on="round_table"), Item(name="plate_saved")],
+        people=[Stand(who="artem", where="left")],
+        acts=[Act(who="artem", does="take", what="monkey_paw"),
+              Act(who="artem", does="throw", what="monkey_paw", to="fireplace")],
+        changes=[Change(thing="heavy_rain", state=1)],
+    )  # fmt: skip
+    made = mend(sheet, {"artem"})
+    names = [i.name for i in made.things]
+    assert "table" in names
+    assert "fireplace" in names
+    assert not {"heavy_rain", "plate_saved", "round_table"} & set(names)
+    assert len([n for n in names if n in ("door", "table", "fireplace", "bed")]) == 3
+    assert next(i for i in made.things if i.name == "monkey_paw").on in ("table", "")
+    assert made.changes == []

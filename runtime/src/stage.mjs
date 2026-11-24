@@ -426,7 +426,14 @@ export function makeStage(input, library = {}) {
     };
     // In a room too full for that, a person may stand before a table, which is low, but
     // still not before what the eye must see: a fire, a door, a cash machine.
-    const tiers = [gapsOf(solid), gapsOf(solid.filter((q) => !q.spec.parts.top || q.spec.back || q.spec.flat))];
+    // Then before a door too, and last anywhere but before the fire: three people in a small
+    // full room still stand apart.
+    const tiers = [
+      gapsOf(solid),
+      gapsOf(solid.filter((q) => !q.spec.parts.top || q.spec.back || q.spec.flat)),
+      gapsOf(solid.filter((q) => q.spec.back && !q.spec.flat)),
+      gapsOf(solid.filter((q) => q.spec.glow)),
+    ];
     const stood = [];
     const free = (x, apart) => {
       for (const gaps of tiers) {
