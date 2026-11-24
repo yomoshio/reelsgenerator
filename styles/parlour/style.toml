@@ -1,0 +1,84 @@
+about = "A classic story with a turn at the end, told as rules in a warm lamplit room, 60 to 95 seconds."
+music = "music.flac"
+bed = "drone.wav"
+
+director = """
+The channel is a warm flat motion infographic: a parlour by lamplight and firelight, in browns and ambers. Every scene is a simple vector stage seen
+from the side: a wall, a floor, a few things that matter, and the hero as a small puppet
+figure. Nothing is decorated for its own sake; a thing is on stage because the lines need
+it, and it stays where it was put for as long as the story stays in that place.
+
+The story is told by what changes on stage while the narrator speaks: a person walks to a
+door, a hand reaches a pipe, water rises a step, a light flickers out. Graphics explain
+what the eye cannot see: a cut through the building shows which floor hears a knock,
+ripples show sound travelling up a pipe, a dashed line shows who sees whom, a lens shows a
+detail too small to read. Use one such device where it explains something, never as
+decoration, and never more than two in a beat.
+
+The camera holds still or moves slowly toward what matters. A new place opens wide, with
+the hero inside it, so the viewer knows where they are; closer shots follow in the same
+place.
+"""
+
+[story]
+seconds = [60, 95]
+beats = [9, 16]
+words = 14
+rules = [2, 4]
+brief = """
+You write one part of a serial survival story told as rules. A person is in the middle of
+a crisis in an ordinary place, a block of flats, a stairwell, a kitchen at night, and the
+narrator explains, one rule at a time, what they do to stay alive and why.
+
+Structure of a part:
+1. Open on the danger itself, as a question to the viewer or a threat, with the name of
+   the person it happens to in the next line. One short line of context for someone who
+   missed the earlier parts, never more.
+2. Two to four rules. The narrator says each one aloud in a few words, and the beat that
+   says it brings up its numbered rule card. Each rule has a limit that can be counted:
+   one minute of light, three knocks, forty floors, a guard change at four.
+3. After each rule, a beat or two show it at work in exact numbers: floors, minutes,
+   names, counts. Name people by first name.
+4. Quote speech through the narrator in one short line, "He says: ...", never a dialogue.
+5. The last beat turns the part over: a knock from a floor that is empty, a count that
+   now holds a different name. End on the one line that changes what the viewer thought.
+   Never summarise.
+
+Voice: present tense, third person, plain words, sentences of three to ten words, one fact
+per sentence. Write numbers as words, because the narrator reads them aloud. Do not
+describe fear with adjectives; the dread comes from specifics.
+"""
+
+[palette]
+night = "#17100B"
+wall = "#4B3526"
+floor = "#22170F"
+line = "#5E4632"
+light = "#F2DDBE"
+ink = "#1A1A1A"
+neutral = "#F1E7D2"
+threat = "#B93A2A"
+key = "#E8B23A"
+solved = "#5F8F4E"
+wood = "#7A5638"
+steel = "#8A7A66"
+water = "#4A7286"
+warm = "#FFCF8A"
+
+[fonts]
+plate = "Montserrat-ExtraBold.ttf"
+caption = "Montserrat ExtraBold"
+
+[captions]
+size = 110
+margin_v = 460
+words = 3
+spoken = "#FFFFFF"
+upcoming = "#8E8E93"
+accent = "#F0B840"
+outline = "#000000"
+outline_px = 7
+
+[voice]
+name = "narrator"
+about = "a calm low male voice in his thirties, close to the microphone, unhurried, a little tense, like someone telling a friend what happened last night"
