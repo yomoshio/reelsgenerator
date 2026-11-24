@@ -6,6 +6,7 @@ code cannot name a call the runtime lacks; the runtime keeps things from hiding 
 next beat in that place begins, and `faults` names what in a sheet cannot be staged."""
 
 import json
+import re
 from collections.abc import Callable
 from typing import Literal
 
@@ -21,6 +22,7 @@ Verb = Literal[
     "knock", "enter", "feel",
 ]  # fmt: skip
 CARRY = {"take", "put", "give", "throw", "drop"}
+DIMMEST = 0.38  # a model asks for 0.1 and the stage goes black; dark must still be seen
 PLAIN = "(ctx) => { ctx.fillStyle = '#8A7A5C'; ctx.fillRect(-22, -16, 44, 32); }"
 
 
@@ -77,6 +79,96 @@ class Sheet(BaseModel):
     lights: list[Light] = Field(default_factory=list, max_length=3)
 
 
+# What the runtime draws itself, large enough to fill a wall; a room holds three of them.
+LARGE = ["fireplace", "table", "bed", "wardrobe", "shelf", "counter", "atm", "bench", "door"]
+FIXTURES = [*LARGE, "window", "chair", "lamp", "railing", "pipe", "radiator", "water"]
+# Names a model gives to what is no thing at all: weather, light, sound, and the plates.
+_NO_THING = re.compile(
+    r"rain|snow|wind|storm|fog|mist|dark|night|shadow|silence|sound|noise|voice|smoke|"
+    r"^(plate|label|count|stamp|status|rule|text|caption)_|_(plate|label|stamp|card|text)$"
+)
+
+
+def plain(name: str) -> str | None:
+    """The runtime's own thing a made-up name means (`round_table` is a table), the name
+    itself when it means none, and None for what cannot stand on a stage."""
+    if name in FIXTURES:
+        return name
+    if _NO_THING.search(name):
+        return None
+    parts = name.split("_")
+    return next((f for f in FIXTURES if f in parts or f + "s" in parts), name)
+
+
+def mend(sheet: Sheet, known_people: set[str]) -> Sheet:
+    """The sheet with its small slips put right, as a person reading it would: a thing said
+    to lie on something that is not there lies on the floor, a thing someone carries but
+    nobody listed is in that person's pocket, a state changed on an unlisted thing and an
+    act by or at nobody are dropped. What is left for `faults` is what only the writer of
+    the sheet can decide."""
+    people = {p.who for p in sheet.people}
+    renamed = {i.name: plain(i.name) for i in sheet.things}
+    sheet = _renamed(sheet, renamed)
+    things: list[Item] = []
+    for item in sheet.things:
+        if item.name not in people and item.name not in {t.name for t in things}:
+            things.append(item.model_copy())
+    used = {x for a in sheet.acts for x in (a.what, a.to)} | {c.thing for c in sheet.changes}
+    large = sorted((i for i in things if i.name in LARGE), key=lambda i: i.name not in used)
+    things = [i for i in things if i.name not in {x.name for x in large[3:]}]
+    names = {i.name for i in things}
+    for item in things:
+        if item.on and item.on not in names | people:
+            item.on = ""
+    for act in sheet.acts:
+        if act.does in CARRY and act.what and act.what not in names and act.who in people:
+            things.append(Item(name=act.what, on=act.who, hidden=True))
+            names.add(act.what)
+    here = names | people | set(SLOTS)
+    acts = [
+        a
+        for a in sheet.acts
+        if a.who in people
+        and (a.does not in CARRY or a.what in names)
+        and not (a.what and a.what not in here and a.does != "sit")
+        and not (a.does == "give" and a.to not in people)
+        and not (a.does == "feel" and a.mood is None)
+    ]
+    for act in acts:
+        if act.to and act.to not in here:
+            act.to = ""
+    return sheet.model_copy(
+        update={
+            "things": things[:8],
+            "acts": acts,
+            "changes": [c for c in sheet.changes if c.thing in names],
+            "camera": [c for c in sheet.camera if not c.to or c.to in names | people],
+        }
+    )
+
+
+def _renamed(sheet: Sheet, names: dict[str, str | None]) -> Sheet:
+    """The sheet with things called by their plain names, and without those that have none."""
+
+    def new(name: str) -> str:
+        return names.get(name, name) or ""
+
+    return sheet.model_copy(
+        update={
+            "things": [
+                i.model_copy(update={"name": new(i.name), "on": new(i.on)})
+                for i in sheet.things
+                if new(i.name)
+            ],
+            "acts": [
+                a.model_copy(update={"what": new(a.what), "to": new(a.to)}) for a in sheet.acts
+            ],
+            "changes": [c.model_copy(update={"thing": new(c.thing)}) for c in sheet.changes],
+            "camera": [c.model_copy(update={"to": new(c.to)}) for c in sheet.camera],
+        }
+    )
+
+
 def _act_faults(act: Act, things: set[str], people: set[str]) -> list[str]:
     out: list[str] = []
     if act.who not in people:
@@ -92,7 +184,13 @@ def _act_faults(act: Act, things: set[str], people: set[str]) -> list[str]:
     return out
 
 
-def faults(sheet: Sheet, cast: list[str], words: list[str], known: set[str]) -> list[str]:
+def faults(
+    sheet: Sheet,
+    cast: list[str],
+    words: list[str],
+    known: set[str],
+    everyone: set[str] | None = None,
+) -> list[str]:
     """What cannot be staged as written, each said so the writer of the sheet can mend it."""
     out: list[str] = []
     things = {i.name for i in sheet.things}
@@ -100,8 +198,8 @@ def faults(sheet: Sheet, cast: list[str], words: list[str], known: set[str]) -> 
     said = {w.strip('.,!?:;«»—"').lower() for w in words}
     for name in things - known:
         out.append(f"thing '{name}' is neither in the catalog nor in the props")
-    for key in people - set(cast):
-        out.append(f"'{key}' is not in the beat's cast: {', '.join(cast)}")
+    for key in people - (everyone or set(cast)):
+        out.append(f"'{key}' is not a character of this episode")
     for key in set(cast) - people:
         out.append(f"'{key}' of the cast is not placed in `people`")
     for item in sheet.things:
@@ -162,7 +260,7 @@ def compose(
     names = {i.name for i in sheet.things} | {p.who for p in sheet.people}
     lines = [f"s.place({json.dumps(kind)});"]
     for light in (x for x in sheet.lights if not x.on_word):
-        lines.append(f"s.light({light.level});")
+        lines.append(f"s.light({max(light.level, DIMMEST)});")
 
     def ref(name: str) -> str:
         if name in names:
@@ -205,7 +303,10 @@ def compose(
         at = _at(change.on_word, change.occurrence)
         lines.append(f"{_var(change.thing)}.state({change.state}, {{ at: {at} }});")
     for light in (x for x in sheet.lights if x.on_word):
-        lines.append(f"s.light({light.level}, {{ at: {_at(light.on_word, light.occurrence)} }});")
+        lines.append(
+            f"s.light({max(light.level, DIMMEST)}, "
+            f"{{ at: {_at(light.on_word, light.occurrence)} }});"
+        )
     for shot in sheet.camera:
         at = _at(shot.on_word, shot.occurrence)
         if shot.move == "back" or not shot.to:

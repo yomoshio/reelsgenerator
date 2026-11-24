@@ -286,3 +286,8 @@ test("a full room keeps its furniture in a row and nobody stands before the fire
   const mid = artem[0] + artem[2] / 2;
   for (const b of [fire, door]) assert.ok(mid < b[0] + 20 || mid > b[0] + b[2] - 20);
 });
+
+test("a hand pointed at the thing it holds does not loop", () => {
+  const [held] = carry(`a.take(paw, { from: "pocket", at: 0 }); a.point(paw, { at: 1 }); a.reach(paw, { at: 2 }); a.look(paw, { at: 2.5 });`, [3]);
+  assert.equal(held.on, "hand");
+});

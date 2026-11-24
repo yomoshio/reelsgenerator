@@ -121,7 +121,15 @@ export function makeMotion(decl, place) {
   // The x a person stands at and which way they face at time t.
   function personX(pr, t) {
     let { x, facing, walking } = walked(pr, t);
-    for (const l of pr.looks) if (t >= l.t) facing = lookFacing(l.target, x, facing, t);
+    // Looking at the thing in one's own hand would need one's own place to be found first:
+    // while that is being worked out, the person faces the way they walked.
+    if (pr.looking) return { x, facing, walking };
+    pr.looking = true;
+    try {
+      for (const l of pr.looks) if (t >= l.t) facing = lookFacing(l.target, x, facing, t);
+    } finally {
+      pr.looking = false;
+    }
     return { x, facing, walking };
   }
   // The same before anyone turns to look: two people who look at each other each need only
@@ -206,10 +214,17 @@ export function makeMotion(decl, place) {
     const before = cues.length > 1 ? cues[cues.length - 2] : null;
     const angles = (cue) => {
       const a = rig.poseAngles(walking && cue.pose !== "sit" ? "walk" : cue.pose);
-      if (cue.target && ["reach", "point", "knock"].includes(cue.pose)) {
+      // A hand aimed at the thing it holds would need itself to be found: the pose stays plain.
+      if (cue.target && !pr.aiming && ["reach", "point", "knock"].includes(cue.pose)) {
+        pr.aiming = true;
         const standing = rig.bones([x, ground(pr, x)], a, s, facing);
         const shoulder = standing.shoulder_n;
-        const goal = targetPoint(cue.target, t);
+        let goal;
+        try {
+          goal = targetPoint(cue.target, t);
+        } finally {
+          pr.aiming = false;
+        }
         if (cue.pose === "point") {
           const ang = (Math.atan2((goal[0] - shoulder[0]) * facing, goal[1] - shoulder[1]) * 180) / Math.PI;
           a.arm_n = ang;

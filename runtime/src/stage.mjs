@@ -48,6 +48,9 @@ const FEELINGS = {
   think: "worried", sleepy: "tired", exhausted: "tired", sleep: "tired",
 };
 
+// Places nobody hangs pictures in: a cell, a station, a cellar. Their walls stay bare.
+const BARE = /cell\b|prison|dungeon|jail|pit\b|vault|crypt|cave|station|spaceship|capsule|module|airlock|bunker|cellar|basement|warehouse|garage|factory|laborator|morgue|corridor|shaft|sewer|tunnel|темниц|камер|тюрьм|станци|подвал|бункер|шлюз|склад|цех/i;
+
 // Names the model gives a thing the runtime draws itself.
 const NAMED = { fire: "fireplace", hearth: "fireplace", fire_place: "fireplace", chimney: "fireplace", stove: "fireplace" };
 
@@ -426,7 +429,14 @@ export function makeStage(input, library = {}) {
     };
     // In a room too full for that, a person may stand before a table, which is low, but
     // still not before what the eye must see: a fire, a door, a cash machine.
-    const tiers = [gapsOf(solid), gapsOf(solid.filter((q) => !q.spec.parts.top || q.spec.back || q.spec.flat))];
+    // Then before a door too, and last anywhere but before the fire: three people in a small
+    // full room still stand apart.
+    const tiers = [
+      gapsOf(solid),
+      gapsOf(solid.filter((q) => !q.spec.parts.top || q.spec.back || q.spec.flat)),
+      gapsOf(solid.filter((q) => q.spec.back && !q.spec.flat)),
+      gapsOf(solid.filter((q) => q.spec.glow)),
+    ];
     const stood = [];
     const free = (x, apart) => {
       for (const gaps of tiers) {
@@ -501,7 +511,7 @@ export function makeStage(input, library = {}) {
     if (!backdrop) {
       backdrop = new Canvas(W, H);
       place.draw(backdrop.getContext("2d"), 0);
-      if (place.walls) {
+      if (place.walls && !BARE.test(`${input.place.name} ${input.place.look}`)) {
         const taken = decl.things.filter((q) => !q.holder && q.spec.on !== "fill").map((q) => thingBox(q, 0));
         dress(backdrop.getContext("2d"), taken, place.floor, p, seedOf(input.place.key), place.walls);
       }

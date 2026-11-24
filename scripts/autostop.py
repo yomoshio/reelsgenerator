@@ -7,6 +7,8 @@ balance runs low, after every job folder on it is safely on this computer.
     python3 scripts/autostop.py --dry-run --once one check, with every step but the destroy
     python3 scripts/autostop.py --dry-run --now  copy everything off now, destroy nothing
     ./run.sh box autostop                        watch in the background, log in logs/autostop.log
+    ./run.sh box autostop --session --idle-minutes 30   several runs in a row: the server
+                                                 goes only when idle or the balance is low
 
 Runs here and not on the server: the files have to be copied off before it is gone. The
 server is in .env (SERVER_* and VAST_INSTANCE). A stopped vast instance still
@@ -87,7 +89,8 @@ def main() -> None:
     most = round(args.idle_minutes * 60 / args.every) if args.idle_minutes else 0
     while True:
         reading = _read(instance)
-        quiet = quiet + 1 if reading.total and not reading.unfinished else 0
+        # In a session the queue empties between runs; only an idle box or a low balance ends it.
+        quiet = quiet + 1 if reading.total and not reading.unfinished and not args.session else 0
         idle = idle + 1 if reading.idle else 0
         reason = verdict(reading, quiet, args.reserve_hours, idle, most)
         money = (
@@ -149,7 +152,7 @@ def _finish(instance: str, *, dry: bool) -> None:
     then destroys it."""
     _log("copying the job folders and the voices")
     subprocess.run(["bash", ROOT / "run.sh", "box", "pull"], cwd=ROOT, check=True)
-    there = _remote("for f in jobs/*/final.mp4; do [ -f \"$f\" ] && stat -c '%n %s' \"$f\"; done")
+    there = _remote('for f in jobs/*/final.mp4; do [ -f "$f" ] && stat -c \'%n %s\' "$f"; done')
     sizes = dict(line.rsplit(" ", 1) for line in there.splitlines() if " " in line)
     missing = [
         name for name, size in sizes.items()
@@ -298,6 +301,11 @@ def _parse() -> argparse.Namespace:
         type=float,
         default=60,
         help="stop after this long with no unfinished job and the card idle; 0 never",
+    )
+    parser.add_argument(
+        "--session",
+        action="store_true",
+        help="keep the server when its jobs are done: for runs made one after another",
     )
     parser.add_argument("--dry-run", action="store_true", help="copy everything, destroy nothing")
     parser.add_argument("--once", action="store_true", help="one check, then exit")

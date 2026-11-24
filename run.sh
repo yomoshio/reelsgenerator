@@ -104,7 +104,8 @@ box() {
             "${rsync[@]}" .env "$host:$dir/.env"
             [[ -d voices ]] && "${rsync[@]}" voices/ "$host:$dir/voices/"
             # The watcher starts before anything else: a box that sits idle bills all the same.
-            here box autostop
+            # shellcheck disable=SC2046
+            here box autostop $(setting AUTOSTOP_ARGS)
             "${ssh[@]}" -t "$host" "cd $dir && bash install.sh --models $(quoted "$@")" ;;
         push) push ;;
         run)

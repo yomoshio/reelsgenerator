@@ -23,6 +23,7 @@ from qwen_tts import Qwen3TTSModel
 
 TTS_MODEL = os.environ.get("QWEN_TTS_MODEL", "Qwen/Qwen3-TTS-12Hz-1.7B-Base")
 WHISPER_MODEL = os.environ.get("WHISPER_MODEL", "large-v3")
+WHISPER_COMPUTE = os.environ.get("WHISPER_COMPUTE", "int8_float16")  # about half of float16
 LANGUAGES = {"ru": "Russian", "en": "English", "uk": "Russian", "be": "Russian"}
 VOICES = Path(os.environ.get("VOICES_DIR", "/voices"))
 
@@ -49,7 +50,7 @@ def _speaker() -> Qwen3TTSModel:
 def _listener() -> WhisperModel:
     global _whisper  # noqa: PLW0603
     if _whisper is None:
-        _whisper = WhisperModel(WHISPER_MODEL, device="cuda", compute_type="float16")
+        _whisper = WhisperModel(WHISPER_MODEL, device="cuda", compute_type=WHISPER_COMPUTE)
     return _whisper
 
 

@@ -9,6 +9,7 @@ place, its things in a row, the people standing, a slow push in. The episode nev
 on one bad beat."""
 
 import json
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -17,9 +18,9 @@ from pydantic import BaseModel
 from reelsmith import runtime
 from reelsmith.captions import WIDTH, Word
 from reelsmith.jobs import Context, Job
-from reelsmith.llm import NoCode
+from reelsmith.llm import LlmError, NoCode
 from reelsmith.runtime import Report
-from reelsmith.sheet import Sheet, after, compose
+from reelsmith.sheet import Sheet, after, compose, mend
 from reelsmith.sheet import faults as sheet_faults
 from reelsmith.story import Beat, Episode, Reveal, prompt
 from reelsmith.styles import Style
@@ -60,17 +61,15 @@ class Timing:
 
 
 def carried(ep: Episode, n: int) -> list[Reveal]:
-    """Plates kept up from earlier beats: the last rule card, and every other plate marked
-    to stay for the episode."""
-    kept: list[Reveal] = []
+    """Plates kept up from earlier beats: the last rule card and the last count. A model marks
+    most of its plates to stay for the episode, and eight of them then cover the stage; a
+    label or a stamp belongs to the beat that says it."""
+    kept: dict[str, Reveal] = {}
     for beat in ep.beats[:n]:
         for r in beat.reveals:
-            if r.persist != "episode":
-                continue
-            if r.kind == "rule_card":
-                kept = [k for k in kept if k.kind != "rule_card"]
-            kept.append(r)
-    return kept
+            if r.persist == "episode" and r.kind in ("rule_card", "count", "hud"):
+                kept[r.kind] = r
+    return list(kept.values())
 
 
 def positions(report: Report | None) -> dict[str, float]:
@@ -314,6 +313,7 @@ async def sheet_beat(
     keys: Path,
     before: Sheet | None,
     note: str = "",
+    props: dict[str, str] | None = None,
 ) -> SceneResult | None:
     """The beat staged through a sheet: the planner fills it, a program checks it and writes
     the scene from it. A sheet that cannot be staged goes back with the reasons; None after
@@ -338,12 +338,25 @@ async def sheet_beat(
     tries: list[dict[str, object]] = []
     feedback = ""
     for done in range(1, SHEET_ROUNDS + 1):
-        sheet = await ctx.llm.json(ctx.settings.planner, prompt("sheet"), task + feedback, Sheet)
+        try:
+            sheet = await ctx.llm.json(
+                ctx.settings.planner, prompt("sheet"), task + feedback, Sheet
+            )
+        except LlmError as exc:
+            tries.append({"sheet": None, "faults": [str(exc)[:300]]})
+            feedback = (
+                "\n\nYour last answer was not a whole sheet. Give the sheet again as JSON only, "
+                "with at most six acts."
+            )
+            continue
+        everyone = {c.key for c in ep.characters}
+        sheet = mend(sheet, everyone)
         named = known | {i.name for i in sheet.things}
-        wrong = sheet_faults(sheet, beat.cast, said, named)
+        wrong = sheet_faults(sheet, beat.cast, said, named, everyone)
         report = None
         if not wrong:
-            code = compose(sheet, kind, {}, known)
+            drawn = await drawings(ctx, sheet, known, {} if props is None else props)
+            code = compose(sheet, kind, drawn, known)
             data = runtime.scene_input(
                 ep, n, code=code, words=timing.words, seconds=timing.seconds, style=style,
                 settings=ctx.settings, carried=carried(ep, n),
@@ -351,6 +364,14 @@ async def sheet_beat(
                 out=keys / f"beat{n + 1:02d}",
             )  # fmt: skip
             report = await runtime.keys(ctx.settings, data)
+            if report.error and drawn:
+                # A drawing that breaks the scene is not worth a round: the thing is drawn
+                # plain, and the broken drawing is forgotten.
+                for name in list(drawn):
+                    if props is not None:
+                        props[name] = ""
+                data["code"] = code = compose(sheet, kind, {}, known)
+                report = await runtime.keys(ctx.settings, data)
             wrong = [report.error] if report.error else []
         tries.append({"sheet": sheet.model_dump(exclude_defaults=True), "faults": wrong})
         if report is not None and not wrong:
@@ -360,7 +381,33 @@ async def sheet_beat(
             "It cannot be staged. Mend it and give the whole sheet again:\n"
             + "\n".join(f"- {f}" for f in wrong)
         )
+    # Why no sheet staged the beat is kept beside the scene the coder then writes.
+    (keys.parent / "scenes").mkdir(parents=True, exist_ok=True)
+    (keys.parent / "scenes" / f"beat{n + 1:02d}.sheet.json").write_text(
+        json.dumps(tries, ensure_ascii=False, indent=1), encoding="utf-8"
+    )
     return None
+
+
+_DRAWING = re.compile(r"^\(\s*ctx[^)]*\)\s*=>\s*\{[\s\S]*\}$")
+
+
+async def drawings(
+    ctx: Context, sheet: Sheet, known: set[str], props: dict[str, str]
+) -> dict[str, str]:
+    """A drawing for every thing of the sheet that neither the runtime nor the library has,
+    made once an episode by the coder and kept in `props`; an empty one means the coder's
+    drawing failed and the thing stays plain."""
+    for name in [i.name for i in sheet.things if i.name not in known and i.name not in props]:
+        try:
+            made = await ctx.llm.code(
+                ctx.settings.coder, prompt("prop"), f"Draw: {name.replace('_', ' ')}"
+            )
+        except (NoCode, LlmError):
+            made = ""
+        made = made.strip().rstrip(";")
+        props[name] = made if _DRAWING.match(made) and "fillText" not in made else ""
+    return {i.name: props[i.name] for i in sheet.things if props.get(i.name)}
 
 
 def timings(folder: Path) -> list[Timing]:
@@ -386,6 +433,10 @@ async def stage(job: Job, folder: Path, ctx: Context) -> None:
     )
     last: dict[str, Report] = {}
     left_as: dict[str, Sheet] = {}
+    props_file = scenes / "props.json"
+    props: dict[str, str] = (
+        json.loads(props_file.read_text(encoding="utf-8")) if props_file.is_file() else {}
+    )
     for n, beat in enumerate(ep.beats):
         name = f"beat{n + 1:02d}"
         done = scenes / f"{name}.json"
@@ -399,8 +450,9 @@ async def stage(job: Job, folder: Path, ctx: Context) -> None:
         if ctx.settings.staging == "sheet":
             result = await sheet_beat(
                 ctx, style, ep, n, timing=beats[n], keys=folder / "keys",
-                before=left_as.get(beat.place), note=notes.get(str(n + 1), ""),
+                before=left_as.get(beat.place), note=notes.get(str(n + 1), ""), props=props,
             )  # fmt: skip
+            props_file.write_text(json.dumps(props, ensure_ascii=False, indent=1), encoding="utf-8")
         if result is None:
             result = await stage_beat(
                 ctx, style, ep, n, timing=beats[n], keys=folder / "keys",

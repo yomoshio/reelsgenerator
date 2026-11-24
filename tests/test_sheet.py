@@ -4,8 +4,9 @@ from pathlib import Path
 import pytest
 
 from reelsmith import runtime, scenes
+from reelsmith.llm import closed
 from reelsmith.scenes import carried
-from reelsmith.sheet import Act, Change, Item, Sheet, Shot, Stand, after, compose, faults
+from reelsmith.sheet import Act, Change, Item, Sheet, Shot, Stand, after, compose, faults, mend
 from reelsmith.styles import Styles
 from tests.fakes import REPO, FakeLlm, context
 from tests.test_scenes import _episode, _timing
@@ -102,7 +103,11 @@ async def test_a_sheet_that_fails_goes_back_with_the_reason_and_the_next_beat_st
         acts=[Act(who=key, does="take", what="amulet", on_word=word)],
     )
     bad = good.model_copy(update={"people": [Stand(who="nobody", where="right")]})
-    llm = FakeLlm().answer("Sheet", bad, good)
+    llm = (
+        FakeLlm()
+        .answer("Sheet", bad, good)
+        .answer("code", "(ctx) => { ctx.fillRect(-9, -9, 18, 18); }")
+    )
     ctx = context(tmp_path, llm, staging="sheet", runtime=REPO / "runtime", library=tmp_path / "l")
     style = Styles(REPO / "styles").get("blackout")
     result = await scenes.sheet_beat(
@@ -112,12 +117,13 @@ async def test_a_sheet_that_fails_goes_back_with_the_reason_and_the_next_beat_st
     assert result.rounds == 2
     assert "nobody" in llm.calls[1][3]
     assert 's.prop("amulet"' in result.code
+    assert "fillRect(-9, -9, 18, 18)" in result.code
     left = after(result.sheet)  # type: ignore[arg-type]
-    llm.answer("Sheet", good)
+    llm.answer("Sheet", good).answer("code", "(ctx) => { ctx.fillRect(0, 0, 4, 4); }")
     await scenes.sheet_beat(
         ctx, style, ep, 0, timing=_timing(ep, 0), keys=tmp_path / "k", before=left
     )
-    assert f'"on":"{key}"' in llm.calls[2][3]
+    assert f'"on":"{key}"' in llm.calls[3][3]
 
 
 async def test_a_beat_no_sheet_can_stage_is_left_to_the_coder(tmp_path: Path) -> None:
@@ -130,3 +136,87 @@ async def test_a_beat_no_sheet_can_stage_is_left_to_the_coder(tmp_path: Path) ->
         keys=tmp_path / "k", before=None,
     )  # fmt: skip
     assert result is None
+
+
+def test_a_json_answer_left_one_bracket_short_is_closed() -> None:
+    cut = '{"people": [{"who": "a", "where": "left"}], "camera": [{"move": "back", "zoom": 1.35}'
+    assert Sheet.model_validate_json(closed(cut)).camera[0].zoom == 1.35
+    assert closed('{"a": "x]y"}') == '{"a": "x]y"}'
+    assert closed('{"a": ["b",') == '{"a": ["b"]}'
+
+
+def test_small_slips_in_a_sheet_are_mended_not_refused() -> None:
+    sheet = Sheet(
+        things=[Item(name="window", on="heavy_rain"), Item(name="table")],
+        people=[Stand(who="artem", where="left")],
+        acts=[
+            Act(who="artem", does="take", what="monkey_paw"),
+            Act(who="artem", does="look", what="ghost"),
+            Act(who="oleg", does="walk", to="table"),
+        ],
+        changes=[Change(thing="heavy_rain", state=1)],
+        camera=[Shot(move="push", to="ghost")],
+    )
+    made = mend(sheet, {"artem", "lena"})
+    paw = next(i for i in made.things if i.name == "monkey_paw")
+    assert (paw.on, paw.hidden) == ("artem", True)
+    assert next(i for i in made.things if i.name == "window").on == ""
+    assert [a.does for a in made.acts] == ["take"]
+    assert made.changes == []
+    assert made.camera == []
+    words = ["Артём", "сидит"]
+    assert (
+        faults(made, ["artem"], words, {"window", "table", "monkey_paw"}, {"artem", "lena"}) == []
+    )
+    with_lena = made.model_copy(update={"people": [*made.people, Stand(who="lena", where="right")]})
+    assert (
+        faults(with_lena, ["artem"], words, {"window", "table", "monkey_paw"}, {"artem", "lena"})
+        == []
+    )
+
+
+def test_made_up_names_become_the_runtimes_things_and_a_room_holds_three_large_ones() -> None:
+    sheet = Sheet(
+        things=[Item(name=n) for n in ("door", "round_table", "heavy_rain", "fireplace", "bed")]
+        + [Item(name="monkey_paw", on="round_table"), Item(name="plate_saved")],
+        people=[Stand(who="artem", where="left")],
+        acts=[Act(who="artem", does="take", what="monkey_paw"),
+              Act(who="artem", does="throw", what="monkey_paw", to="fireplace")],
+        changes=[Change(thing="heavy_rain", state=1)],
+    )  # fmt: skip
+    made = mend(sheet, {"artem"})
+    names = [i.name for i in made.things]
+    assert "table" in names
+    assert "fireplace" in names
+    assert not {"heavy_rain", "plate_saved", "round_table"} & set(names)
+    assert len([n for n in names if n in ("door", "table", "fireplace", "bed")]) == 3
+    assert next(i for i in made.things if i.name == "monkey_paw").on in ("table", "")
+    assert made.changes == []
+
+
+@pytest.mark.skipif(
+    shutil.which("node") is None or not (REPO / "runtime" / "node_modules").is_dir(),
+    reason="the runtime needs node and `npm ci` in runtime/",
+)
+async def test_a_drawing_that_breaks_the_scene_is_dropped_and_the_thing_drawn_plain(
+    tmp_path: Path,
+) -> None:
+    ep = _episode()
+    key = ep.beats[0].cast[0]
+    word = ep.beats[0].text.split()[1].strip(".,!?")
+    sheet = Sheet(
+        things=[Item(name="amulet", on=key)],
+        people=[Stand(who=key, where="right")],
+        acts=[Act(who=key, does="look", what="amulet", on_word=word)],
+    )
+    llm = FakeLlm().answer("Sheet", sheet).answer("code", "(ctx) => { ctx.nothing.here(); }")
+    ctx = context(tmp_path, llm, staging="sheet", runtime=REPO / "runtime", library=tmp_path / "l")
+    props: dict[str, str] = {}
+    result = await scenes.sheet_beat(
+        ctx, Styles(REPO / "styles").get("blackout"), ep, 0, timing=_timing(ep, 0),
+        keys=tmp_path / "k", before=None, props=props,
+    )  # fmt: skip
+    assert result is not None
+    assert result.rounds == 1
+    assert "nothing.here" not in result.code
+    assert props == {"amulet": ""}

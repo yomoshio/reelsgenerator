@@ -506,15 +506,68 @@ async def cut(ctx: Context, style: Style, outline: Outline) -> tuple[Episode, li
     return await _best(draft, check, ctx.settings.rewrites)
 
 
+# What a look says in words and the card must then show, and what a card may show only if
+# the look says so. The model drops spectacles and adds a scarf; the look is the truth.
+_FACE = {
+    "glasses": r"glasses|spectacles|pince-nez|monocle",
+    "mustache": r"m(o)?ustache|whiskers",
+    "beard": r"\bbeard|bearded|goatee",
+    "freckles": r"freckle",
+}
+_EXTRAS = {
+    "necklace": r"necklace|pearls|beads|pendant",
+    "scarf": r"scarf|shawl|muffler",
+    "bag": r"\bbag\b|satchel|briefcase|backpack|handbag",
+    "torch": r"torch|flashlight|lantern",
+}
+_HATS = {
+    "top_hat": r"top hat|bowler|\bhat\b",
+    "bonnet": r"bonnet",
+    "kerchief": r"kerchief|headscarf",
+    "cap": r"\bcap\b|beret",
+}
+
+
+def faithful(card: Card, look: str) -> Card:
+    """The card with what the look names put in and what the look does not name taken off:
+    face hair and spectacles, the things worn, a hat, a bald head."""
+    said = look.lower()
+    face = [name for name, words in _FACE.items() if re.search(words, said)]
+    extras = [name for name, words in _EXTRAS.items() if re.search(words, said)]
+    hat = next((name for name, words in _HATS.items() if re.search(words, said)), "none")
+    update: dict[str, object] = {"face": face, "extras": extras, "hat": hat}
+    if re.search(r"\bbald\b", said):
+        update["hair"] = "bald"
+    return card.model_copy(update=update)
+
+
+PLAIN_CARD = Card(
+    age="adult", build="average", skin="light", hair="short", hair_colour="#2A2C33",
+    top="jacket", top_colour="#4A5160", bottom="trousers", bottom_colour="#2B2F3A",
+    shoes_colour="#15171C",
+)  # fmt: skip
+
+
 async def cast(ctx: Context, style: Style, ep: Episode) -> Episode:
     """Every character with the card the rig draws them from."""
     system = prompt("cast", palette=", ".join(f"{k} {v}" for k, v in style.palette.items()))
     user = "\n".join(f"`{c.key}` {c.name}: {c.look}" for c in ep.characters)
     made = await ctx.llm.json(ctx.settings.director, system, user, Cast)
     cards = {c.key: c.card for c in made.cards}
-    if missing := [c.key for c in ep.characters if c.key not in cards]:
-        raise ValueError(f"no card for {', '.join(missing)}")
-    people = [c.model_copy(update={"card": cards[c.key]}) for c in ep.characters]
+    # The model renames keys now and then (`mister_white` for `mr_white`). A card for every
+    # character in the order asked is taken by its place; a character still without one is
+    # asked for again, and then drawn plain rather than failing the whole story.
+    if len(made.cards) == len(ep.characters) and set(cards) != {c.key for c in ep.characters}:
+        cards = {c.key: given.card for c, given in zip(ep.characters, made.cards, strict=True)}
+    if missing := [c for c in ep.characters if c.key not in cards]:
+        again = "\n".join(f"`{c.key}` {c.name}: {c.look}" for c in missing)
+        more = await ctx.llm.json(ctx.settings.director, system, again, Cast)
+        got = {c.key: c.card for c in more.cards}
+        for c, given in zip(missing, more.cards, strict=False):
+            cards[c.key] = got.get(c.key, given.card)
+    for c in ep.characters:
+        cards.setdefault(c.key, PLAIN_CARD)
+    people = [c.model_copy(update={"card": faithful(cards[c.key], c.look)}) for c in ep.characters]
     return ep.model_copy(update={"characters": people})
 
 

@@ -12,6 +12,9 @@
 | `REELSMITH_TTS` | `chatterbox` | Кто читает текст диктора. `chatterbox`: Chatterbox Multilingual в сервисе `voice`, читает живее. `qwen`: Qwen3-TTS в сервисе речи, как было раньше |
 | `REELSMITH_VOICE_URL` | `http://localhost:8001` | Сервис `voice` с Chatterbox |
 | `CHATTERBOX_EXAGGERATION` | `0.55` | Выразительность чтения: 0.25 ровно, 0.5 обычно, 0.8 драматично. Читается при запуске сервиса `voice` |
+| `OLLAMA_MAX_LOADED_MODELS` | `2` | Сколько языковых моделей держать в памяти сразу. На карте 32 ГБ ставьте `1`: планировщик и кодер вместе не помещаются |
+| `OLLAMA_FLASH_ATTENTION`, `OLLAMA_KV_CACHE_TYPE` | `1`, `q8_0` | Экономия видеопамяти ollama: быстрое внимание и кэш контекста в 8 бит |
+| `WHISPER_COMPUTE` | `int8_float16` | Точность whisper: так он занимает примерно вдвое меньше видеопамяти, чем `float16` |
 | `CHATTERBOX_CFG` | `0.4` | Темп и собранность: ниже — медленнее и вдумчивее |
 
 ## Кто что делает

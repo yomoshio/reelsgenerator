@@ -21,8 +21,8 @@ RUN pip install "chatterbox-tts==${CHATTERBOX}" "fastapi>=0.115,<1" "uvicorn[sta
 WORKDIR /srv
 COPY services/voice/app.py ./
 
-RUN useradd --uid 1000 --create-home voice
-USER voice
+RUN useradd --uid 1000 --create-home narrator
+USER narrator
 
 EXPOSE 8001
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s \

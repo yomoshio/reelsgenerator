@@ -644,7 +644,10 @@ function head(ctx, b, card, skin) {
   if (card.hair !== "bald" && card.hat !== "kerchief") {
     // A cap of hair over the top and the back of the head, a fringe over the brow and a
     // lighter lock on top.
-    const R = r * 1.1, cx = hx - r * 0.05 * f, cy = hy - r * 0.08;
+    // The hair sits close to the skull and its line runs high over the brow: lower and
+    // wider it reads as a helmet. An old head has less of it in front.
+    const thin = card.age === "old" ? 0.1 : 0;
+    const R = r * 1.045, cx = hx - r * 0.04 * f, cy = hy - r * 0.05;
     const at = (deg, k = 1) => {
       const a = (deg * Math.PI) / 180;
       return [cx + Math.cos(a) * R * k * f, cy + Math.sin(a) * R * k];
@@ -652,10 +655,13 @@ function head(ctx, b, card, skin) {
     if (card.hair === "curly") for (let i = 0; i <= 7; i++) disc(ctx, at(160 + i * 27), r * 0.3, hair);
     ctx.beginPath();
     ctx.moveTo(...at(140));
-    for (let deg = 140; deg <= 338; deg += 4) ctx.lineTo(...at(deg));
-    ctx.quadraticCurveTo(hx + r * 0.5 * f, hy - r * 0.62, hx + r * 0.05 * f, hy - r * 0.5);
-    ctx.quadraticCurveTo(hx - r * 0.45 * f, hy - r * 0.35, hx - r * 0.5 * f, hy + r * 0.05);
-    ctx.quadraticCurveTo(hx - r * 0.75 * f, hy + r * 0.2, ...at(140));
+    const front = 322 - thin * 120;
+    for (let deg = 140; deg <= front; deg += 4) ctx.lineTo(...at(deg));
+    ctx.quadraticCurveTo(hx + r * (0.42 - thin) * f, hy - r * (0.8 + thin), hx + r * 0.02 * f, hy - r * (0.7 + thin));
+    // Short hair leaves the temple and the ear bare; longer hair comes down over them.
+    const side = card.hair === "long" || card.hair === "bun" || card.hair === "braids" || card.hair === "ponytail" ? 0.52 : 0.78;
+    ctx.quadraticCurveTo(hx - r * (side - 0.2) * f, hy - r * 0.7, hx - r * side * f, hy - r * 0.2);
+    ctx.quadraticCurveTo(hx - r * (side + 0.08) * f, hy + r * 0.2, ...at(140));
     ctx.closePath();
     ctx.lineWidth = 3;
     ctx.strokeStyle = OUT;
