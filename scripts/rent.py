@@ -12,6 +12,7 @@ scripts/autostop.py uses. Billing starts when the server does, so the next comma
 
 import argparse
 import re
+import socket
 import sys
 import time
 import urllib.error
@@ -22,7 +23,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import autostop
 
 IMAGE = "docker.io/vastai/kvm:cuda-12.9.1-auto"  # Ubuntu 22.04 with the NVIDIA driver in
-BOOT_SECONDS = 600
+BOOT_SECONDS = 1200
 
 
 def offers(vram: float, price: float, disk: int) -> list[dict[str, Any]]:
@@ -54,14 +55,28 @@ def rent(offer: dict[str, Any], disk: int) -> str:
     return str(reply["new_contract"])
 
 
+def answers(host: str, port: int) -> bool:
+    """Whether an SSH server greets on this port: the VM has booted, not only been mapped."""
+    try:
+        with socket.create_connection((host, port), timeout=10) as link:
+            link.settimeout(10)
+            return link.recv(4).startswith(b"SSH")
+    except OSError:
+        return False
+
+
 def address(instance: str) -> tuple[str, str]:
     """Waits for the server to start and gives its address and SSH port."""
     until = time.time() + BOOT_SECONDS
     while time.time() < until:
         server = autostop._vast("GET", f"/instances/{instance}/?owner=me").get("instances") or {}
         ports = (server.get("ports") or {}).get("22/tcp") or []
-        if server.get("actual_status") == "running" and ports and server.get("public_ipaddr"):
-            return str(server["public_ipaddr"]).strip(), str(ports[0]["HostPort"])
+        # A virtual machine can stay "created" in vast's eyes while it is already up, so the
+        # open SSH port is what says it has started.
+        if ports and server.get("public_ipaddr"):
+            host, port = str(server["public_ipaddr"]).strip(), str(ports[0]["HostPort"])
+            if answers(host, int(port)):
+                return host, port
         time.sleep(15)
     sys.exit(
         f"server {instance} did not start in {BOOT_SECONDS // 60} minutes; it is still rented: "
