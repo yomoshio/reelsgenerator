@@ -48,6 +48,9 @@ const FEELINGS = {
   think: "worried", sleepy: "tired", exhausted: "tired", sleep: "tired",
 };
 
+// Places nobody hangs pictures in: a cell, a station, a cellar. Their walls stay bare.
+const BARE = /cell\b|prison|dungeon|jail|pit\b|vault|crypt|cave|station|spaceship|capsule|module|airlock|bunker|cellar|basement|warehouse|garage|factory|laborator|morgue|corridor|shaft|sewer|tunnel|темниц|камер|тюрьм|станци|подвал|бункер|шлюз|склад|цех/i;
+
 // Names the model gives a thing the runtime draws itself.
 const NAMED = { fire: "fireplace", hearth: "fireplace", fire_place: "fireplace", chimney: "fireplace", stove: "fireplace" };
 
@@ -508,7 +511,7 @@ export function makeStage(input, library = {}) {
     if (!backdrop) {
       backdrop = new Canvas(W, H);
       place.draw(backdrop.getContext("2d"), 0);
-      if (place.walls) {
+      if (place.walls && !BARE.test(`${input.place.name} ${input.place.look}`)) {
         const taken = decl.things.filter((q) => !q.holder && q.spec.on !== "fill").map((q) => thingBox(q, 0));
         dress(backdrop.getContext("2d"), taken, place.floor, p, seedOf(input.place.key), place.walls);
       }
