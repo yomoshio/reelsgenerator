@@ -3,6 +3,7 @@ stages make, each stage reading what the one before wrote. Stages run one at a t
 every job waiting for them, so a model stays loaded while it has work."""
 
 import secrets
+import shutil
 import time
 from collections.abc import Awaitable, Callable, Sequence
 from dataclasses import dataclass
@@ -150,3 +151,28 @@ async def run_once(jobs: Jobs, ctx: Context, stages: Sequence[Stage]) -> int:
                 done += 1
             jobs.save(job)
     return done
+
+
+# What each step leaves in the job's folder. A job sent back loses the work of the later
+# steps: left in place, a scene of the old story would be taken for one of the new.
+_MADE = {
+    Status.NEW: ["plan.json", "episode.json"],
+    Status.WRITTEN: ["voice"],
+    Status.VOICED: ["scenes", "keys"],
+    Status.STAGED: ["clips"],
+    Status.RENDERED: ["final.mp4", "check.json", "post.txt", "storyboard.jpg"],
+}
+
+
+def forget(folder: Path, status: Status) -> None:
+    """Removes what the step that starts at `status` and every later step made."""
+    steps = list(_MADE)
+    if status not in steps:
+        return
+    for step in steps[steps.index(status) :]:
+        for name in _MADE[step]:
+            made = folder / name
+            if made.is_dir():
+                shutil.rmtree(made)
+            else:
+                made.unlink(missing_ok=True)
