@@ -506,6 +506,41 @@ async def cut(ctx: Context, style: Style, outline: Outline) -> tuple[Episode, li
     return await _best(draft, check, ctx.settings.rewrites)
 
 
+# What a look says in words and the card must then show, and what a card may show only if
+# the look says so. The model drops spectacles and adds a scarf; the look is the truth.
+_FACE = {
+    "glasses": r"glasses|spectacles|pince-nez|monocle",
+    "mustache": r"m(o)?ustache|whiskers",
+    "beard": r"\bbeard|bearded|goatee",
+    "freckles": r"freckle",
+}
+_EXTRAS = {
+    "necklace": r"necklace|pearls|beads|pendant",
+    "scarf": r"scarf|shawl|muffler",
+    "bag": r"\bbag\b|satchel|briefcase|backpack|handbag",
+    "torch": r"torch|flashlight|lantern",
+}
+_HATS = {
+    "top_hat": r"top hat|bowler|\bhat\b",
+    "bonnet": r"bonnet",
+    "kerchief": r"kerchief|headscarf",
+    "cap": r"\bcap\b|beret",
+}
+
+
+def faithful(card: Card, look: str) -> Card:
+    """The card with what the look names put in and what the look does not name taken off:
+    face hair and spectacles, the things worn, a hat, a bald head."""
+    said = look.lower()
+    face = [name for name, words in _FACE.items() if re.search(words, said)]
+    extras = [name for name, words in _EXTRAS.items() if re.search(words, said)]
+    hat = next((name for name, words in _HATS.items() if re.search(words, said)), "none")
+    update: dict[str, object] = {"face": face, "extras": extras, "hat": hat}
+    if re.search(r"\bbald\b", said):
+        update["hair"] = "bald"
+    return card.model_copy(update=update)
+
+
 PLAIN_CARD = Card(
     age="adult", build="average", skin="light", hair="short", hair_colour="#2A2C33",
     top="jacket", top_colour="#4A5160", bottom="trousers", bottom_colour="#2B2F3A",
@@ -532,7 +567,7 @@ async def cast(ctx: Context, style: Style, ep: Episode) -> Episode:
             cards[c.key] = got.get(c.key, given.card)
     for c in ep.characters:
         cards.setdefault(c.key, PLAIN_CARD)
-    people = [c.model_copy(update={"card": cards[c.key]}) for c in ep.characters]
+    people = [c.model_copy(update={"card": faithful(cards[c.key], c.look)}) for c in ep.characters]
     return ep.model_copy(update={"characters": people})
 
 

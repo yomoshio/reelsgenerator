@@ -214,3 +214,13 @@ async def test_a_director_who_stages_nothing_is_asked_again(tmp_path: Path) -> N
     assert left == []
     assert all(b.staging is not None for b in made.beats)
     assert "has no staging" in llm.calls[1][3]
+
+
+def test_a_card_shows_what_the_look_names_and_nothing_it_does_not() -> None:
+    card = story.PLAIN_CARD.model_copy(update={"extras": ["scarf", "bag"], "face": ["beard"]})
+    white = story.faithful(card, "man, 60, thin grey hair, round spectacles, brown cardigan")
+    assert (white.face, white.extras, white.hat) == (["glasses"], [], "none")
+    morris = story.faithful(card, "man, 55, bald, thick grey moustache, red army coat, a cap")
+    assert (morris.face, morris.hair, morris.hat) == (["mustache"], "bald", "cap")
+    lady = story.faithful(story.PLAIN_CARD, "woman, 58, freckles, white shawl, a string of pearls")
+    assert (lady.face, lady.extras) == (["freckles"], ["necklace", "scarf"])
