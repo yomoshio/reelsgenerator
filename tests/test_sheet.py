@@ -6,7 +6,7 @@ import pytest
 from reelsmith import runtime, scenes
 from reelsmith.llm import closed
 from reelsmith.scenes import carried
-from reelsmith.sheet import Act, Change, Item, Sheet, Shot, Stand, after, compose, faults
+from reelsmith.sheet import Act, Change, Item, Sheet, Shot, Stand, after, compose, faults, mend
 from reelsmith.styles import Styles
 from tests.fakes import REPO, FakeLlm, context
 from tests.test_scenes import _episode, _timing
@@ -138,3 +138,33 @@ def test_a_json_answer_left_one_bracket_short_is_closed() -> None:
     assert Sheet.model_validate_json(closed(cut)).camera[0].zoom == 1.35
     assert closed('{"a": "x]y"}') == '{"a": "x]y"}'
     assert closed('{"a": ["b",') == '{"a": ["b"]}'
+
+
+def test_small_slips_in_a_sheet_are_mended_not_refused() -> None:
+    sheet = Sheet(
+        things=[Item(name="window", on="heavy_rain"), Item(name="table")],
+        people=[Stand(who="artem", where="left")],
+        acts=[
+            Act(who="artem", does="take", what="monkey_paw"),
+            Act(who="artem", does="look", what="ghost"),
+            Act(who="oleg", does="walk", to="table"),
+        ],
+        changes=[Change(thing="heavy_rain", state=1)],
+        camera=[Shot(move="push", to="ghost")],
+    )
+    made = mend(sheet, {"artem", "lena"})
+    paw = next(i for i in made.things if i.name == "monkey_paw")
+    assert (paw.on, paw.hidden) == ("artem", True)
+    assert next(i for i in made.things if i.name == "window").on == ""
+    assert [a.does for a in made.acts] == ["take"]
+    assert made.changes == []
+    assert made.camera == []
+    words = ["Артём", "сидит"]
+    assert (
+        faults(made, ["artem"], words, {"window", "table", "monkey_paw"}, {"artem", "lena"}) == []
+    )
+    with_lena = made.model_copy(update={"people": [*made.people, Stand(who="lena", where="right")]})
+    assert (
+        faults(with_lena, ["artem"], words, {"window", "table", "monkey_paw"}, {"artem", "lena"})
+        == []
+    )

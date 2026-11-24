@@ -19,7 +19,7 @@ from reelsmith.captions import WIDTH, Word
 from reelsmith.jobs import Context, Job
 from reelsmith.llm import LlmError, NoCode
 from reelsmith.runtime import Report
-from reelsmith.sheet import Sheet, after, compose
+from reelsmith.sheet import Sheet, after, compose, mend
 from reelsmith.sheet import faults as sheet_faults
 from reelsmith.story import Beat, Episode, Reveal, prompt
 from reelsmith.styles import Style
@@ -349,8 +349,10 @@ async def sheet_beat(
                 "with at most six acts."
             )
             continue
+        everyone = {c.key for c in ep.characters}
+        sheet = mend(sheet, everyone)
         named = known | {i.name for i in sheet.things}
-        wrong = sheet_faults(sheet, beat.cast, said, named)
+        wrong = sheet_faults(sheet, beat.cast, said, named, everyone)
         report = None
         if not wrong:
             code = compose(sheet, kind, {}, known)

@@ -121,7 +121,15 @@ export function makeMotion(decl, place) {
   // The x a person stands at and which way they face at time t.
   function personX(pr, t) {
     let { x, facing, walking } = walked(pr, t);
-    for (const l of pr.looks) if (t >= l.t) facing = lookFacing(l.target, x, facing, t);
+    // Looking at the thing in one's own hand would need one's own place to be found first:
+    // while that is being worked out, the person faces the way they walked.
+    if (pr.looking) return { x, facing, walking };
+    pr.looking = true;
+    try {
+      for (const l of pr.looks) if (t >= l.t) facing = lookFacing(l.target, x, facing, t);
+    } finally {
+      pr.looking = false;
+    }
     return { x, facing, walking };
   }
   // The same before anyone turns to look: two people who look at each other each need only

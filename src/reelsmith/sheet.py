@@ -77,6 +77,45 @@ class Sheet(BaseModel):
     lights: list[Light] = Field(default_factory=list, max_length=3)
 
 
+def mend(sheet: Sheet, known_people: set[str]) -> Sheet:
+    """The sheet with its small slips put right, as a person reading it would: a thing said
+    to lie on something that is not there lies on the floor, a thing someone carries but
+    nobody listed is in that person's pocket, a state changed on an unlisted thing and an
+    act by or at nobody are dropped. What is left for `faults` is what only the writer of
+    the sheet can decide."""
+    people = {p.who for p in sheet.people}
+    things = [i.model_copy() for i in sheet.things if i.name not in people]
+    names = {i.name for i in things}
+    for item in things:
+        if item.on and item.on not in names | people:
+            item.on = ""
+    for act in sheet.acts:
+        if act.does in CARRY and act.what and act.what not in names and act.who in people:
+            things.append(Item(name=act.what, on=act.who, hidden=True))
+            names.add(act.what)
+    here = names | people | set(SLOTS)
+    acts = [
+        a
+        for a in sheet.acts
+        if a.who in people
+        and (a.does not in CARRY or a.what in names)
+        and not (a.what and a.what not in here and a.does != "sit")
+        and not (a.does == "give" and a.to not in people)
+        and not (a.does == "feel" and a.mood is None)
+    ]
+    for act in acts:
+        if act.to and act.to not in here:
+            act.to = ""
+    return sheet.model_copy(
+        update={
+            "things": things[:8],
+            "acts": acts,
+            "changes": [c for c in sheet.changes if c.thing in names],
+            "camera": [c for c in sheet.camera if not c.to or c.to in names | people],
+        }
+    )
+
+
 def _act_faults(act: Act, things: set[str], people: set[str]) -> list[str]:
     out: list[str] = []
     if act.who not in people:
@@ -92,7 +131,13 @@ def _act_faults(act: Act, things: set[str], people: set[str]) -> list[str]:
     return out
 
 
-def faults(sheet: Sheet, cast: list[str], words: list[str], known: set[str]) -> list[str]:
+def faults(
+    sheet: Sheet,
+    cast: list[str],
+    words: list[str],
+    known: set[str],
+    everyone: set[str] | None = None,
+) -> list[str]:
     """What cannot be staged as written, each said so the writer of the sheet can mend it."""
     out: list[str] = []
     things = {i.name for i in sheet.things}
@@ -100,8 +145,8 @@ def faults(sheet: Sheet, cast: list[str], words: list[str], known: set[str]) -> 
     said = {w.strip('.,!?:;«»—"').lower() for w in words}
     for name in things - known:
         out.append(f"thing '{name}' is neither in the catalog nor in the props")
-    for key in people - set(cast):
-        out.append(f"'{key}' is not in the beat's cast: {', '.join(cast)}")
+    for key in people - (everyone or set(cast)):
+        out.append(f"'{key}' is not a character of this episode")
     for key in set(cast) - people:
         out.append(f"'{key}' of the cast is not placed in `people`")
     for item in sheet.things:
