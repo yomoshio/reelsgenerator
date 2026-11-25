@@ -16,7 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && python3.10 -m venv /opt/venv
 
-RUN pip install "chatterbox-tts==${CHATTERBOX}" "fastapi>=0.115,<1" "uvicorn[standard]>=0.30" "soundfile>=0.12"
+RUN pip install "chatterbox-tts==${CHATTERBOX}" "ruaccent==1.6.0" "fastapi>=0.115,<1" "uvicorn[standard]>=0.30" "soundfile>=0.12"
 
 WORKDIR /srv
 COPY services/voice/app.py ./

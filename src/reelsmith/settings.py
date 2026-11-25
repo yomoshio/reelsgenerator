@@ -26,6 +26,10 @@ class Settings(BaseSettings):
         description="Who reads the narrator: Chatterbox at voice_url, or Qwen3-TTS in speech.",
     )
     voice_url: str = "http://localhost:8001"
+    stress: Path = Field(
+        default=Path("studio/stress.txt"),
+        description="Words with the stress marked by hand; they overrule the marker.",
+    )
 
     style: str = "blackout"
     language: str = "ru"
