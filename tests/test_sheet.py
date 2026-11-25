@@ -248,6 +248,6 @@ def test_acts_with_no_word_are_laid_through_the_beat_in_order() -> None:
         changes=[Change(thing="fireplace", state=2)],
     )
     made = paced(sheet, said)
-    assert [a.on_word for a in made.acts] == ["", "", "огонь", "выхватывает"]
-    assert made.changes[0].on_word == "огонь"
+    assert [a.on_word for a in made.acts] == ["", "", "в", "выхватывает"]
+    assert made.changes[0].on_word == "в"
     assert paced(made, said) == made
