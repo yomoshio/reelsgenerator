@@ -238,7 +238,15 @@ export function makeMotion(decl, place) {
         } finally {
           pr.aiming = false;
         }
-        if (cue.pose === "point") {
+        // A hand shown to someone standing close stops halfway, bent, at their chest: a
+        // straight arm would go through their face.
+        const who = cue.target.__ref ?? cue.target.ref ?? cue.target;
+        const near = Math.hypot(goal[0] - shoulder[0], goal[1] - shoulder[1]) < 0.42 * s;
+        if (who?.kind === "person" && near) {
+          const chest = [goal[0], goal[1] + 0.2 * s];
+          const short = [shoulder[0] + (chest[0] - shoulder[0]) * 0.5, shoulder[1] + (chest[1] - shoulder[1]) * 0.5];
+          [a.arm_n, a.fore_n] = rig.reach(shoulder, short, s, facing);
+        } else if (cue.pose === "point") {
           const ang = (Math.atan2((goal[0] - shoulder[0]) * facing, goal[1] - shoulder[1]) * 180) / Math.PI;
           a.arm_n = ang;
           a.fore_n = 0;
