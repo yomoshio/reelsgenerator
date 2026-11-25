@@ -22,6 +22,7 @@ import { declared } from "./checks.mjs";
 import { dress } from "./dressing.mjs";
 
 const HELD = 90; // px: the most a thing in a hand stands tall
+const ON_TOP = 120; // px: the most a thing set on a table or a shelf stands tall
 const PLATES = ["stamp", "status", "label", "rule_card", "plate", "caption", "text", "subtitle"];
 // Somebody in the crowd, in the greys of the place.
 const EXTRA = {
@@ -105,10 +106,13 @@ export function makeStage(input, library = {}) {
     if (base?.kind !== "thing") base = null;
     if (opts.on && !base && !holder) decl.ignored.push(`s.thing("${name}") option on`);
     if (holder && !opts.hidden && holder.cues[0].pose === "stand") holder.cues[0].pose = "hold";
+    // What stands on a table is smaller than the table: a library picture has no size of
+    // its own, and a chessboard came out as wide as the room's window.
+    const fits = base && s.h && s.w ? Math.min(1, ON_TOP / s.h, (0.55 * base.spec.w) / s.w) : 1;
     const t = {
       kind: "thing", name, id: count ? `${name}#${count + 1}` : name, spec: s, base, holder,
       x: opts.x === undefined && base ? null : px(opts.x ?? 0.5), level: opts.level ?? opts.floor ?? 1,
-      scale: holder ? Math.min((opts.scale ?? 1) * k(), (HELD / s.h) * k()) : (opts.scale ?? 1) * k(),
+      scale: holder ? Math.min((opts.scale ?? 1) * k(), (HELD / s.h) * k()) : (opts.scale ?? 1) * k() * fits,
       flip: opts.flip ? -1 : 1, front: !!opts.front, hidden: !!opts.hidden, pocket: opts.hidden ? holder : null,
       rests: [], carried: !!holder,
       states: [{ t: 0, n: opts.state ?? s.state ?? 0 }], moves: [],

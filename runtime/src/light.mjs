@@ -21,7 +21,7 @@ export function darkness(ctx, t, lights, people, p, bonesOf) {
   const level = lightAt(lights, t);
   if (level >= 0.999) return;
   ctx.save();
-  ctx.fillStyle = `rgba(4,6,10,${(1 - level) * 0.85})`;
+  ctx.fillStyle = `rgba(4,6,10,${(1 - level) * 0.62})`;
   ctx.fillRect(-W, -H, 3 * W, 3 * H);
   for (const pr of people.filter((q) => (q.card.extras ?? []).includes("torch"))) {
     const b = bonesOf(pr, t);
@@ -95,7 +95,7 @@ function grain(ctx, t) {
   const n = Math.floor(t * 30);
   ctx.save();
   ctx.globalCompositeOperation = "overlay";
-  ctx.globalAlpha = 0.04;
+  ctx.globalAlpha = 0.02;
   ctx.drawImage(noise, -((n * 73) % 120), -((n * 41) % 120), W + 120, H + 120);
   ctx.restore();
 }

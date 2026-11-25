@@ -12,6 +12,8 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
+from reelsmith.text import bare
+
 Slot = Literal["far_left", "left", "centre", "right", "far_right"]
 SLOTS: dict[str, float] = {
     "far_left": 0.12, "left": 0.3, "centre": 0.5, "right": 0.7, "far_right": 0.88
@@ -217,6 +219,45 @@ def faults(
         if change.thing not in things:
             out.append(f"'{change.thing}' changes state but is not in `things`")
     return out
+
+
+STATES = {"sit", "feel"}
+
+
+def paced(sheet: Sheet, said: list[str]) -> Sheet:
+    """The sheet with every act on a word. A model leaves most acts with no word, and they
+    all happen in the first half second: the picture jerks once and then stands still for
+    the rest of the beat. Acts with no word are laid through the beat in the order given,
+    the first at the start; how a person sits or feels as the beat opens stays at the start.
+    A change of a thing with no word happens with the last act that touches the thing."""
+    words = [bare(w) for w in said]
+    words = [w for w in words if w]
+    loose = [a for a in sheet.acts if not a.on_word and a.does not in STATES]
+    if not words or len(loose) < 2:
+        return sheet
+
+    def on(k: int) -> tuple[str, int]:
+        at = min(round(k * len(words) / len(loose)), len(words) - 1)
+        return words[at], words[: at + 1].count(words[at])
+
+    placed = {id(a): on(k) for k, a in enumerate(loose) if k}
+    acts = [
+        a.model_copy(update={"on_word": placed[id(a)][0], "occurrence": placed[id(a)][1]})
+        if id(a) in placed
+        else a
+        for a in sheet.acts
+    ]
+    changes = []
+    for change in sheet.changes:
+        touch = [a for a in acts if change.thing in (a.what, a.to) and a.on_word]
+        if change.on_word or not touch:
+            changes.append(change)
+        else:
+            last = touch[-1]
+            changes.append(
+                change.model_copy(update={"on_word": last.on_word, "occurrence": last.occurrence})
+            )
+    return sheet.model_copy(update={"acts": acts, "changes": changes})
 
 
 def _at(on_word: str, occurrence: int) -> str:
