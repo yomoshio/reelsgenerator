@@ -79,6 +79,7 @@ new → written → voiced → staged → rendered → assembled → approved | 
 | `services/voice/` | Сервис голоса: Chatterbox Multilingual читает текст диктора, RUAccent ставит ударения |
 | `styles/` | Стили каналов |
 | `tools/reference_check.py` | Сверка ролика с эталоном |
+| `tools/hear.py` | Читает строки дважды, как написано и с ударениями, чтобы сравнить на слух: `python tools/hear.py studio/stress-check.txt --out outbox/ударения` |
 
 ## Что программа чинит за модель
 
