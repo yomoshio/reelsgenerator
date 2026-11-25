@@ -92,3 +92,24 @@ async def test_without_a_reader_the_speech_service_reads_too() -> None:
     await speech.unload()
     await speech.close()
     assert asked == ["http://ears:8000/speak", "http://ears:8000/unload"]
+
+
+async def test_the_reader_gets_the_stressed_text_and_the_captions_the_written_one(
+    tmp_path: Path,
+) -> None:
+    ep = Episode.model_validate_json((DATA / "flood-01.json").read_text(encoding="utf-8"))
+    first = ep.beats[0].model_copy(update={"text": "Вода уже здесь.", "lines": ["Вода уже здесь."]})
+    speech = FakeSpeech(marks={"Вода": "Вод+а", "уже": "+уже"})
+    ctx = context(tmp_path, FakeLlm(), stress=tmp_path / "stress.txt")
+    ctx.speech = speech
+    ctx.settings.stress.parent.mkdir(parents=True, exist_ok=True)
+    ctx.settings.stress.write_text("# наречие\nуж+е\n", encoding="utf-8")
+    jobs = Jobs(ctx.settings.jobs)
+    job = jobs.create(Source(kind="idea", text="x"), "blackout")
+    folder = jobs.folder(job)
+    (folder / "episode.json").write_text(ep.model_copy(update={"beats": [first]}).model_dump_json())
+    await voice(job, folder, ctx)
+    assert speech.spoken == ["Вод+а уж+е здесь."]
+    beat = json.loads((folder / "voice" / "timing.json").read_text())["beats"][0]
+    assert beat["spoken"] == "Вод+а уж+е здесь."
+    assert [w["text"] for w in beat["words"]] == ["Вода", "уже", "здесь."]

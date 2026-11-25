@@ -4,7 +4,10 @@ A beat is read as one take. Whisper listens to it; a take where the narrator add
 the lines do not have, such as a stage direction read aloud, is read again, and the take
 with the fewest additions is kept. Captions and cues use the words as written, numbers in
 words and names spelled right; whisper only says when they are heard. A written word heard
-differently, «двадцать» heard as «20», takes the time of what was heard in its place."""
+differently, «двадцать» heard as «20», takes the time of what was heard in its place.
+
+The reader is given the text with its stresses marked (`stress`); `spoken` in timing.json
+is what it was given."""
 
 import io
 import json
@@ -19,6 +22,7 @@ import httpx
 from reelsmith.captions import Word
 from reelsmith.jobs import Context, Job
 from reelsmith.story import Episode
+from reelsmith.stress import fixes, kept, pinned
 from reelsmith.text import bare, words
 
 TAIL = 0.35  # the beat holds this long after its last word, room for the transition
@@ -52,6 +56,16 @@ class Speech:
             "/speak", at=self._reader, json={"text": text, "voice": voice, "language": language}
         )
         return response.content
+
+    async def stress(self, text: str, language: str) -> str:
+        """The text with a plus before each stressed vowel, from the reader that takes such
+        marks; as written when the reader is the speech service, which does not."""
+        if not self._reader:
+            return text
+        response = await self._post(
+            "/stress", at=self._reader, json={"text": text, "language": language}
+        )
+        return str(response.json()["text"])
 
     async def words(self, audio: bytes, language: str, hint: str = "") -> list[Word]:
         response = await self._post(
@@ -145,10 +159,12 @@ async def voice(job: Job, folder: Path, ctx: Context) -> None:
     out.mkdir(exist_ok=True)
     beats = []
     language = ctx.settings.language
+    known = fixes(ctx.settings.stress)
     for n, beat in enumerate(ep.beats, 1):
+        said = pinned(kept(beat.text, await ctx.speech.stress(beat.text, language)), known)
         best: tuple[bytes, list[Word], list[str]] | None = None
         for _ in range(ctx.settings.retakes + 1):
-            take = await ctx.speech.speak(beat.text, style.voice.name, language)
+            take = await ctx.speech.speak(said, style.voice.name, language)
             heard = await ctx.speech.words(take, language, beat.text)
             extra = added(beat.text, heard)
             if best is None or len(extra) < len(best[2]):
@@ -164,6 +180,7 @@ async def voice(job: Job, folder: Path, ctx: Context) -> None:
         beats.append(
             {
                 "seconds": round(seconds_of(take) + TAIL, 3),
+                "spoken": said,
                 "words": [{"text": w.text, "start": w.start, "end": w.end} for w in timed],
             }
         )

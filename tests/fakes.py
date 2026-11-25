@@ -71,14 +71,20 @@ class FakeSpeech:
     """Reads a text as silence of its length, and hears its words one after another; `extra`
     words are heard on the first take only, as if the narrator read a stage direction."""
 
-    def __init__(self, extra: tuple[str, ...] = ()) -> None:
+    def __init__(self, extra: tuple[str, ...] = (), marks: dict[str, str] | None = None) -> None:
         self.extra = list(extra)
+        self.marks = marks or {}
         self.spoken: list[str] = []
         self.unloaded = False
 
     async def speak(self, text: str, voice: str, language: str) -> bytes:
         self.spoken.append(text)
         return wav(0.4 * len(text.split()) + 0.3)
+
+    async def stress(self, text: str, language: str) -> str:
+        for word, marked in self.marks.items():
+            text = text.replace(word, marked)
+        return text
 
     async def words(self, audio: bytes, language: str, hint: str = "") -> list[Word]:
         said = [*self.extra, *hint.split()]

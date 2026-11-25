@@ -6,7 +6,11 @@ in the speech service.
 Voices are the same clips in /voices: `narrator.wav`. No transcript is needed. How lively
 the reading is comes from the environment: CHATTERBOX_EXAGGERATION (0.25 flat, 0.5 plain,
 0.8 dramatic), CHATTERBOX_CFG (lower is slower and more deliberate) and
-CHATTERBOX_TEMPERATURE."""
+CHATTERBOX_TEMPERATURE.
+
+Russian is read with its stresses marked. /stress marks a text with a plus before each
+stressed vowel (RUAccent, on the processor); /speak reads such a text, and one without
+marks is read as the model guesses."""
 
 import gc
 import io
@@ -21,6 +25,7 @@ import torch
 from chatterbox.mtl_tts import ChatterboxMultilingualTTS
 from fastapi import FastAPI, HTTPException, Response
 from pydantic import BaseModel, Field
+from ruaccent import RUAccent
 
 VOICES = Path(os.environ.get("VOICES_DIR", "/voices"))
 EXAGGERATION = float(os.environ.get("CHATTERBOX_EXAGGERATION", "0.55"))
@@ -31,16 +36,29 @@ LANGUAGES = {"uk": "ru", "be": "ru"}
 # read a few sentences at a time and joined with the pause a narrator leaves between them.
 MOST = 280
 PAUSE = 0.18
+ACCENTS = os.environ.get("RUACCENT_MODEL", "turbo3.1")
+_PLUS = re.compile(r"\+([аеёиоуыэюя])", re.IGNORECASE)  # noqa: RUF001
 
 app = FastAPI(title="voice")
 _lock = threading.Lock()
 _model: ChatterboxMultilingualTTS | None = None
+_accents: RUAccent | None = None
 
 
 class SpeakRequest(BaseModel):
-    text: str = Field(min_length=1, max_length=1200)
+    text: str = Field(min_length=1, max_length=1600)
     voice: str = "narrator"
     language: str = "ru"
+
+
+class StressRequest(BaseModel):
+    text: str = Field(min_length=1, max_length=1200)
+    language: str = "ru"
+
+
+def accented(text: str) -> str:
+    """A plus before a vowel becomes the stress mark the model was taught, after it."""
+    return _PLUS.sub("\\1\u0301", text).replace("+", "")
 
 
 def _speaker() -> ChatterboxMultilingualTTS:
@@ -62,6 +80,18 @@ def pieces(text: str, most: int = MOST) -> list[str]:
     return out or [text.strip()]
 
 
+@app.post("/stress")
+def stress(req: StressRequest) -> dict[str, str]:
+    global _accents  # noqa: PLW0603
+    if req.language != "ru":
+        return {"text": req.text}
+    with _lock:
+        if _accents is None:
+            _accents = RUAccent()
+            _accents.load(omograph_model_size=ACCENTS, use_dictionary=True)
+        return {"text": _accents.process_all(req.text)}
+
+
 @app.post("/speak")
 def speak(req: SpeakRequest) -> Response:
     reference = VOICES / f"{req.voice}.wav"
@@ -74,7 +104,7 @@ def speak(req: SpeakRequest) -> Response:
             raise HTTPException(400, f"Chatterbox does not speak {req.language!r}")
         takes = [
             model.generate(
-                piece, language_id=language, audio_prompt_path=str(reference),
+                accented(piece), language_id=language, audio_prompt_path=str(reference),
                 exaggeration=EXAGGERATION, cfg_weight=CFG, temperature=TEMPERATURE,
             ).squeeze(0).cpu().numpy()
             for piece in pieces(req.text)
