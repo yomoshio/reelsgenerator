@@ -221,6 +221,14 @@ export function makeStage(input, library = {}) {
           ref = seats.sort((a, b) => Math.abs((a.x ?? 0) - pr.x0) - Math.abs((b.x ?? 0) - pr.x0))[0];
           if (!ref) return decl.ignored.push(`${key}.sit with no seat on stage`), handle;
         }
+        // One seat holds one person: the second told to sit there takes the nearest free
+        // seat, and stands when there is none.
+        const sat = (seat) => decl.people.some((q) => q !== pr && q.sits.some((st) => st.ref === seat));
+        if (sat(ref)) {
+          const open = decl.things.filter((q) => q.spec.parts.seat && !sat(q));
+          ref = open.sort((a, b) => Math.abs((a.x ?? 0) - pr.x0) - Math.abs((b.x ?? 0) - pr.x0))[0];
+          if (!ref) return decl.ignored.push(`${key}.sit on a seat that is taken`), handle;
+        }
         const t0 = time(o.at);
         pr.sits.push({ t: t0, ref });
         pr.walks.push({ t0: Math.max(0, t0 - 0.9), until: t0, to: { __ref: ref }, seat: true });
@@ -442,13 +450,20 @@ export function makeStage(input, library = {}) {
       gapsOf(solid.filter((q) => q.spec.glow)),
     ];
     const stood = [];
+    // Whoever sits as the beat opens is where the seat is, and nobody stands on them.
+    const seatOf = (pr) => pr.sits.find((st) => st.t <= 0.01 && st.ref)?.ref ?? null;
+    const sat = [];
+    for (const pr of decl.people) {
+      const seat = seatOf(pr);
+      if (seat && seat.x !== null) sat.push((pr.x0 = seat.x));
+    }
     const free = (x, apart) => {
       for (const gaps of tiers) {
         let best = null;
         for (const [lo, hi] of gaps) {
           const near = Math.min(Math.max(x, lo), hi);
-          for (const c of [near, ...stood.flatMap((o) => [o - apart, o + apart])]) {
-            if (c < lo || c > hi || stood.some((o) => Math.abs(o - c) < apart - 1)) continue;
+          for (const c of [near, ...[...stood, ...sat].flatMap((o) => [o - apart, o + apart])]) {
+            if (c < lo || c > hi || [...stood, ...sat].some((o) => Math.abs(o - c) < apart - 1)) continue;
             const cost = (q) => Math.abs(q - x) + (stood.some((o) => q < o) ? W : 0); // keep the order left to right
             if (best === null || cost(c) < cost(best)) best = c;
           }
@@ -478,6 +493,21 @@ export function makeStage(input, library = {}) {
       const half = Math.min((q.spec.w * q.scale) / 2, W / 2 - edge + 60);
       q.x = Math.min(Math.max(q.x, edge - 60 + half), W - edge + 60 - half);
     }
+    // Nobody stands in front of the thing they point at, reach for or take: they stand
+    // beside it, on the side nearer to where they were put, where nobody else stands.
+    for (const pr of decl.people) {
+      if (seatOf(pr) || pr.walks.some((w) => !w.seat)) continue;
+      for (const cue of pr.cues) {
+        const ref = cue.target?.__ref ?? cue.target?.ref;
+        const tx = ref?.kind === "thing" ? (ref.x ?? ref.base?.x ?? null) : null;
+        if (tx === null || Math.abs(pr.x0 - tx) >= 0.12 * W) continue;
+        const clear = (x) => x > edge && x < W - edge && !decl.people.some((q) => q !== pr && Math.abs(q.x0 - x) < 0.12 * W);
+        const sides = [tx - 0.17 * W, tx + 0.17 * W].sort((a, b) => Math.abs(a - pr.x0) - Math.abs(b - pr.x0));
+        const beside = sides.find(clear);
+        if (beside !== undefined) pr.x0 = beside;
+        break;
+      }
+    }
     const people = [...decl.people].sort((a, b) => a.x0 - b.x0);
     for (let i = 1; i < people.length; i++) {
       const apart = (people[i].extra && people[i - 1].extra ? 0.07 : 0.13) * W; // a crowd stands close
@@ -499,6 +529,9 @@ export function makeStage(input, library = {}) {
         }
         let goal = px(w.to);
         const back = goal >= pr.x0 ? -1 : 1;
+        // Whoever stays where they are is not walked onto: the walker stops beside them.
+        const still = decl.people.filter((q) => q !== pr && !q.walks.some((v) => !v.seat));
+        while (still.some((q) => Math.abs(q.x0 - goal) < 0.1 * W) && Math.abs(goal - pr.x0) > 0.11 * W) goal += back * 0.11 * W;
         while (taken.some((q) => q.pr !== pr && Math.abs(q.t0 - w.t0) < 2 && Math.abs(q.goal - goal) < 0.1 * W)) goal += back * 0.11 * W;
         taken.push({ pr, t0: w.t0, goal });
         w.to = goal;
@@ -522,6 +555,15 @@ export function makeStage(input, library = {}) {
     }
     if (!laid) laid = layPlates(ctx, input, decl, where, revealTime);
     const v = view(decl.moves, seconds, t, where.targetPoint);
+    // A mild push is still a shot of the scene: nobody on stage is cut by the frame's
+    // edge. A push past 1.5 is a close-up and frames what it was aimed at.
+    const xs = decl.people.filter((pr) => !pr.extra).map((pr) => where.personX(pr, t).x);
+    if (xs.length > 1 && v.zoom <= 1.5) {
+      const [lo, hi] = [Math.min(...xs) - 150, Math.max(...xs) + 150];
+      v.zoom = Math.max(1, Math.min(v.zoom, W / (hi - lo)));
+      const half = W / 2 / v.zoom;
+      v.cx = Math.min(Math.max(v.cx, Math.min(hi - half, W - half)), Math.max(lo + half, half));
+    }
     ctx.save();
     ctx.fillStyle = p.night;
     ctx.fillRect(0, 0, W, H);
