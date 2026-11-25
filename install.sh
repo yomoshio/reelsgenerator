@@ -29,6 +29,8 @@ gpu_packages() {
 
 driver() {
     as_root apt-mark unhold $(gpu_packages) >/dev/null 2>&1 || true
+    # A fresh box runs its own upgrades at boot and holds the package lock for minutes.
+    echo 'DPkg::Lock::Timeout "900";' | as_root tee /etc/apt/apt.conf.d/99-wait-for-lock >/dev/null
     as_root apt-get update
     as_root apt-get install -y "$DRIVER"
     echo "драйвер поставлен; перезагрузите машину и запустите ./install.sh снова"
