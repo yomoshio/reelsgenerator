@@ -20,7 +20,7 @@ from reelsmith.captions import WIDTH, Word
 from reelsmith.jobs import Context, Job
 from reelsmith.llm import LlmError, NoCode
 from reelsmith.runtime import Report
-from reelsmith.sheet import Sheet, after, compose, mend
+from reelsmith.sheet import Sheet, after, compose, mend, paced
 from reelsmith.sheet import faults as sheet_faults
 from reelsmith.story import Beat, Episode, Reveal, prompt
 from reelsmith.styles import Style
@@ -356,6 +356,7 @@ async def sheet_beat(
         report = None
         if not wrong:
             drawn = await drawings(ctx, sheet, known, {} if props is None else props)
+            sheet = paced(sheet, said)
             code = compose(sheet, kind, drawn, known)
             data = runtime.scene_input(
                 ep, n, code=code, words=timing.words, seconds=timing.seconds, style=style,

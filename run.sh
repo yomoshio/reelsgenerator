@@ -79,7 +79,7 @@ box() {
     key=${key/#\~/$HOME}
     dir=$(setting SERVER_DIR)
     dir=${dir:-/root/reelsmith}
-    local ssh=(ssh -i "$key" -p "${port:-22}" -o ServerAliveInterval=30)
+    local ssh=(ssh -i "$key" -p "${port:-22}" -o ServerAliveInterval=30 -o StrictHostKeyChecking=accept-new)
     local rsync=(rsync -a -e "ssh -i '$key' -p ${port:-22}")
     # Code goes to the server and jobs come back; weights are never copied. A push deletes
     # code files there that were deleted here and leaves the excluded paths alone: the thing

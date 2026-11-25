@@ -29,6 +29,8 @@ gpu_packages() {
 
 driver() {
     as_root apt-mark unhold $(gpu_packages) >/dev/null 2>&1 || true
+    # A fresh box runs its own upgrades at boot and holds the package lock for minutes.
+    echo 'DPkg::Lock::Timeout "900";' | as_root tee /etc/apt/apt.conf.d/99-wait-for-lock >/dev/null
     as_root apt-get update
     as_root apt-get install -y "$DRIVER"
     echo "драйвер поставлен; перезагрузите машину и запустите ./install.sh снова"
@@ -55,8 +57,13 @@ pipeline() {
     if ! command -v python3.12 >/dev/null && ! python3 -c 'import sys; sys.exit(sys.version_info < (3, 12))' 2>/dev/null; then
         # Ubuntu 22.04, the image of a rented box, ships Python 3.10.
         command -v add-apt-repository >/dev/null || as_root apt-get install -y software-properties-common
-        as_root add-apt-repository -y ppa:deadsnakes/ppa
-        as_root apt-get install -y python3.12 python3.12-venv
+        # The package archive answers 503 for hours at a time; uv brings the same Python
+        # from its own builds when it does.
+        if ! { as_root add-apt-repository -y ppa:deadsnakes/ppa && as_root apt-get install -y python3.12 python3.12-venv; }; then
+            curl -LsSf https://astral.sh/uv/install.sh | sh
+            "$HOME/.local/bin/uv" python install 3.12
+            as_root ln -sf "$("$HOME/.local/bin/uv" python find 3.12)" /usr/local/bin/python3.12
+        fi
     fi
     python=$(command -v python3.12 || command -v python3)
     "$python" -c 'import sys; sys.exit(sys.version_info < (3, 12))' \

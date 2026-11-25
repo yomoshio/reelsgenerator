@@ -6,7 +6,19 @@ import pytest
 from reelsmith import runtime, scenes
 from reelsmith.llm import closed
 from reelsmith.scenes import carried
-from reelsmith.sheet import Act, Change, Item, Sheet, Shot, Stand, after, compose, faults, mend
+from reelsmith.sheet import (
+    Act,
+    Change,
+    Item,
+    Sheet,
+    Shot,
+    Stand,
+    after,
+    compose,
+    faults,
+    mend,
+    paced,
+)
 from reelsmith.styles import Styles
 from tests.fakes import REPO, FakeLlm, context
 from tests.test_scenes import _episode, _timing
@@ -220,3 +232,22 @@ async def test_a_drawing_that_breaks_the_scene_is_dropped_and_the_thing_drawn_pl
     assert result.rounds == 1
     assert "nothing.here" not in result.code
     assert props == {"amulet": ""}
+
+
+def test_acts_with_no_word_are_laid_through_the_beat_in_order() -> None:
+    said = ["Моррис", "бросает", "лапу", "в", "огонь,", "но", "Уайт", "выхватывает", "её.", "Угли."]
+    sheet = Sheet(
+        place="room",
+        people=[],
+        acts=[
+            Act(who="white", does="sit", what="chair"),
+            Act(who="morris", does="walk", to="fireplace"),
+            Act(who="morris", does="throw", what="paw", to="fireplace"),
+            Act(who="white", does="take", what="paw"),
+        ],
+        changes=[Change(thing="fireplace", state=2)],
+    )
+    made = paced(sheet, said)
+    assert [a.on_word for a in made.acts] == ["", "", "в", "выхватывает"]
+    assert made.changes[0].on_word == "в"
+    assert paced(made, said) == made

@@ -16,7 +16,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && python3.10 -m venv /opt/venv
 
-RUN pip install "chatterbox-tts==${CHATTERBOX}" "fastapi>=0.115,<1" "uvicorn[standard]>=0.30" "soundfile>=0.12"
+RUN pip install "chatterbox-tts==${CHATTERBOX}" "ruaccent==1.6.0" "fastapi>=0.115,<1" "uvicorn[standard]>=0.30" "soundfile>=0.12"
+
+# Chatterbox pins torch 2.6, which has no code for the 50-series cards (a 5090, an RTX PRO
+# 5000): "no kernel image is available". 2.7 built for CUDA 12.8 runs on them and on the
+# older cards alike.
+RUN pip install "torch==2.7.1" "torchaudio==2.7.1" --index-url https://download.pytorch.org/whl/cu128
 
 WORKDIR /srv
 COPY services/voice/app.py ./

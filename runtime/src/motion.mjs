@@ -123,10 +123,21 @@ export function makeMotion(decl, place) {
     let { x, facing, walking } = walked(pr, t);
     // Looking at the thing in one's own hand would need one's own place to be found first:
     // while that is being worked out, the person faces the way they walked.
+    // Whoever sits by a table sits facing it, not with their back to it.
+    const seat = pr.sits.filter((st) => t >= st.t).at(-1)?.ref;
+    if (seat && seat.x !== null && !walking) {
+      const tables = decl.things.filter((q) => q !== seat && q.spec.parts.top && !q.base && q.x !== null && Math.abs(q.x - seat.x) < 0.35 * W);
+      const table = tables.sort((a, b) => Math.abs(a.x - seat.x) - Math.abs(b.x - seat.x))[0];
+      if (table && table.x !== seat.x) facing = table.x > seat.x ? 1 : -1;
+    }
     if (pr.looking) return { x, facing, walking };
     pr.looking = true;
     try {
       for (const l of pr.looks) if (t >= l.t) facing = lookFacing(l.target, x, facing, t);
+      // A hand that points or reaches turns the body with it: an arm does not cross the
+      // chest to a thing behind the back.
+      const now = pr.cues.filter((c) => t >= c.t).sort((a, b) => a.t - b.t).at(-1);
+      if (now?.target && !walking) facing = lookFacing(now.target, x, facing, t);
     } finally {
       pr.looking = false;
     }
@@ -191,6 +202,8 @@ export function makeMotion(decl, place) {
     const ref = target.__ref ?? target.ref ?? target;
     if (ref.kind === "thing") {
       const b = thingBox(ref, t);
+      // A pipe or a pole runs to the ceiling; a hand goes to it at chest height.
+      if (ref.spec.on === "tall") return [b[0] + b[2] / 2, FLOOR - 330];
       return [b[0] + b[2] / 2, b[1] + b[3] * 0.35];
     }
     if (ref.kind === "person") {
@@ -225,7 +238,15 @@ export function makeMotion(decl, place) {
         } finally {
           pr.aiming = false;
         }
-        if (cue.pose === "point") {
+        // A hand shown to someone standing close stops halfway, bent, at their chest: a
+        // straight arm would go through their face.
+        const who = cue.target.__ref ?? cue.target.ref ?? cue.target;
+        const near = Math.hypot(goal[0] - shoulder[0], goal[1] - shoulder[1]) < 0.42 * s;
+        if (who?.kind === "person" && near) {
+          const chest = [goal[0], goal[1] + 0.2 * s];
+          const short = [shoulder[0] + (chest[0] - shoulder[0]) * 0.5, shoulder[1] + (chest[1] - shoulder[1]) * 0.5];
+          [a.arm_n, a.fore_n] = rig.reach(shoulder, short, s, facing);
+        } else if (cue.pose === "point") {
           const ang = (Math.atan2((goal[0] - shoulder[0]) * facing, goal[1] - shoulder[1]) * 180) / Math.PI;
           a.arm_n = ang;
           a.fore_n = 0;

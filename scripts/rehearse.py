@@ -217,6 +217,10 @@ def handler(stand_in: StandIn) -> type[BaseHTTPRequestHandler]:
             elif self.path == "/speak":
                 text = json.loads(raw)["text"]
                 self._send(200, "audio/wav", silence(seconds(text)))
+            elif self.path == "/stress":
+                self._send(
+                    200, "application/json", json.dumps({"text": json.loads(raw)["text"]}).encode()
+                )
             elif self.path == "/words":
                 head = f"Content-Type: {self.headers['Content-Type']}\r\n\r\n".encode()
                 parts: dict[str, bytes] = {}

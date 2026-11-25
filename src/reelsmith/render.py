@@ -109,7 +109,7 @@ def encode_args(captions_file: str, fonts: Path, audio: Path, out: Path) -> list
             "-f", "rawvideo", "-pix_fmt", "rgba", "-s", f"{WIDTH}x{HEIGHT}", "-r", str(FPS),
             "-i", "pipe:0", "-i", str(audio),
             "-vf", f"ass=filename={captions_file}:fontsdir={fonts}",
-            "-map", "0:v", "-map", "1:a", "-c:v", "libx264", "-preset", "medium", "-crf", "19",
+            "-map", "0:v", "-map", "1:a", "-c:v", "libx264", "-preset", "medium", "-crf", "16",
             "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2",
             "-shortest", "-movflags", "+faststart", str(out)]  # fmt: skip
 

@@ -25,7 +25,8 @@ Plan in the order of the fields: each one rests on the one before.
   all of the story's time and place. A look never holds a thing in the hands or an action.
 - `places`: the two to four places where the episode happens. `key` is a short latin id,
   `name` is in {language}, `kind` is the nearest of room, stairwell, section (a cut
-  through a building), street, shop, outdoors, or custom when none fits. `look` is in
+  through a whole building with its floors, people drawn tiny: only when the story is
+  about several floors at once; a corridor, a hall or a cell is a room), street, shop, outdoors, or custom when none fits. `look` is in
   English: the period, the kind of place, its light, and the things that stand in it, such
   as "a small all-night grocery on the ground floor of a Russian apartment block, 2020s,
   harsh white tube lights, a counter by the glass door, a grey cash machine against the

@@ -58,7 +58,7 @@ def join_args(clips: list[Path], lengths: list[float], music: Path | None, out: 
     graph.append(f"{audio}{LOUDNESS},aresample=48000[audio]")
     return ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", *inputs,
             "-filter_complex", ";".join(graph), "-map", video, "-map", "[audio]",
-            "-c:v", "libx264", "-preset", "medium", "-crf", "19", "-pix_fmt", "yuv420p",
+            "-c:v", "libx264", "-preset", "medium", "-crf", "16", "-pix_fmt", "yuv420p",
             "-r", str(FPS), "-c:a", "aac", "-b:a", "192k", "-ar", "48000", "-ac", "2",
             "-movflags", "+faststart", str(out)]  # fmt: skip
 
@@ -86,7 +86,7 @@ async def card(settings: Settings, style: Style, ep: Episode, out: Path) -> Path
         "ffmpeg", "-y", "-hide_banner", "-loglevel", "error",
         "-f", "rawvideo", "-pix_fmt", "rgba", "-s", f"{WIDTH}x{HEIGHT}", "-r", str(FPS),
         "-i", "pipe:0", "-f", "lavfi", "-i", f"anullsrc=r=48000:cl=stereo:d={CARD_SECONDS}",
-        "-c:v", "libx264", "-crf", "19", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest",
+        "-c:v", "libx264", "-crf", "16", "-pix_fmt", "yuv420p", "-c:a", "aac", "-shortest",
         str(out),
         stdin=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE,
     )  # fmt: skip
