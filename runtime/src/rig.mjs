@@ -34,7 +34,7 @@ export const POSES = {
 };
 
 const SKIN = { light: "#E8C0A0", medium: "#C69670", dark: "#7A543A" };
-const RIM = "rgba(160,178,210,0.1)"; // the faint light from behind that lifts a figure off a dark wall
+const RIM = "rgba(206,218,240,0.6)"; // a thin light line round every part: a dark coat reads on a dark wall
 const OUT = "rgba(9,12,22,0.42)"; // the contour: a soft dark edge, never a black line
 
 // What a face shows. `tilt` turns the brows: above zero the inner ends go up, worry; below,
@@ -212,12 +212,12 @@ function capsule(ctx, a, b, wa, wb) {
 function limb(ctx, points, widths, colour, f) {
   const segs = points.slice(1).map((q, i) => [points[i], q, widths[i], widths[i + 1]]);
   for (const [a, b, wa, wb] of segs) {
-    capsule(ctx, a, b, wa + 7, wb + 7);
+    capsule(ctx, a, b, wa + 5, wb + 5);
     ctx.fillStyle = RIM;
     ctx.fill();
   }
   for (const [a, b, wa, wb] of segs) {
-    capsule(ctx, a, b, wa + 2.6, wb + 2.6);
+    capsule(ctx, a, b, wa + 1.4, wb + 1.4);
     ctx.fillStyle = OUT;
     ctx.fill();
   }
@@ -288,7 +288,7 @@ export function draw(ctx, b, card, alpha = 1) {
   const w = BUILD[card.build] ?? 1;
   // Clothes and skin lean to the colour of the air: a red coat in a dark room is a dark red.
   const skin = mix(SKIN[card.skin] ?? SKIN.light, AIR, 0.16);
-  const top = mix(card.top_colour, AIR, 0.3), legs = mix(card.bottom_colour, AIR, 0.34), shoes = mix(card.shoes_colour, AIR, 0.4);
+  const top = mix(card.top_colour, AIR, 0.14), legs = mix(card.bottom_colour, AIR, 0.16), shoes = mix(card.shoes_colour, AIR, 0.2);
   const long = card.bottom === "long_skirt" || card.top === "gown";
   const coat = card.top === "coat" || card.top === "raincoat";
   const bare = card.bottom === "shorts" || card.bottom === "skirt";
@@ -381,10 +381,10 @@ export function draw(ctx, b, card, alpha = 1) {
   ctx.quadraticCurveTo(right[0], right[1] - 0.012 * s, right[0], right[1] + 0.03 * s);
   ctx.quadraticCurveTo(waistR[0], waistR[1], ...hipR);
   ctx.closePath();
-  ctx.lineWidth = 9;
+  ctx.lineWidth = 5;
   ctx.strokeStyle = RIM;
   ctx.stroke();
-  ctx.lineWidth = 3;
+  ctx.lineWidth = 1.6;
   ctx.strokeStyle = OUT;
   ctx.stroke();
   ctx.fillStyle = lit(cloth, Math.min(left[0], hipL[0]), Math.max(right[0], hipR[0]));
@@ -524,10 +524,7 @@ function head(ctx, b, card, skin) {
     ctx.bezierCurveTo(hx - r * 0.3 * f, hy + r * 1.08 + grow, hx - (r + grow) * f, hy + r * 0.75, hx - (r + grow) * f, hy - r * 0.04);
     ctx.closePath();
   };
-  skull(5.5);
-  ctx.fillStyle = RIM;
-  ctx.fill();
-  skull(2.5);
+  skull(1.2);
   ctx.fillStyle = OUT;
   ctx.fill();
   const ear = [hx - r * 0.72 * f, hy + r * 0.16];
@@ -642,8 +639,8 @@ function head(ctx, b, card, skin) {
   if (face.includes("mustache")) stroke(ctx, [[mx - mw * 1.2, my - r * 0.14], [mx, my - r * 0.2], [mx + mw * 1.2, my - r * 0.14]], r * 0.13, hair);
 
   if (card.hair !== "bald" && card.hat !== "kerchief") {
-    // A cap of hair over the top and the back of the head, a fringe over the brow and a
-    // lighter lock on top.
+    // A cap of hair over the top and the back of the head and a fringe over the brow. No
+    // light lock on top: an arc of light there reads as the glass of a helmet.
     // The hair sits close to the skull and its line runs high over the brow: lower and
     // wider it reads as a helmet. An old head has less of it in front.
     const thin = card.age === "old" ? 0.1 : 0;
@@ -668,13 +665,6 @@ function head(ctx, b, card, skin) {
     ctx.stroke();
     ctx.fillStyle = hair;
     ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(...at(205, 0.86));
-    for (let deg = 205; deg <= 290; deg += 5) ctx.lineTo(...at(deg, 0.86));
-    ctx.lineWidth = r * 0.09;
-    ctx.lineCap = "round";
-    ctx.strokeStyle = shade(hair.startsWith("#") ? hair : "#2A2022", 1.28);
-    ctx.stroke();
   }
   if (card.hair === "bun") {
     disc(ctx, [hx - r * 0.55 * f, hy - r * 1.0], r * 0.4 + 2, OUT);

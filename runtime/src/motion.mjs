@@ -191,6 +191,8 @@ export function makeMotion(decl, place) {
     const ref = target.__ref ?? target.ref ?? target;
     if (ref.kind === "thing") {
       const b = thingBox(ref, t);
+      // A pipe or a pole runs to the ceiling; a hand goes to it at chest height.
+      if (ref.spec.on === "tall") return [b[0] + b[2] / 2, FLOOR - 330];
       return [b[0] + b[2] / 2, b[1] + b[3] * 0.35];
     }
     if (ref.kind === "person") {
