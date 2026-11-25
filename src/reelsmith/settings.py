@@ -28,7 +28,7 @@ class Settings(BaseSettings):
     voice_url: str = "http://localhost:8001"
     stress: Path = Field(
         default=Path("studio/stress.txt"),
-        description="Words with the stress marked by hand, «уж+е»; they overrule the marker.",
+        description="Words with the stress marked by hand; they overrule the marker.",
     )
 
     style: str = "blackout"

@@ -14,7 +14,7 @@ from reelsmith.text import bare
 MARK = "+"
 _WRITTEN = re.compile(r"[^\W\d_]+")
 _MARKED = re.compile(r"\+?[^\W\d_]+(?:\+[^\W\d_]+)*")
-_VOWELS = re.compile(r"[аеёиоуыэюя]", re.IGNORECASE)  # noqa: RUF001
+_VOWELS = re.compile(r"[аеёиоуыэюя]", re.IGNORECASE)
 
 
 def kept(text: str, marked: str) -> str:

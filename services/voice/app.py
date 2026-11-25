@@ -37,7 +37,7 @@ LANGUAGES = {"uk": "ru", "be": "ru"}
 MOST = 280
 PAUSE = 0.18
 ACCENTS = os.environ.get("RUACCENT_MODEL", "turbo3.1")
-_PLUS = re.compile(r"\+([аеёиоуыэюя])", re.IGNORECASE)  # noqa: RUF001
+_PLUS = re.compile(r"\+([аеёиоуыэюя])", re.IGNORECASE)
 
 app = FastAPI(title="voice")
 _lock = threading.Lock()
