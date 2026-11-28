@@ -5,6 +5,7 @@
 #   bash bench/box.sh comfy            поставить ComfyUI и запустить его на 127.0.0.1:8188
 #   bash bench/box.sh weights ltx      скачать веса: ltx, h3, dfr (тяжёлый режим LTX) или всё сразу
 #   bash bench/box.sh restart          перезапустить ComfyUI
+#   COMFY_ARGS="--reserve-vram 16" bash bench/box.sh restart   оставить карте 48 ГБ только 32
 #
 # Токен Hugging Face читается из /root/.hf-token (LTX-2.5 закрыт до принятия лицензии).
 set -euo pipefail
@@ -34,7 +35,8 @@ comfy() {
 restart() {
     pkill -f "$COMFY/main.py" 2>/dev/null || true
     sleep 2
-    nohup "$VENV/bin/python" "$COMFY/main.py" --listen 127.0.0.1 --port 8188 \
+    # shellcheck disable=SC2086
+    nohup "$VENV/bin/python" "$COMFY/main.py" --listen 127.0.0.1 --port 8188 ${COMFY_ARGS:-} \
         >"$COMFY/server.log" 2>&1 &
     for _ in $(seq 60); do
         curl -fsS -m 3 http://127.0.0.1:8188/system_stats >/dev/null 2>&1 && { echo "ComfyUI отвечает"; return; }

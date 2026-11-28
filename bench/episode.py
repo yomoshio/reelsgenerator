@@ -5,7 +5,9 @@
 The job gives the voice of every beat and when each word is said (voice/beatNN.wav and
 voice/timing.json); the clips folder gives beatNN.mp4, one for a beat. A clip is cut to its
 beat, or holds its last frame if it is short. Whatever sound the model made stays under the
-voice, quietly. Captions show three words at a time, the one being said in yellow."""
+voice, quietly; a model asked for silence still lets its people mumble, so such beats can be
+muted and one clean clip's sound laid under everything. Captions show three words at a
+time, the one being said in yellow."""
 
 import argparse
 import json
@@ -102,6 +104,11 @@ def main() -> None:
     parser.add_argument("clips", type=Path)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--ambient", type=float, default=0.15, help="the model's sound, 0 is off")
+    parser.add_argument(
+        "--mute", type=int, nargs="*", default=[], help="beats whose sound is dropped"
+    )
+    parser.add_argument("--bed", type=Path, help="a clip whose sound runs under the whole episode")
+    parser.add_argument("--bed-level", type=float, default=0.12)
     args = parser.parse_args()
     beats = json.loads((args.job / "voice" / "timing.json").read_text(encoding="utf-8"))["beats"]
     args.out.parent.mkdir(parents=True, exist_ok=True)
@@ -113,15 +120,23 @@ def main() -> None:
                 raise SystemExit(f"no clip for beat {n} in {args.clips}")
             part = Path(work) / f"{n:02d}.mkv"
             voice = args.job / "voice" / f"beat{n:02d}.wav"
-            subprocess.run(beat_args(clip, voice, beat["seconds"], args.ambient, part), check=True)
+            level = 0.0 if n in args.mute else args.ambient
+            subprocess.run(beat_args(clip, voice, beat["seconds"], level, part), check=True)
             parts.append(part)
         listing = Path(work) / "parts.txt"
         listing.write_text("".join(f"file '{part}'\n" for part in parts), encoding="utf-8")
         script = Path(work) / "said.ass"
         script.write_text(captions(beats), encoding="utf-8")
+        bed = ["-stream_loop", "-1", "-i", str(args.bed)] if args.bed else []
+        sound = (
+            ["-filter_complex", f"[1:a]aresample=48000,volume={args.bed_level}[bed];"
+             "[0:a][bed]amix=inputs=2:duration=first:normalize=0[a]", "-map", "0:v", "-map", "[a]"]
+            if args.bed else []
+        )  # fmt: skip
         subprocess.run(
             ["ffmpeg", "-y", "-hide_banner", "-loglevel", "error", "-f", "concat", "-safe", "0",
-             "-i", str(listing), "-vf", f"ass={script}", "-c:v", "libx264", "-crf", "16",
+             "-i", str(listing), *bed, *sound, "-vf", f"ass={script}",
+             "-c:v", "libx264", "-crf", "18",
              "-preset", "slow", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k",
              "-movflags", "+faststart", str(args.out)],
             check=True,

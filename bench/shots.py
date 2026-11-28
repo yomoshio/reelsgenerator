@@ -26,7 +26,9 @@ SHEETS = {
               "to the viewer, calm face. The background is one flat pale grey with nothing in it: "
               "no room, no street, no fire, no rain.",
     "place": "Wide establishing view of {look}. Nobody in the room.",
-    "thing": "Close view of {look}, lying on a dark wooden table under a warm lamp.",
+    "thing": "Prop reference: {look}, seen whole and alone, drawn flat in 2D with an ink outline "
+             "and cel shading, not a 3D render. The background is one flat pale grey "
+             "with nothing in it: no table, no lamp, no room.",
 }  # fmt: skip
 
 
@@ -83,7 +85,7 @@ def tests(story: dict, way: str, args: argparse.Namespace) -> list[dict]:
         return [
             {"name": key, "workflow": "image_minimax_h3_t2i", "seed": args.seed,
              "set": [*size, ["CLIPTextEncode", "text",
-                     f"{story['sheet_style' if kind(subject) == 'person' else 'style']}\n\n"
+                     f"{story['style' if kind(subject) == 'place' else 'sheet_style']}\n\n"
                      f"{SHEETS[kind(subject)].format(look=subject['look'])}\n\n{CLEAN}"]]}
             for key, subject in story["subjects"].items()
         ]  # fmt: skip

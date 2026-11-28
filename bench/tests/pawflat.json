@@ -1,0 +1,273 @@
+{
+ "job": "jobs/1125-68dbbb",
+ "style": "Flat vector animation for a mobile explainer: simple geometric shapes, flat fills with no gradients, thin light outlines, a dark navy and teal palette with one warm amber accent, minimal detail, clean and graphic, smooth motion-graphics movement. England, 1902.",
+ "sheet_style": "Character design for a flat vector animation: simple geometric shapes, flat fills with no gradients, thin light outlines, minimal detail.",
+ "subjects": {
+  "white": {
+   "name": "Mr White",
+   "look": "a thin man of sixty with a bald crown, grey hair at the sides, a long grey moustache and small round spectacles, in a dark green knitted cardigan over a white collarless shirt, brown trousers and slippers"
+  },
+  "herbert": {
+   "name": "Herbert",
+   "look": "a tall cheerful young man of twenty-two with tousled chestnut hair, clean-shaven, in a white shirt with rolled sleeves, a mustard waistcoat and dark trousers"
+  },
+  "morris": {
+   "name": "Sergeant-Major Morris",
+   "look": "a burly soldier of fifty-five with a ruddy weathered face, a thick white walrus moustache and side whiskers, short grey hair, in a long rain-soaked navy military greatcoat with brass buttons and a red scarf"
+  },
+  "parlour": {
+   "name": "the parlour",
+   "look": "a small Victorian parlour at night: a brick fireplace with a burning fire on the right, a tall sash window streaming with rain on the left, a round wooden table with a chessboard and an oil lamp in the middle, two wooden chairs, a worn armchair, faded patterned wallpaper, a door to the hall at the back",
+   "place": true
+  },
+  "paw": {
+   "name": "the monkey's paw",
+   "look": "a small mummified monkey's paw no bigger than a child's hand, dark brown and shrivelled, with thin curled fingers and black nails",
+   "thing": true
+  }
+ },
+ "beats": [
+  {
+   "who": [
+    "white",
+    "herbert",
+    "parlour"
+   ],
+   "scene": "A quiet evening at home while a storm beats on the house.",
+   "shots": [
+    [
+     1,
+     "seen from outside through the rain-streaked window, the camera slowly pushes in to the parlour, where Mr White and Herbert sit over a chessboard by the fire; Herbert moves a piece and grins, Mr White frowns at the board and strokes his moustache"
+    ]
+   ],
+   "audio": "heavy rain on glass, a fire crackling, the click of a chess piece"
+  },
+  {
+   "who": [
+    "white",
+    "herbert",
+    "morris",
+    "parlour"
+   ],
+   "scene": "A knock at the door: an old friend has come back from India.",
+   "shots": [
+    [
+     0.4,
+     "Mr White and Herbert at the chess table both turn their heads sharply toward the door at the back"
+    ],
+    [
+     0.6,
+     "the door swings open and Sergeant-Major Morris fills the doorway in his dripping greatcoat, rain and a flash of lightning behind him; Mr White rises and grips his hand warmly"
+    ]
+   ],
+   "audio": "three knocks on wood, rain, a roll of thunder, a door creaking"
+  },
+  {
+   "who": [
+    "morris",
+    "white",
+    "herbert",
+    "paw",
+    "parlour"
+   ],
+   "scene": "The soldier shows what he brought from India.",
+   "shots": [
+    [
+     1,
+     "close on the round table: Sergeant-Major Morris's big hand draws the monkey's paw out of his coat pocket and sets it down beside the chessboard under the oil lamp; Mr White and Herbert lean in over it, their faces lit from below"
+    ]
+   ],
+   "audio": "rain, fire crackling, a dry little thud on wood"
+  },
+  {
+   "who": [
+    "morris",
+    "white",
+    "herbert",
+    "paw",
+    "parlour"
+   ],
+   "scene": "The soldier tells the paw's story and it frightens him.",
+   "shots": [
+    [
+     0.55,
+     "medium close-up of Sergeant-Major Morris by the fire, his face grave and gone pale, slowly holding up three fingers as he talks, firelight flickering on him"
+    ],
+    [
+     0.45,
+     "Mr White and Herbert listen across the table, the monkey's paw lying in the foreground; Herbert's smile fades"
+    ]
+   ],
+   "audio": "rain, low fire, wind in the chimney"
+  },
+  {
+   "who": [
+    "morris",
+    "white",
+    "paw",
+    "parlour"
+   ],
+   "scene": "The soldier tries to destroy the paw and his host saves it.",
+   "shots": [
+    [
+     0.45,
+     "Sergeant-Major Morris flings the monkey's paw into the fireplace, sparks burst up"
+    ],
+    [
+     0.55,
+     "Mr White drops to one knee at the hearth and snatches the smoking paw out of the glowing coals, holding it up, Morris stares at him aghast"
+    ]
+   ],
+   "audio": "a whoosh of flame, sparks, rain"
+  },
+  {
+   "who": [
+    "morris",
+    "white",
+    "paw",
+    "parlour"
+   ],
+   "scene": "A warning, then the soldier leaves.",
+   "shots": [
+    [
+     0.5,
+     "Sergeant-Major Morris grips Mr White by the shoulder and points sternly at Mr White's right hand, which holds the monkey's paw"
+    ],
+    [
+     0.5,
+     "Morris turns up his collar in the open doorway and walks out into the pouring night, the door swinging shut behind him"
+    ]
+   ],
+   "audio": "rain getting louder as the door opens, the door shutting, fire"
+  },
+  {
+   "who": [
+    "herbert",
+    "white",
+    "paw",
+    "parlour"
+   ],
+   "scene": "The son makes light of it.",
+   "shots": [
+    [
+     1,
+     "Herbert leans on the table laughing, rubbing thumb and fingers together for money and nodding at the walls of the house; Mr White sits looking doubtfully at the monkey's paw in his hand"
+    ]
+   ],
+   "audio": "fire crackling, rain, a chair creaking"
+  },
+  {
+   "who": [
+    "white",
+    "herbert",
+    "paw",
+    "parlour"
+   ],
+   "scene": "The wish is made.",
+   "shots": [
+    [
+     1,
+     "low angle: Mr White stands up before the fire, raises the monkey's paw high in his clenched right fist and calls out, his mouth moving; the fire flares and huge shadows leap across the wallpaper; Herbert watches from the table"
+    ]
+   ],
+   "audio": "the fire roaring up, thunder, rain"
+  },
+  {
+   "who": [
+    "white",
+    "paw",
+    "parlour"
+   ],
+   "scene": "The paw moves.",
+   "shots": [
+    [
+     0.6,
+     "extreme close-up of Mr White's open right palm: the monkey's paw twists and its thin fingers curl like a snake"
+    ],
+    [
+     0.4,
+     "Mr White cries out, eyes wide, and drops it; the paw falls to the floorboards"
+    ]
+   ],
+   "audio": "a dry creaking, a thud on wood, rain"
+  },
+  {
+   "who": [
+    "white",
+    "herbert",
+    "paw",
+    "parlour"
+   ],
+   "scene": "Nothing has happened.",
+   "shots": [
+    [
+     1,
+     "the monkey's paw lies on the bare floorboards in the foreground; behind it Mr White and Herbert look around the empty floor, Herbert spreads his hands and shrugs"
+    ]
+   ],
+   "audio": "rain easing, fire low"
+  },
+  {
+   "who": [
+    "herbert",
+    "white",
+    "parlour"
+   ],
+   "scene": "A joke before bed.",
+   "shots": [
+    [
+     1,
+     "Herbert, grinning, claps Mr White on the shoulder, points up toward the ceiling, takes a lit candle from the table and walks to the door at the back"
+    ]
+   ],
+   "audio": "footsteps on boards, fire low, rain"
+  },
+  {
+   "who": [
+    "white",
+    "parlour"
+   ],
+   "scene": "The house has gone to bed. One man stays.",
+   "shots": [
+    [
+     1,
+     "wide shot of the parlour late at night: the oil lamp is out and the fire has burned down to dull red embers, the room lies in deep blue shadow; Mr White sits alone and still in the armchair facing the fireplace, rain running down the window; the camera slowly pushes in on him"
+    ]
+   ],
+   "audio": "embers ticking, soft rain, a clock"
+  },
+  {
+   "who": [
+    "white",
+    "paw",
+    "parlour"
+   ],
+   "scene": "The paw is not still. One close-up for the whole shot, no wide view of the room.",
+   "shots": [
+    [
+     1,
+     "a single held close-up lit by red embers: Mr White's hand rests on the arm of the armchair and holds the monkey's paw; the paw's thin fingers twitch and tremble; his thumb tightens over it"
+    ]
+   ],
+   "audio": "embers ticking, a faint dry scratching"
+  },
+  {
+   "who": [
+    "white",
+    "parlour"
+   ],
+   "scene": "A face in the fire.",
+   "shots": [
+    [
+     0.5,
+     "close on the glowing coals in the fireplace: a grinning monkey's face forms in the embers, its eyes burning brighter"
+    ],
+    [
+     0.5,
+     "Mr White recoils in the armchair, seizes a glass of water from the table and throws it on the fire; steam bursts up and the room goes dark"
+    ]
+   ],
+   "audio": "a low hiss, a sharp hiss of steam, silence"
+  }
+ ]
+}
