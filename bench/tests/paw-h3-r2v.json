@@ -1,0 +1,598 @@
+[
+ {
+  "name": "beat01",
+  "seed": 8,
+  "workflow": "video_minimax_h3_r2v",
+  "refs": [
+   "out/refs/white.png",
+   "out/refs/herbert.png",
+   "out/refs/parlour.png"
+  ],
+  "set": [
+   [
+    "ResolutionSelector",
+    "aspect_ratio",
+    "9:16 (Portrait Widescreen)"
+   ],
+   [
+    "ResolutionSelector",
+    "megapixels",
+    0.98
+   ],
+   [
+    "ResolutionSelector",
+    "multiple",
+    32
+   ],
+   [
+    "Boolean (Enable Lightning LoRA)",
+    "value",
+    false
+   ],
+   [
+    "Float (Duration)",
+    "value",
+    5.67
+   ],
+   [
+    "Input Text (Prompt)",
+    "value",
+    "2D hand-drawn animated film in the manner of a gothic storybook: confident clean ink outlines, cel-shaded colour over painted gouache textures, richly detailed backgrounds, warm amber firelight against the cold blue of a rainy night, deep soft shadows, fluid full animation at 24 frames. England, 1902.\n\nsubject_definitions:\n<Picture 1> is Mr White: a thin man of sixty with a bald crown, grey hair at the sides, a long grey moustache and small round spectacles, in a dark green knitted cardigan over a white collarless shirt, brown trousers and slippers.\n<Picture 2> is Herbert: a tall cheerful young man of twenty-two with tousled chestnut hair, clean-shaven, in a white shirt with rolled sleeves, a mustard waistcoat and dark trousers.\n<Picture 3> is the place, the parlour: a small Victorian parlour at night: a brick fireplace with a burning fire on the right, a tall sash window streaming with rain on the left, a round wooden table with a chessboard and an oil lamp in the middle, two wooden chairs, a worn armchair, faded patterned wallpaper, a door to the hall at the back.\n\nScene overview: A quiet evening at home while a storm beats on the house. Everyone and everything looks as in the pictures.\n\nStoryboard:\n[0.0s-5.7s] Shot 1: seen from outside through the rain-streaked window, the camera slowly pushes in to the parlour, where Mr White and Herbert sit over a chessboard by the fire; Herbert moves a piece and grins, Mr White frowns at the board and strokes his moustache.\n\nAudio: heavy rain on glass, a fire crackling, the click of a chess piece. No speech, no narration, no singing and no music.\n\nNo text, captions, subtitles, logos or watermarks anywhere. Vertical frame: faces and the main action stay in the upper two thirds."
+   ]
+  ]
+ },
+ {
+  "name": "beat02",
+  "seed": 9,
+  "workflow": "video_minimax_h3_r2v",
+  "refs": [
+   "out/refs/white.png",
+   "out/refs/herbert.png",
+   "out/refs/morris.png",
+   "out/refs/parlour.png"
+  ],
+  "set": [
+   [
+    "ResolutionSelector",
+    "aspect_ratio",
+    "9:16 (Portrait Widescreen)"
+   ],
+   [
+    "ResolutionSelector",
+    "megapixels",
+    0.98
+   ],
+   [
+    "ResolutionSelector",
+    "multiple",
+    32
+   ],
+   [
+    "Boolean (Enable Lightning LoRA)",
+    "value",
+    false
+   ],
+   [
+    "Float (Duration)",
+    "value",
+    6.35
+   ],
+   [
+    "Input Text (Prompt)",
+    "value",
+    "2D hand-drawn animated film in the manner of a gothic storybook: confident clean ink outlines, cel-shaded colour over painted gouache textures, richly detailed backgrounds, warm amber firelight against the cold blue of a rainy night, deep soft shadows, fluid full animation at 24 frames. England, 1902.\n\nsubject_definitions:\n<Picture 1> is Mr White: a thin man of sixty with a bald crown, grey hair at the sides, a long grey moustache and small round spectacles, in a dark green knitted cardigan over a white collarless shirt, brown trousers and slippers.\n<Picture 2> is Herbert: a tall cheerful young man of twenty-two with tousled chestnut hair, clean-shaven, in a white shirt with rolled sleeves, a mustard waistcoat and dark trousers.\n<Picture 3> is Sergeant-Major Morris: a burly soldier of fifty-five with a ruddy weathered face, a thick white walrus moustache and side whiskers, short grey hair, in a long rain-soaked navy military greatcoat with brass buttons and a red scarf.\n<Picture 4> is the place, the parlour: a small Victorian parlour at night: a brick fireplace with a burning fire on the right, a tall sash window streaming with rain on the left, a round wooden table with a chessboard and an oil lamp in the middle, two wooden chairs, a worn armchair, faded patterned wallpaper, a door to the hall at the back.\n\nScene overview: A knock at the door: an old friend has come back from India. Everyone and everything looks as in the pictures.\n\nStoryboard:\n[0.0s-2.5s] Shot 1: Mr White and Herbert at the chess table both turn their heads sharply toward the door at the back.\n[2.5s-6.3s] Shot 2: the door swings open and Sergeant-Major Morris fills the doorway in his dripping greatcoat, rain and a flash of lightning behind him; Mr White rises and grips his hand warmly.\n\nAudio: three knocks on wood, rain, a roll of thunder, a door creaking. No speech, no narration, no singing and no music.\n\nNo text, captions, subtitles, logos or watermarks anywhere. Vertical frame: faces and the main action stay in the upper two thirds."
+   ]
+  ]
+ },
+ {
+  "name": "beat03",
+  "seed": 10,
+  "workflow": "video_minimax_h3_r2v",
+  "refs": [
+   "out/refs/morris.png",
+   "out/refs/white.png",
+   "out/refs/herbert.png",
+   "out/refs/paw.png",
+   "out/refs/parlour.png"
+  ],
+  "set": [
+   [
+    "ResolutionSelector",
+    "aspect_ratio",
+    "9:16 (Portrait Widescreen)"
+   ],
+   [
+    "ResolutionSelector",
+    "megapixels",
+    0.98
+   ],
+   [
+    "ResolutionSelector",
+    "multiple",
+    32
+   ],
+   [
+    "Boolean (Enable Lightning LoRA)",
+    "value",
+    false
+   ],
+   [
+    "Float (Duration)",
+    "value",
+    5.39
+   ],
+   [
+    "Input Text (Prompt)",
+    "value",
+    "2D hand-drawn animated film in the manner of a gothic storybook: confident clean ink outlines, cel-shaded colour over painted gouache textures, richly detailed backgrounds, warm amber firelight against the cold blue of a rainy night, deep soft shadows, fluid full animation at 24 frames. England, 1902.\n\nsubject_definitions:\n<Picture 1> is Sergeant-Major Morris: a burly soldier of fifty-five with a ruddy weathered face, a thick white walrus moustache and side whiskers, short grey hair, in a long rain-soaked navy military greatcoat with brass buttons and a red scarf.\n<Picture 2> is Mr White: a thin man of sixty with a bald crown, grey hair at the sides, a long grey moustache and small round spectacles, in a dark green knitted cardigan over a white collarless shirt, brown trousers and slippers.\n<Picture 3> is Herbert: a tall cheerful young man of twenty-two with tousled chestnut hair, clean-shaven, in a white shirt with rolled sleeves, a mustard waistcoat and dark trousers.\n<Picture 4> is the thing, the monkey's paw: a small mummified monkey's paw, dark brown and shrivelled, with thin curled fingers and black nails.\n<Picture 5> is the place, the parlour: a small Victorian parlour at night: a brick fireplace with a burning fire on the right, a tall sash window streaming with rain on the left, a round wooden table with a chessboard and an oil lamp in the middle, two wooden chairs, a worn armchair, faded patterned wallpaper, a door to the hall at the back.\n\nScene overview: The soldier shows what he brought from India. Everyone and everything looks as in the pictures.\n\nStoryboard:\n[0.0s-5.4s] Shot 1: close on the round table: Sergeant-Major Morris's big hand draws the monkey's paw out of his coat pocket and sets it down beside the chessboard under the oil lamp; Mr White and Herbert lean in over it, their faces lit from below.\n\nAudio: rain, fire crackling, a dry little thud on wood. No speech, no narration, no singing and no music.\n\nNo text, captions, subtitles, logos or watermarks anywhere. Vertical frame: faces and the main action stay in the upper two thirds."
+   ]
+  ]
+ },
+ {
+  "name": "beat04",
+  "seed": 11,
+  "workflow": "video_minimax_h3_r2v",
+  "refs": [
+   "out/refs/morris.png",
+   "out/refs/white.png",
+   "out/refs/herbert.png",
+   "out/refs/paw.png",
+   "out/refs/parlour.png"
+  ],
+  "set": [
+   [
+    "ResolutionSelector",
+    "aspect_ratio",
+    "9:16 (Portrait Widescreen)"
+   ],
+   [
+    "ResolutionSelector",
+    "megapixels",
+    0.98
+   ],
+   [
+    "ResolutionSelector",
+    "multiple",
+    32
+   ],
+   [
+    "Boolean (Enable Lightning LoRA)",
+    "value",
+    false
+   ],
+   [
+    "Float (Duration)",
+    "value",
+    7.59
+   ],
+   [
+    "Input Text (Prompt)",
+    "value",
+    "2D hand-drawn animated film in the manner of a gothic storybook: confident clean ink outlines, cel-shaded colour over painted gouache textures, richly detailed backgrounds, warm amber firelight against the cold blue of a rainy night, deep soft shadows, fluid full animation at 24 frames. England, 1902.\n\nsubject_definitions:\n<Picture 1> is Sergeant-Major Morris: a burly soldier of fifty-five with a ruddy weathered face, a thick white walrus moustache and side whiskers, short grey hair, in a long rain-soaked navy military greatcoat with brass buttons and a red scarf.\n<Picture 2> is Mr White: a thin man of sixty with a bald crown, grey hair at the sides, a long grey moustache and small round spectacles, in a dark green knitted cardigan over a white collarless shirt, brown trousers and slippers.\n<Picture 3> is Herbert: a tall cheerful young man of twenty-two with tousled chestnut hair, clean-shaven, in a white shirt with rolled sleeves, a mustard waistcoat and dark trousers.\n<Picture 4> is the thing, the monkey's paw: a small mummified monkey's paw, dark brown and shrivelled, with thin curled fingers and black nails.\n<Picture 5> is the place, the parlour: a small Victorian parlour at night: a brick fireplace with a burning fire on the right, a tall sash window streaming with rain on the left, a round wooden table with a chessboard and an oil lamp in the middle, two wooden chairs, a worn armchair, faded patterned wallpaper, a door to the hall at the back.\n\nScene overview: The soldier tells the paw's story and it frightens him. Everyone and everything looks as in the pictures.\n\nStoryboard:\n[0.0s-4.2s] Shot 1: medium close-up of Sergeant-Major Morris by the fire, his face grave and gone pale, slowly holding up three fingers as he talks, firelight flickering on him.\n[4.2s-7.6s] Shot 2: Mr White and Herbert listen across the table, the monkey's paw lying in the foreground; Herbert's smile fades.\n\nAudio: rain, low fire, wind in the chimney. No speech, no narration, no singing and no music.\n\nNo text, captions, subtitles, logos or watermarks anywhere. Vertical frame: faces and the main action stay in the upper two thirds."
+   ]
+  ]
+ },
+ {
+  "name": "beat05",
+  "seed": 12,
+  "workflow": "video_minimax_h3_r2v",
+  "refs": [
+   "out/refs/morris.png",
+   "out/refs/white.png",
+   "out/refs/paw.png",
+   "out/refs/parlour.png"
+  ],
+  "set": [
+   [
+    "ResolutionSelector",
+    "aspect_ratio",
+    "9:16 (Portrait Widescreen)"
+   ],
+   [
+    "ResolutionSelector",
+    "megapixels",
+    0.98
+   ],
+   [
+    "ResolutionSelector",
+    "multiple",
+    32
+   ],
+   [
+    "Boolean (Enable Lightning LoRA)",
+    "value",
+    false
+   ],
+   [
+    "Float (Duration)",
+    "value",
+    5.87
+   ],
+   [
+    "Input Text (Prompt)",
+    "value",
+    "2D hand-drawn animated film in the manner of a gothic storybook: confident clean ink outlines, cel-shaded colour over painted gouache textures, richly detailed backgrounds, warm amber firelight against the cold blue of a rainy night, deep soft shadows, fluid full animation at 24 frames. England, 1902.\n\nsubject_definitions:\n<Picture 1> is Sergeant-Major Morris: a burly soldier of fifty-five with a ruddy weathered face, a thick white walrus moustache and side whiskers, short grey hair, in a long rain-soaked navy military greatcoat with brass buttons and a red scarf.\n<Picture 2> is Mr White: a thin man of sixty with a bald crown, grey hair at the sides, a long grey moustache and small round spectacles, in a dark green knitted cardigan over a white collarless shirt, brown trousers and slippers.\n<Picture 3> is the thing, the monkey's paw: a small mummified monkey's paw, dark brown and shrivelled, with thin curled fingers and black nails.\n<Picture 4> is the place, the parlour: a small Victorian parlour at night: a brick fireplace with a burning fire on the right, a tall sash window streaming with rain on the left, a round wooden table with a chessboard and an oil lamp in the middle, two wooden chairs, a worn armchair, faded patterned wallpaper, a door to the hall at the back.\n\nScene overview: The soldier tries to destroy the paw and his host saves it. Everyone and everything looks as in the pictures.\n\nStoryboard:\n[0.0s-2.6s] Shot 1: Sergeant-Major Morris flings the monkey's paw into the fireplace, sparks burst up.\n[2.6s-5.9s] Shot 2: Mr White drops to one knee at the hearth and snatches the smoking paw out of the glowing coals, holding it up, Morris stares at him aghast.\n\nAudio: a whoosh of flame, sparks, rain. No speech, no narration, no singing and no music.\n\nNo text, captions, subtitles, logos or watermarks anywhere. Vertical frame: faces and the main action stay in the upper two thirds."
+   ]
+  ]
+ },
+ {
+  "name": "beat06",
+  "seed": 13,
+  "workflow": "video_minimax_h3_r2v",
+  "refs": [
+   "out/refs/morris.png",
+   "out/refs/white.png",
+   "out/refs/paw.png",
+   "out/refs/parlour.png"
+  ],
+  "set": [
+   [
+    "ResolutionSelector",
+    "aspect_ratio",
+    "9:16 (Portrait Widescreen)"
+   ],
+   [
+    "ResolutionSelector",
+    "megapixels",
+    0.98
+   ],
+   [
+    "ResolutionSelector",
+    "multiple",
+    32
+   ],
+   [
+    "Boolean (Enable Lightning LoRA)",
+    "value",
+    false
+   ],
+   [
+    "Float (Duration)",
+    "value",
+    6.79
+   ],
+   [
+    "Input Text (Prompt)",
+    "value",
+    "2D hand-drawn animated film in the manner of a gothic storybook: confident clean ink outlines, cel-shaded colour over painted gouache textures, richly detailed backgrounds, warm amber firelight against the cold blue of a rainy night, deep soft shadows, fluid full animation at 24 frames. England, 1902.\n\nsubject_definitions:\n<Picture 1> is Sergeant-Major Morris: a burly soldier of fifty-five with a ruddy weathered face, a thick white walrus moustache and side whiskers, short grey hair, in a long rain-soaked navy military greatcoat with brass buttons and a red scarf.\n<Picture 2> is Mr White: a thin man of sixty with a bald crown, grey hair at the sides, a long grey moustache and small round spectacles, in a dark green knitted cardigan over a white collarless shirt, brown trousers and slippers.\n<Picture 3> is the thing, the monkey's paw: a small mummified monkey's paw, dark brown and shrivelled, with thin curled fingers and black nails.\n<Picture 4> is the place, the parlour: a small Victorian parlour at night: a brick fireplace with a burning fire on the right, a tall sash window streaming with rain on the left, a round wooden table with a chessboard and an oil lamp in the middle, two wooden chairs, a worn armchair, faded patterned wallpaper, a door to the hall at the back.\n\nScene overview: A warning, then the soldier leaves. Everyone and everything looks as in the pictures.\n\nStoryboard:\n[0.0s-3.4s] Shot 1: Sergeant-Major Morris grips Mr White by the shoulder and points sternly at Mr White's right hand, which holds the monkey's paw.\n[3.4s-6.8s] Shot 2: Morris turns up his collar in the open doorway and walks out into the pouring night, the door swinging shut behind him.\n\nAudio: rain getting louder as the door opens, the door shutting, fire. No speech, no narration, no singing and no music.\n\nNo text, captions, subtitles, logos or watermarks anywhere. Vertical frame: faces and the main action stay in the upper two thirds."
+   ]
+  ]
+ },
+ {
+  "name": "beat07",
+  "seed": 14,
+  "workflow": "video_minimax_h3_r2v",
+  "refs": [
+   "out/refs/herbert.png",
+   "out/refs/white.png",
+   "out/refs/paw.png",
+   "out/refs/parlour.png"
+  ],
+  "set": [
+   [
+    "ResolutionSelector",
+    "aspect_ratio",
+    "9:16 (Portrait Widescreen)"
+   ],
+   [
+    "ResolutionSelector",
+    "megapixels",
+    0.98
+   ],
+   [
+    "ResolutionSelector",
+    "multiple",
+    32
+   ],
+   [
+    "Boolean (Enable Lightning LoRA)",
+    "value",
+    false
+   ],
+   [
+    "Float (Duration)",
+    "value",
+    5.0
+   ],
+   [
+    "Input Text (Prompt)",
+    "value",
+    "2D hand-drawn animated film in the manner of a gothic storybook: confident clean ink outlines, cel-shaded colour over painted gouache textures, richly detailed backgrounds, warm amber firelight against the cold blue of a rainy night, deep soft shadows, fluid full animation at 24 frames. England, 1902.\n\nsubject_definitions:\n<Picture 1> is Herbert: a tall cheerful young man of twenty-two with tousled chestnut hair, clean-shaven, in a white shirt with rolled sleeves, a mustard waistcoat and dark trousers.\n<Picture 2> is Mr White: a thin man of sixty with a bald crown, grey hair at the sides, a long grey moustache and small round spectacles, in a dark green knitted cardigan over a white collarless shirt, brown trousers and slippers.\n<Picture 3> is the thing, the monkey's paw: a small mummified monkey's paw, dark brown and shrivelled, with thin curled fingers and black nails.\n<Picture 4> is the place, the parlour: a small Victorian parlour at night: a brick fireplace with a burning fire on the right, a tall sash window streaming with rain on the left, a round wooden table with a chessboard and an oil lamp in the middle, two wooden chairs, a worn armchair, faded patterned wallpaper, a door to the hall at the back.\n\nScene overview: The son makes light of it. Everyone and everything looks as in the pictures.\n\nStoryboard:\n[0.0s-5.0s] Shot 1: Herbert leans on the table laughing, rubbing thumb and fingers together for money and nodding at the walls of the house; Mr White sits looking doubtfully at the monkey's paw in his hand.\n\nAudio: fire crackling, rain, a chair creaking. No speech, no narration, no singing and no music.\n\nNo text, captions, subtitles, logos or watermarks anywhere. Vertical frame: faces and the main action stay in the upper two thirds."
+   ]
+  ]
+ },
+ {
+  "name": "beat08",
+  "seed": 15,
+  "workflow": "video_minimax_h3_r2v",
+  "refs": [
+   "out/refs/white.png",
+   "out/refs/herbert.png",
+   "out/refs/paw.png",
+   "out/refs/parlour.png"
+  ],
+  "set": [
+   [
+    "ResolutionSelector",
+    "aspect_ratio",
+    "9:16 (Portrait Widescreen)"
+   ],
+   [
+    "ResolutionSelector",
+    "megapixels",
+    0.98
+   ],
+   [
+    "ResolutionSelector",
+    "multiple",
+    32
+   ],
+   [
+    "Boolean (Enable Lightning LoRA)",
+    "value",
+    false
+   ],
+   [
+    "Float (Duration)",
+    "value",
+    6.43
+   ],
+   [
+    "Input Text (Prompt)",
+    "value",
+    "2D hand-drawn animated film in the manner of a gothic storybook: confident clean ink outlines, cel-shaded colour over painted gouache textures, richly detailed backgrounds, warm amber firelight against the cold blue of a rainy night, deep soft shadows, fluid full animation at 24 frames. England, 1902.\n\nsubject_definitions:\n<Picture 1> is Mr White: a thin man of sixty with a bald crown, grey hair at the sides, a long grey moustache and small round spectacles, in a dark green knitted cardigan over a white collarless shirt, brown trousers and slippers.\n<Picture 2> is Herbert: a tall cheerful young man of twenty-two with tousled chestnut hair, clean-shaven, in a white shirt with rolled sleeves, a mustard waistcoat and dark trousers.\n<Picture 3> is the thing, the monkey's paw: a small mummified monkey's paw, dark brown and shrivelled, with thin curled fingers and black nails.\n<Picture 4> is the place, the parlour: a small Victorian parlour at night: a brick fireplace with a burning fire on the right, a tall sash window streaming with rain on the left, a round wooden table with a chessboard and an oil lamp in the middle, two wooden chairs, a worn armchair, faded patterned wallpaper, a door to the hall at the back.\n\nScene overview: The wish is made. Everyone and everything looks as in the pictures.\n\nStoryboard:\n[0.0s-6.4s] Shot 1: low angle: Mr White stands up before the fire, raises the monkey's paw high in his clenched right fist and calls out, his mouth moving; the fire flares and huge shadows leap across the wallpaper; Herbert watches from the table.\n\nAudio: the fire roaring up, thunder, rain. No speech, no narration, no singing and no music.\n\nNo text, captions, subtitles, logos or watermarks anywhere. Vertical frame: faces and the main action stay in the upper two thirds."
+   ]
+  ]
+ },
+ {
+  "name": "beat09",
+  "seed": 16,
+  "workflow": "video_minimax_h3_r2v",
+  "refs": [
+   "out/refs/white.png",
+   "out/refs/paw.png",
+   "out/refs/parlour.png"
+  ],
+  "set": [
+   [
+    "ResolutionSelector",
+    "aspect_ratio",
+    "9:16 (Portrait Widescreen)"
+   ],
+   [
+    "ResolutionSelector",
+    "megapixels",
+    0.98
+   ],
+   [
+    "ResolutionSelector",
+    "multiple",
+    32
+   ],
+   [
+    "Boolean (Enable Lightning LoRA)",
+    "value",
+    false
+   ],
+   [
+    "Float (Duration)",
+    "value",
+    7.51
+   ],
+   [
+    "Input Text (Prompt)",
+    "value",
+    "2D hand-drawn animated film in the manner of a gothic storybook: confident clean ink outlines, cel-shaded colour over painted gouache textures, richly detailed backgrounds, warm amber firelight against the cold blue of a rainy night, deep soft shadows, fluid full animation at 24 frames. England, 1902.\n\nsubject_definitions:\n<Picture 1> is Mr White: a thin man of sixty with a bald crown, grey hair at the sides, a long grey moustache and small round spectacles, in a dark green knitted cardigan over a white collarless shirt, brown trousers and slippers.\n<Picture 2> is the thing, the monkey's paw: a small mummified monkey's paw, dark brown and shrivelled, with thin curled fingers and black nails.\n<Picture 3> is the place, the parlour: a small Victorian parlour at night: a brick fireplace with a burning fire on the right, a tall sash window streaming with rain on the left, a round wooden table with a chessboard and an oil lamp in the middle, two wooden chairs, a worn armchair, faded patterned wallpaper, a door to the hall at the back.\n\nScene overview: The paw moves. Everyone and everything looks as in the pictures.\n\nStoryboard:\n[0.0s-4.5s] Shot 1: extreme close-up of Mr White's open right palm: the monkey's paw twists and its thin fingers curl like a snake.\n[4.5s-7.5s] Shot 2: Mr White cries out, eyes wide, and drops it; the paw falls to the floorboards.\n\nAudio: a dry creaking, a thud on wood, rain. No speech, no narration, no singing and no music.\n\nNo text, captions, subtitles, logos or watermarks anywhere. Vertical frame: faces and the main action stay in the upper two thirds."
+   ]
+  ]
+ },
+ {
+  "name": "beat10",
+  "seed": 17,
+  "workflow": "video_minimax_h3_r2v",
+  "refs": [
+   "out/refs/white.png",
+   "out/refs/herbert.png",
+   "out/refs/paw.png",
+   "out/refs/parlour.png"
+  ],
+  "set": [
+   [
+    "ResolutionSelector",
+    "aspect_ratio",
+    "9:16 (Portrait Widescreen)"
+   ],
+   [
+    "ResolutionSelector",
+    "megapixels",
+    0.98
+   ],
+   [
+    "ResolutionSelector",
+    "multiple",
+    32
+   ],
+   [
+    "Boolean (Enable Lightning LoRA)",
+    "value",
+    false
+   ],
+   [
+    "Float (Duration)",
+    "value",
+    5.0
+   ],
+   [
+    "Input Text (Prompt)",
+    "value",
+    "2D hand-drawn animated film in the manner of a gothic storybook: confident clean ink outlines, cel-shaded colour over painted gouache textures, richly detailed backgrounds, warm amber firelight against the cold blue of a rainy night, deep soft shadows, fluid full animation at 24 frames. England, 1902.\n\nsubject_definitions:\n<Picture 1> is Mr White: a thin man of sixty with a bald crown, grey hair at the sides, a long grey moustache and small round spectacles, in a dark green knitted cardigan over a white collarless shirt, brown trousers and slippers.\n<Picture 2> is Herbert: a tall cheerful young man of twenty-two with tousled chestnut hair, clean-shaven, in a white shirt with rolled sleeves, a mustard waistcoat and dark trousers.\n<Picture 3> is the thing, the monkey's paw: a small mummified monkey's paw, dark brown and shrivelled, with thin curled fingers and black nails.\n<Picture 4> is the place, the parlour: a small Victorian parlour at night: a brick fireplace with a burning fire on the right, a tall sash window streaming with rain on the left, a round wooden table with a chessboard and an oil lamp in the middle, two wooden chairs, a worn armchair, faded patterned wallpaper, a door to the hall at the back.\n\nScene overview: Nothing has happened. Everyone and everything looks as in the pictures.\n\nStoryboard:\n[0.0s-5.0s] Shot 1: the monkey's paw lies on the bare floorboards in the foreground; behind it Mr White and Herbert look around the empty floor, Herbert spreads his hands and shrugs.\n\nAudio: rain easing, fire low. No speech, no narration, no singing and no music.\n\nNo text, captions, subtitles, logos or watermarks anywhere. Vertical frame: faces and the main action stay in the upper two thirds."
+   ]
+  ]
+ },
+ {
+  "name": "beat11",
+  "seed": 18,
+  "workflow": "video_minimax_h3_r2v",
+  "refs": [
+   "out/refs/herbert.png",
+   "out/refs/white.png",
+   "out/refs/parlour.png"
+  ],
+  "set": [
+   [
+    "ResolutionSelector",
+    "aspect_ratio",
+    "9:16 (Portrait Widescreen)"
+   ],
+   [
+    "ResolutionSelector",
+    "megapixels",
+    0.98
+   ],
+   [
+    "ResolutionSelector",
+    "multiple",
+    32
+   ],
+   [
+    "Boolean (Enable Lightning LoRA)",
+    "value",
+    false
+   ],
+   [
+    "Float (Duration)",
+    "value",
+    5.0
+   ],
+   [
+    "Input Text (Prompt)",
+    "value",
+    "2D hand-drawn animated film in the manner of a gothic storybook: confident clean ink outlines, cel-shaded colour over painted gouache textures, richly detailed backgrounds, warm amber firelight against the cold blue of a rainy night, deep soft shadows, fluid full animation at 24 frames. England, 1902.\n\nsubject_definitions:\n<Picture 1> is Herbert: a tall cheerful young man of twenty-two with tousled chestnut hair, clean-shaven, in a white shirt with rolled sleeves, a mustard waistcoat and dark trousers.\n<Picture 2> is Mr White: a thin man of sixty with a bald crown, grey hair at the sides, a long grey moustache and small round spectacles, in a dark green knitted cardigan over a white collarless shirt, brown trousers and slippers.\n<Picture 3> is the place, the parlour: a small Victorian parlour at night: a brick fireplace with a burning fire on the right, a tall sash window streaming with rain on the left, a round wooden table with a chessboard and an oil lamp in the middle, two wooden chairs, a worn armchair, faded patterned wallpaper, a door to the hall at the back.\n\nScene overview: A joke before bed. Everyone and everything looks as in the pictures.\n\nStoryboard:\n[0.0s-5.0s] Shot 1: Herbert, grinning, claps Mr White on the shoulder, points up toward the ceiling, takes a lit candle from the table and walks to the door at the back.\n\nAudio: footsteps on boards, fire low, rain. No speech, no narration, no singing and no music.\n\nNo text, captions, subtitles, logos or watermarks anywhere. Vertical frame: faces and the main action stay in the upper two thirds."
+   ]
+  ]
+ },
+ {
+  "name": "beat12",
+  "seed": 19,
+  "workflow": "video_minimax_h3_r2v",
+  "refs": [
+   "out/refs/white.png",
+   "out/refs/parlour.png"
+  ],
+  "set": [
+   [
+    "ResolutionSelector",
+    "aspect_ratio",
+    "9:16 (Portrait Widescreen)"
+   ],
+   [
+    "ResolutionSelector",
+    "megapixels",
+    0.98
+   ],
+   [
+    "ResolutionSelector",
+    "multiple",
+    32
+   ],
+   [
+    "Boolean (Enable Lightning LoRA)",
+    "value",
+    false
+   ],
+   [
+    "Float (Duration)",
+    "value",
+    5.47
+   ],
+   [
+    "Input Text (Prompt)",
+    "value",
+    "2D hand-drawn animated film in the manner of a gothic storybook: confident clean ink outlines, cel-shaded colour over painted gouache textures, richly detailed backgrounds, warm amber firelight against the cold blue of a rainy night, deep soft shadows, fluid full animation at 24 frames. England, 1902.\n\nsubject_definitions:\n<Picture 1> is Mr White: a thin man of sixty with a bald crown, grey hair at the sides, a long grey moustache and small round spectacles, in a dark green knitted cardigan over a white collarless shirt, brown trousers and slippers.\n<Picture 2> is the place, the parlour: a small Victorian parlour at night: a brick fireplace with a burning fire on the right, a tall sash window streaming with rain on the left, a round wooden table with a chessboard and an oil lamp in the middle, two wooden chairs, a worn armchair, faded patterned wallpaper, a door to the hall at the back.\n\nScene overview: The house has gone to bed. One man stays. Everyone and everything looks as in the pictures.\n\nStoryboard:\n[0.0s-5.5s] Shot 1: wide shot of the darkened parlour: Mr White sits alone in the armchair before a fire burned down to red embers, rain running down the window, the camera slowly pushing in on his still figure.\n\nAudio: embers ticking, soft rain, a clock. No speech, no narration, no singing and no music.\n\nNo text, captions, subtitles, logos or watermarks anywhere. Vertical frame: faces and the main action stay in the upper two thirds."
+   ]
+  ]
+ },
+ {
+  "name": "beat13",
+  "seed": 20,
+  "workflow": "video_minimax_h3_r2v",
+  "refs": [
+   "out/refs/white.png",
+   "out/refs/paw.png",
+   "out/refs/parlour.png"
+  ],
+  "set": [
+   [
+    "ResolutionSelector",
+    "aspect_ratio",
+    "9:16 (Portrait Widescreen)"
+   ],
+   [
+    "ResolutionSelector",
+    "megapixels",
+    0.98
+   ],
+   [
+    "ResolutionSelector",
+    "multiple",
+    32
+   ],
+   [
+    "Boolean (Enable Lightning LoRA)",
+    "value",
+    false
+   ],
+   [
+    "Float (Duration)",
+    "value",
+    5.0
+   ],
+   [
+    "Input Text (Prompt)",
+    "value",
+    "2D hand-drawn animated film in the manner of a gothic storybook: confident clean ink outlines, cel-shaded colour over painted gouache textures, richly detailed backgrounds, warm amber firelight against the cold blue of a rainy night, deep soft shadows, fluid full animation at 24 frames. England, 1902.\n\nsubject_definitions:\n<Picture 1> is Mr White: a thin man of sixty with a bald crown, grey hair at the sides, a long grey moustache and small round spectacles, in a dark green knitted cardigan over a white collarless shirt, brown trousers and slippers.\n<Picture 2> is the thing, the monkey's paw: a small mummified monkey's paw, dark brown and shrivelled, with thin curled fingers and black nails.\n<Picture 3> is the place, the parlour: a small Victorian parlour at night: a brick fireplace with a burning fire on the right, a tall sash window streaming with rain on the left, a round wooden table with a chessboard and an oil lamp in the middle, two wooden chairs, a worn armchair, faded patterned wallpaper, a door to the hall at the back.\n\nScene overview: The paw is not still. Everyone and everything looks as in the pictures.\n\nStoryboard:\n[0.0s-5.0s] Shot 1: close-up in red ember-light of Mr White's hand resting on the arm of the chair, holding the monkey's paw; its fingers twitch and tremble; his thumb tightens over it.\n\nAudio: embers ticking, a faint dry scratching. No speech, no narration, no singing and no music.\n\nNo text, captions, subtitles, logos or watermarks anywhere. Vertical frame: faces and the main action stay in the upper two thirds."
+   ]
+  ]
+ },
+ {
+  "name": "beat14",
+  "seed": 21,
+  "workflow": "video_minimax_h3_r2v",
+  "refs": [
+   "out/refs/white.png",
+   "out/refs/parlour.png"
+  ],
+  "set": [
+   [
+    "ResolutionSelector",
+    "aspect_ratio",
+    "9:16 (Portrait Widescreen)"
+   ],
+   [
+    "ResolutionSelector",
+    "megapixels",
+    0.98
+   ],
+   [
+    "ResolutionSelector",
+    "multiple",
+    32
+   ],
+   [
+    "Boolean (Enable Lightning LoRA)",
+    "value",
+    false
+   ],
+   [
+    "Float (Duration)",
+    "value",
+    6.07
+   ],
+   [
+    "Input Text (Prompt)",
+    "value",
+    "2D hand-drawn animated film in the manner of a gothic storybook: confident clean ink outlines, cel-shaded colour over painted gouache textures, richly detailed backgrounds, warm amber firelight against the cold blue of a rainy night, deep soft shadows, fluid full animation at 24 frames. England, 1902.\n\nsubject_definitions:\n<Picture 1> is Mr White: a thin man of sixty with a bald crown, grey hair at the sides, a long grey moustache and small round spectacles, in a dark green knitted cardigan over a white collarless shirt, brown trousers and slippers.\n<Picture 2> is the place, the parlour: a small Victorian parlour at night: a brick fireplace with a burning fire on the right, a tall sash window streaming with rain on the left, a round wooden table with a chessboard and an oil lamp in the middle, two wooden chairs, a worn armchair, faded patterned wallpaper, a door to the hall at the back.\n\nScene overview: A face in the fire. Everyone and everything looks as in the pictures.\n\nStoryboard:\n[0.0s-3.0s] Shot 1: close on the glowing coals in the fireplace: a grinning monkey's face forms in the embers, its eyes burning brighter.\n[3.0s-6.1s] Shot 2: Mr White recoils in the armchair, seizes a glass of water from the table and throws it on the fire; steam bursts up and the room goes dark.\n\nAudio: a low hiss, a sharp hiss of steam, silence. No speech, no narration, no singing and no music.\n\nNo text, captions, subtitles, logos or watermarks anywhere. Vertical frame: faces and the main action stay in the upper two thirds."
+   ]
+  ]
+ }
+]
