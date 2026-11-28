@@ -1,0 +1,37 @@
+[
+ {
+  "name": "beat02-from-key",
+  "workflow": "video_ltx2_5_i2v",
+  "seed": 9,
+  "images": [
+   "out/keys/beat02.png"
+  ],
+  "set": [
+   [
+    "ResolutionSelector",
+    "aspect_ratio",
+    "9:16 (Portrait Widescreen)"
+   ],
+   [
+    "ResolutionSelector",
+    "megapixels",
+    0.98
+   ],
+   [
+    "ResolutionSelector",
+    "multiple",
+    32
+   ],
+   [
+    "Duration",
+    "value",
+    7
+   ],
+   [
+    "Prompt",
+    "value",
+    "Use the provided start image as the first frame. Keep its hand-drawn 2D look, its people and its room exactly.\n\n2D hand-drawn animated film in the manner of a gothic storybook: confident clean ink outlines, cel-shaded colour over painted gouache textures, richly detailed backgrounds, warm amber firelight against the cold blue of a rainy night, deep soft shadows, fluid full animation at 24 frames. England, 1902.\n\nScene overview: A knock at the door: an old friend has come back from India. Mr White is a thin man of sixty with a bald crown, grey hair at the sides, a long grey moustache and small round spectacles, in a dark green knitted cardigan over a white collarless shirt, brown trousers and slippers. Herbert is a tall cheerful young man of twenty-two with tousled chestnut hair, clean-shaven, in a white shirt with rolled sleeves, a mustard waistcoat and dark trousers. Sergeant-Major Morris is a burly soldier of fifty-five with a ruddy weathered face, a thick white walrus moustache and side whiskers, short grey hair, in a long rain-soaked navy military greatcoat with brass buttons and a red scarf. The parlour is a small Victorian parlour at night: a brick fireplace with a burning fire on the right, a tall sash window streaming with rain on the left, a round wooden table with a chessboard and an oil lamp in the middle, two wooden chairs, a worn armchair, faded patterned wallpaper, a door to the hall at the back.\n\nStoryboard:\n[0.0s-2.8s] Shot 1: Mr White and Herbert at the chess table both turn their heads sharply toward the door at the back.\n[2.8s-7.0s] Shot 2: the door swings open and Sergeant-Major Morris fills the doorway in his dripping greatcoat, rain and a flash of lightning behind him; Mr White rises and grips his hand warmly.\n\nAudio: three knocks on wood, rain, a roll of thunder, a door creaking. No speech, no narration, no singing and no music.\n\nNo text, captions, subtitles, logos or watermarks anywhere. Vertical frame: faces and the main action stay in the upper two thirds."
+   ]
+  ]
+ }
+]

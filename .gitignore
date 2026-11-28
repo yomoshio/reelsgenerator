@@ -31,3 +31,4 @@ jobs/
 library/things/
 .env.*
 !.env.example
+bench/out/

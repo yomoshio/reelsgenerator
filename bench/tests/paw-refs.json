@@ -1,0 +1,137 @@
+[
+ {
+  "name": "white",
+  "workflow": "image_minimax_h3_t2i",
+  "seed": 7,
+  "set": [
+   [
+    "ResolutionSelector",
+    "aspect_ratio",
+    "9:16 (Portrait Widescreen)"
+   ],
+   [
+    "ResolutionSelector",
+    "megapixels",
+    0.98
+   ],
+   [
+    "ResolutionSelector",
+    "multiple",
+    32
+   ],
+   [
+    "CLIPTextEncode",
+    "text",
+    "Character design for a 2D hand-drawn animated film: confident clean ink outlines, cel-shaded colour with a light gouache texture, even neutral studio light.\n\nCharacter reference: full-length view of a thin man of sixty with a bald crown, grey hair at the sides, a long grey moustache and small round spectacles, in a dark green knitted cardigan over a white collarless shirt, brown trousers and slippers, standing, turned three-quarters to the viewer, calm face. The background is one flat pale grey with nothing in it: no room, no street, no fire, no rain.\n\nNo text, captions, subtitles, logos or watermarks anywhere. Vertical frame: faces and the main action stay in the upper two thirds."
+   ]
+  ]
+ },
+ {
+  "name": "herbert",
+  "workflow": "image_minimax_h3_t2i",
+  "seed": 7,
+  "set": [
+   [
+    "ResolutionSelector",
+    "aspect_ratio",
+    "9:16 (Portrait Widescreen)"
+   ],
+   [
+    "ResolutionSelector",
+    "megapixels",
+    0.98
+   ],
+   [
+    "ResolutionSelector",
+    "multiple",
+    32
+   ],
+   [
+    "CLIPTextEncode",
+    "text",
+    "Character design for a 2D hand-drawn animated film: confident clean ink outlines, cel-shaded colour with a light gouache texture, even neutral studio light.\n\nCharacter reference: full-length view of a tall cheerful young man of twenty-two with tousled chestnut hair, clean-shaven, in a white shirt with rolled sleeves, a mustard waistcoat and dark trousers, standing, turned three-quarters to the viewer, calm face. The background is one flat pale grey with nothing in it: no room, no street, no fire, no rain.\n\nNo text, captions, subtitles, logos or watermarks anywhere. Vertical frame: faces and the main action stay in the upper two thirds."
+   ]
+  ]
+ },
+ {
+  "name": "morris",
+  "workflow": "image_minimax_h3_t2i",
+  "seed": 7,
+  "set": [
+   [
+    "ResolutionSelector",
+    "aspect_ratio",
+    "9:16 (Portrait Widescreen)"
+   ],
+   [
+    "ResolutionSelector",
+    "megapixels",
+    0.98
+   ],
+   [
+    "ResolutionSelector",
+    "multiple",
+    32
+   ],
+   [
+    "CLIPTextEncode",
+    "text",
+    "Character design for a 2D hand-drawn animated film: confident clean ink outlines, cel-shaded colour with a light gouache texture, even neutral studio light.\n\nCharacter reference: full-length view of a burly soldier of fifty-five with a ruddy weathered face, a thick white walrus moustache and side whiskers, short grey hair, in a long rain-soaked navy military greatcoat with brass buttons and a red scarf, standing, turned three-quarters to the viewer, calm face. The background is one flat pale grey with nothing in it: no room, no street, no fire, no rain.\n\nNo text, captions, subtitles, logos or watermarks anywhere. Vertical frame: faces and the main action stay in the upper two thirds."
+   ]
+  ]
+ },
+ {
+  "name": "parlour",
+  "workflow": "image_minimax_h3_t2i",
+  "seed": 7,
+  "set": [
+   [
+    "ResolutionSelector",
+    "aspect_ratio",
+    "9:16 (Portrait Widescreen)"
+   ],
+   [
+    "ResolutionSelector",
+    "megapixels",
+    0.98
+   ],
+   [
+    "ResolutionSelector",
+    "multiple",
+    32
+   ],
+   [
+    "CLIPTextEncode",
+    "text",
+    "2D hand-drawn animated film in the manner of a gothic storybook: confident clean ink outlines, cel-shaded colour over painted gouache textures, richly detailed backgrounds, warm amber firelight against the cold blue of a rainy night, deep soft shadows, fluid full animation at 24 frames. England, 1902.\n\nWide establishing view of a small Victorian parlour at night: a brick fireplace with a burning fire on the right, a tall sash window streaming with rain on the left, a round wooden table with a chessboard and an oil lamp in the middle, two wooden chairs, a worn armchair, faded patterned wallpaper, a door to the hall at the back. Nobody in the room.\n\nNo text, captions, subtitles, logos or watermarks anywhere. Vertical frame: faces and the main action stay in the upper two thirds."
+   ]
+  ]
+ },
+ {
+  "name": "paw",
+  "workflow": "image_minimax_h3_t2i",
+  "seed": 7,
+  "set": [
+   [
+    "ResolutionSelector",
+    "aspect_ratio",
+    "9:16 (Portrait Widescreen)"
+   ],
+   [
+    "ResolutionSelector",
+    "megapixels",
+    0.98
+   ],
+   [
+    "ResolutionSelector",
+    "multiple",
+    32
+   ],
+   [
+    "CLIPTextEncode",
+    "text",
+    "Character design for a 2D hand-drawn animated film: confident clean ink outlines, cel-shaded colour with a light gouache texture, even neutral studio light.\n\nProp reference: a small mummified monkey's paw no bigger than a child's hand, dark brown and shrivelled, with thin curled fingers and black nails, seen whole and alone, drawn flat in 2D with an ink outline and cel shading, not a 3D render. The background is one flat pale grey with nothing in it: no table, no lamp, no room.\n\nNo text, captions, subtitles, logos or watermarks anywhere. Vertical frame: faces and the main action stay in the upper two thirds."
+   ]
+  ]
+ }
+]

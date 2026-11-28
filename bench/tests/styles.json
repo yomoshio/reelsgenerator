@@ -1,0 +1,137 @@
+[
+ {
+  "name": "flat",
+  "workflow": "image_minimax_h3_t2i",
+  "seed": 11,
+  "set": [
+   [
+    "ResolutionSelector",
+    "aspect_ratio",
+    "9:16 (Portrait Widescreen)"
+   ],
+   [
+    "ResolutionSelector",
+    "megapixels",
+    0.98
+   ],
+   [
+    "ResolutionSelector",
+    "multiple",
+    32
+   ],
+   [
+    "CLIPTextEncode",
+    "text",
+    "Flat vector animation for a mobile explainer: simple geometric shapes, flat fills with no gradients, thin light outlines, a dark navy and teal palette with one warm accent, minimal detail, clean and graphic.\n\nA small Victorian parlour on a stormy night. Mr White and Herbert sit over a chessboard at a round table by the fire; Herbert moves a piece and grins, Mr White frowns at the board. Rain streams down the tall window. Mr White is a thin man of sixty with a bald crown, grey hair at the sides, a long grey moustache and small round spectacles, in a dark green knitted cardigan over a white collarless shirt, brown trousers and slippers. Herbert is a tall cheerful young man of twenty-two with tousled chestnut hair, clean-shaven, in a white shirt with rolled sleeves, a mustard waistcoat and dark trousers. No text or captions. Vertical frame, the people in the upper two thirds."
+   ]
+  ]
+ },
+ {
+  "name": "storybook",
+  "workflow": "image_minimax_h3_t2i",
+  "seed": 11,
+  "set": [
+   [
+    "ResolutionSelector",
+    "aspect_ratio",
+    "9:16 (Portrait Widescreen)"
+   ],
+   [
+    "ResolutionSelector",
+    "megapixels",
+    0.98
+   ],
+   [
+    "ResolutionSelector",
+    "multiple",
+    32
+   ],
+   [
+    "CLIPTextEncode",
+    "text",
+    "2D hand-drawn animated film in the manner of a gothic storybook: confident clean ink outlines, cel-shaded colour over painted gouache textures, richly detailed backgrounds, warm amber firelight against the cold blue of a rainy night, deep soft shadows, fluid full animation at 24 frames. England, 1902.\n\nA small Victorian parlour on a stormy night. Mr White and Herbert sit over a chessboard at a round table by the fire; Herbert moves a piece and grins, Mr White frowns at the board. Rain streams down the tall window. Mr White is a thin man of sixty with a bald crown, grey hair at the sides, a long grey moustache and small round spectacles, in a dark green knitted cardigan over a white collarless shirt, brown trousers and slippers. Herbert is a tall cheerful young man of twenty-two with tousled chestnut hair, clean-shaven, in a white shirt with rolled sleeves, a mustard waistcoat and dark trousers. No text or captions. Vertical frame, the people in the upper two thirds."
+   ]
+  ]
+ },
+ {
+  "name": "ink",
+  "workflow": "image_minimax_h3_t2i",
+  "seed": 11,
+  "set": [
+   [
+    "ResolutionSelector",
+    "aspect_ratio",
+    "9:16 (Portrait Widescreen)"
+   ],
+   [
+    "ResolutionSelector",
+    "megapixels",
+    0.98
+   ],
+   [
+    "ResolutionSelector",
+    "multiple",
+    32
+   ],
+   [
+    "CLIPTextEncode",
+    "text",
+    "Graphic novel animation: heavy black brush ink, bold shadows, a limited palette of deep blue, bone white and one burning orange, halftone dots, dramatic angular shapes.\n\nA small Victorian parlour on a stormy night. Mr White and Herbert sit over a chessboard at a round table by the fire; Herbert moves a piece and grins, Mr White frowns at the board. Rain streams down the tall window. Mr White is a thin man of sixty with a bald crown, grey hair at the sides, a long grey moustache and small round spectacles, in a dark green knitted cardigan over a white collarless shirt, brown trousers and slippers. Herbert is a tall cheerful young man of twenty-two with tousled chestnut hair, clean-shaven, in a white shirt with rolled sleeves, a mustard waistcoat and dark trousers. No text or captions. Vertical frame, the people in the upper two thirds."
+   ]
+  ]
+ },
+ {
+  "name": "paper",
+  "workflow": "image_minimax_h3_t2i",
+  "seed": 11,
+  "set": [
+   [
+    "ResolutionSelector",
+    "aspect_ratio",
+    "9:16 (Portrait Widescreen)"
+   ],
+   [
+    "ResolutionSelector",
+    "megapixels",
+    0.98
+   ],
+   [
+    "ResolutionSelector",
+    "multiple",
+    32
+   ],
+   [
+    "CLIPTextEncode",
+    "text",
+    "2.5D paper cut-out animation: layered cut paper figures and furniture with visible paper grain, real depth between the layers, soft drop shadows, warm lamp light, a handmade diorama feeling.\n\nA small Victorian parlour on a stormy night. Mr White and Herbert sit over a chessboard at a round table by the fire; Herbert moves a piece and grins, Mr White frowns at the board. Rain streams down the tall window. Mr White is a thin man of sixty with a bald crown, grey hair at the sides, a long grey moustache and small round spectacles, in a dark green knitted cardigan over a white collarless shirt, brown trousers and slippers. Herbert is a tall cheerful young man of twenty-two with tousled chestnut hair, clean-shaven, in a white shirt with rolled sleeves, a mustard waistcoat and dark trousers. No text or captions. Vertical frame, the people in the upper two thirds."
+   ]
+  ]
+ },
+ {
+  "name": "painted",
+  "workflow": "image_minimax_h3_t2i",
+  "seed": 11,
+  "set": [
+   [
+    "ResolutionSelector",
+    "aspect_ratio",
+    "9:16 (Portrait Widescreen)"
+   ],
+   [
+    "ResolutionSelector",
+    "megapixels",
+    0.98
+   ],
+   [
+    "ResolutionSelector",
+    "multiple",
+    32
+   ],
+   [
+    "CLIPTextEncode",
+    "text",
+    "Semi-realistic painted animation: cinematic digital painting with visible brushwork, realistic proportions, moody chiaroscuro light from the fire, rich texture, the look of a feature film concept painting in motion.\n\nA small Victorian parlour on a stormy night. Mr White and Herbert sit over a chessboard at a round table by the fire; Herbert moves a piece and grins, Mr White frowns at the board. Rain streams down the tall window. Mr White is a thin man of sixty with a bald crown, grey hair at the sides, a long grey moustache and small round spectacles, in a dark green knitted cardigan over a white collarless shirt, brown trousers and slippers. Herbert is a tall cheerful young man of twenty-two with tousled chestnut hair, clean-shaven, in a white shirt with rolled sleeves, a mustard waistcoat and dark trousers. No text or captions. Vertical frame, the people in the upper two thirds."
+   ]
+  ]
+ }
+]

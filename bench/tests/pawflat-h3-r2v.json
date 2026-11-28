@@ -1,0 +1,130 @@
+[
+ {
+  "name": "beat01",
+  "seed": 8,
+  "workflow": "video_minimax_h3_r2v",
+  "refs": [
+   "out/flat-refs/white.png",
+   "out/flat-refs/herbert.png",
+   "out/flat-refs/parlour.png"
+  ],
+  "set": [
+   [
+    "ResolutionSelector",
+    "aspect_ratio",
+    "9:16 (Portrait Widescreen)"
+   ],
+   [
+    "ResolutionSelector",
+    "megapixels",
+    0.98
+   ],
+   [
+    "ResolutionSelector",
+    "multiple",
+    32
+   ],
+   [
+    "Boolean (Enable Lightning LoRA)",
+    "value",
+    true
+   ],
+   [
+    "Float (Duration)",
+    "value",
+    5.67
+   ],
+   [
+    "Input Text (Prompt)",
+    "value",
+    "Flat vector animation for a mobile explainer: simple geometric shapes, flat fills with no gradients, thin light outlines, a dark navy and teal palette with one warm amber accent, minimal detail, clean and graphic, smooth motion-graphics movement. England, 1902.\n\nsubject_definitions:\n<Picture 1> is Mr White: a thin man of sixty with a bald crown, grey hair at the sides, a long grey moustache and small round spectacles, in a dark green knitted cardigan over a white collarless shirt, brown trousers and slippers.\n<Picture 2> is Herbert: a tall cheerful young man of twenty-two with tousled chestnut hair, clean-shaven, in a white shirt with rolled sleeves, a mustard waistcoat and dark trousers.\n<Picture 3> is the place, the parlour: a small Victorian parlour at night: a brick fireplace with a burning fire on the right, a tall sash window streaming with rain on the left, a round wooden table with a chessboard and an oil lamp in the middle, two wooden chairs, a worn armchair, faded patterned wallpaper, a door to the hall at the back.\n\nScene overview: A quiet evening at home while a storm beats on the house. Everyone and everything looks as in the pictures.\n\nStoryboard:\n[0.0s-5.7s] Shot 1: seen from outside through the rain-streaked window, the camera slowly pushes in to the parlour, where Mr White and Herbert sit over a chessboard by the fire; Herbert moves a piece and grins, Mr White frowns at the board and strokes his moustache.\n\nAudio: heavy rain on glass, a fire crackling, the click of a chess piece. No speech, no narration, no singing and no music.\n\nNo text, captions, subtitles, logos or watermarks anywhere. Vertical frame: faces and the main action stay in the upper two thirds."
+   ]
+  ]
+ },
+ {
+  "name": "beat02",
+  "seed": 9,
+  "workflow": "video_minimax_h3_r2v",
+  "refs": [
+   "out/flat-refs/white.png",
+   "out/flat-refs/herbert.png",
+   "out/flat-refs/morris.png",
+   "out/flat-refs/parlour.png"
+  ],
+  "set": [
+   [
+    "ResolutionSelector",
+    "aspect_ratio",
+    "9:16 (Portrait Widescreen)"
+   ],
+   [
+    "ResolutionSelector",
+    "megapixels",
+    0.98
+   ],
+   [
+    "ResolutionSelector",
+    "multiple",
+    32
+   ],
+   [
+    "Boolean (Enable Lightning LoRA)",
+    "value",
+    true
+   ],
+   [
+    "Float (Duration)",
+    "value",
+    6.35
+   ],
+   [
+    "Input Text (Prompt)",
+    "value",
+    "Flat vector animation for a mobile explainer: simple geometric shapes, flat fills with no gradients, thin light outlines, a dark navy and teal palette with one warm amber accent, minimal detail, clean and graphic, smooth motion-graphics movement. England, 1902.\n\nsubject_definitions:\n<Picture 1> is Mr White: a thin man of sixty with a bald crown, grey hair at the sides, a long grey moustache and small round spectacles, in a dark green knitted cardigan over a white collarless shirt, brown trousers and slippers.\n<Picture 2> is Herbert: a tall cheerful young man of twenty-two with tousled chestnut hair, clean-shaven, in a white shirt with rolled sleeves, a mustard waistcoat and dark trousers.\n<Picture 3> is Sergeant-Major Morris: a burly soldier of fifty-five with a ruddy weathered face, a thick white walrus moustache and side whiskers, short grey hair, in a long rain-soaked navy military greatcoat with brass buttons and a red scarf.\n<Picture 4> is the place, the parlour: a small Victorian parlour at night: a brick fireplace with a burning fire on the right, a tall sash window streaming with rain on the left, a round wooden table with a chessboard and an oil lamp in the middle, two wooden chairs, a worn armchair, faded patterned wallpaper, a door to the hall at the back.\n\nScene overview: A knock at the door: an old friend has come back from India. Everyone and everything looks as in the pictures.\n\nStoryboard:\n[0.0s-2.5s] Shot 1: Mr White and Herbert at the chess table both turn their heads sharply toward the door at the back.\n[2.5s-6.3s] Shot 2: the door swings open and Sergeant-Major Morris fills the doorway in his dripping greatcoat, rain and a flash of lightning behind him; Mr White rises and grips his hand warmly.\n\nAudio: three knocks on wood, rain, a roll of thunder, a door creaking. No speech, no narration, no singing and no music.\n\nNo text, captions, subtitles, logos or watermarks anywhere. Vertical frame: faces and the main action stay in the upper two thirds."
+   ]
+  ]
+ },
+ {
+  "name": "beat05",
+  "seed": 12,
+  "workflow": "video_minimax_h3_r2v",
+  "refs": [
+   "out/flat-refs/morris.png",
+   "out/flat-refs/white.png",
+   "out/flat-refs/paw.png",
+   "out/flat-refs/parlour.png"
+  ],
+  "set": [
+   [
+    "ResolutionSelector",
+    "aspect_ratio",
+    "9:16 (Portrait Widescreen)"
+   ],
+   [
+    "ResolutionSelector",
+    "megapixels",
+    0.98
+   ],
+   [
+    "ResolutionSelector",
+    "multiple",
+    32
+   ],
+   [
+    "Boolean (Enable Lightning LoRA)",
+    "value",
+    true
+   ],
+   [
+    "Float (Duration)",
+    "value",
+    5.87
+   ],
+   [
+    "Input Text (Prompt)",
+    "value",
+    "Flat vector animation for a mobile explainer: simple geometric shapes, flat fills with no gradients, thin light outlines, a dark navy and teal palette with one warm amber accent, minimal detail, clean and graphic, smooth motion-graphics movement. England, 1902.\n\nsubject_definitions:\n<Picture 1> is Sergeant-Major Morris: a burly soldier of fifty-five with a ruddy weathered face, a thick white walrus moustache and side whiskers, short grey hair, in a long rain-soaked navy military greatcoat with brass buttons and a red scarf.\n<Picture 2> is Mr White: a thin man of sixty with a bald crown, grey hair at the sides, a long grey moustache and small round spectacles, in a dark green knitted cardigan over a white collarless shirt, brown trousers and slippers.\n<Picture 3> is the thing, the monkey's paw: a small mummified monkey's paw no bigger than a child's hand, dark brown and shrivelled, with thin curled fingers and black nails.\n<Picture 4> is the place, the parlour: a small Victorian parlour at night: a brick fireplace with a burning fire on the right, a tall sash window streaming with rain on the left, a round wooden table with a chessboard and an oil lamp in the middle, two wooden chairs, a worn armchair, faded patterned wallpaper, a door to the hall at the back.\n\nScene overview: The soldier tries to destroy the paw and his host saves it. Everyone and everything looks as in the pictures.\n\nStoryboard:\n[0.0s-2.6s] Shot 1: Sergeant-Major Morris flings the monkey's paw into the fireplace, sparks burst up.\n[2.6s-5.9s] Shot 2: Mr White drops to one knee at the hearth and snatches the smoking paw out of the glowing coals, holding it up, Morris stares at him aghast.\n\nAudio: a whoosh of flame, sparks, rain. No speech, no narration, no singing and no music.\n\nNo text, captions, subtitles, logos or watermarks anywhere. Vertical frame: faces and the main action stay in the upper two thirds."
+   ]
+  ]
+ }
+]
