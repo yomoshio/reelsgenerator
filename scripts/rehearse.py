@@ -124,13 +124,22 @@ class StandIn:
                 "title": ep.title,
                 "premise": ep.premise,
                 "characters": [c.model_dump(exclude={"card"}) for c in ep.characters],
+                "hero": ep.characters[0].key,
+                "want": "what the hero wants",
+                "obstacle": "what stands in the way",
                 "places": [p.model_dump() for p in ep.places],
                 "beats": [b.lines[0] for b in ep.beats],
                 "planted": "the detail the ending brings back",
                 "ending": ep.ending,
                 "narration": " ".join(b.text for b in ep.beats),
+                "stakes_line": ep.beats[0].lines[0],
+                "turn_line": ep.beats[-1].lines[-1],
             }
         )
+
+    def _heard(self, _: str) -> str:
+        hero = self.ep.characters[0].name
+        return json.dumps({"hero": hero, "wants": "to live", "danger": "the water", "story": "…"})
 
     def _cut(self, _: str) -> str:
         ep = self.ep

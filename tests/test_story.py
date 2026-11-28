@@ -38,12 +38,107 @@ def _outline(ep: Episode) -> Outline:
         characters=[
             story.Person(**c.model_dump(include={"key", "name", "look"})) for c in ep.characters
         ],
+        hero="artem",
+        want="Артём хочет подняться выше воды.",
+        obstacle="Вода поднимается на этаж в час, а лестница одна.",
         places=ep.places,
         beats=[b.text[:40] for b in ep.beats],
         planted="рация",
         ending=ep.ending,
         narration=_narration(ep),
-    )
+        stakes_line="Через шесть часов она будет под самой крышей.",
+        turn_line="В темноте игрушечная рация Лены говорит взрослым женским голосом.",
+    ).model_copy(update={"characters": [
+        story.Person(key="artem", name="Артём", look="man, 30", who="жилец третьего этажа"),
+        story.Person(key="lena", name="Лена", look="girl, 10", who="девочка десяти лет"),
+    ]})  # fmt: skip
+
+
+HEARD = {"hero": "Артём", "wants": "подняться выше воды", "danger": "утонуть",
+         "story": "Артём поднимается по лестнице от воды.", "unclear": []}  # fmt: skip
+PAW = (
+    "Ночь. Ливень бьёт по стеклу гостиной, где мистер Уайт играет в шахматы с Гербертом. "
+    "Вдруг стучатся: это Моррис, вернувшийся из Индии через двадцать лет службы. Он достаёт "
+    "из кармана маленькую высохшую обезьянью лапу и кладёт её на стол. Мистер Уайт сжимает "
+    "лапу и загадывает двести фунтов. Лапа извивается в его ладони, как живая змея. Все "
+    "уходят спать. В углях ему мерещится обезьянья морда."
+)
+
+
+def _paw(**changes: object) -> Outline:
+    people = [
+        story.Person(key="white", name="мистер Уайт", look="man, 60", who="старик, хозяин дома"),
+        story.Person(key="herbert", name="Герберт", look="man, 25", who="его сын"),
+        story.Person(key="morris", name="Моррис", look="man, 55", who="старый друг семьи"),
+    ]
+    base = _outline(_golden()).model_copy(update={
+        "characters": people, "hero": "white", "narration": PAW,
+        "ending": "В углях ему мерещится обезьянья морда.",
+        "stakes_line": "Мистер Уайт сжимает лапу и загадывает двести фунтов.",
+        "turn_line": "Лапа извивается в его ладони, как живая змея.",
+    })  # fmt: skip
+    return base.model_copy(update=changes)
+
+
+def test_the_golden_narration_can_be_followed() -> None:
+    assert story.unclear(_outline(_golden())) == []
+
+
+def test_people_named_without_a_word_on_who_they_are_are_listed() -> None:
+    found = story.unclear(_paw())
+    said = next(p for p in found if "who they are" in p)
+    assert all(name in said for name in ("Герберт", "Моррис", "мистер Уайт"))
+
+
+def test_a_person_introduced_in_the_next_sentence_is_known() -> None:
+    told = PAW.replace("с Гербертом.", "с Гербертом. Это его сын.")
+    said = next(p for p in story.unclear(_paw(narration=told)) if "who they are" in p)
+    assert "Герберт (" not in said
+
+
+def test_stakes_said_late_and_a_turn_said_early_are_reported() -> None:
+    found = story.unclear(_paw(
+        stakes_line="Все уходят спать.",
+        turn_line="Вдруг стучатся: это Моррис, вернувшийся из Индии через двадцать лет службы.",
+    ))  # fmt: skip
+    assert any("too late" in p for p in found)
+    assert any("first half" in p for p in found)
+
+
+def test_a_line_that_is_not_in_the_narration_and_a_hero_who_comes_late_are_reported() -> None:
+    found = story.unclear(_paw(hero="morris", stakes_line="Этого в тексте нет."))
+    assert any("`stakes_line` is a sentence" in p for p in found)
+    found = story.unclear(_paw(narration="Ночь. Дождь. Темно. Тихо. " + PAW))
+    assert any("whose story it is" in p for p in found)
+
+
+def test_a_long_sentence_and_a_changed_ending_are_reported() -> None:
+    long = "Он " + "идёт и " * 12 + "падает."
+    found = story.unclear(_paw(narration=f"{PAW} {long}"))
+    assert any("too long to follow" in p for p in found)
+    assert any("`ending`" in p for p in found)
+
+
+def test_what_the_listener_missed_goes_back_to_the_planner() -> None:
+    heard = story.Heard(hero="Моррис", wants="not said", danger="смерть", story="…",
+                        unclear=["«лапу» — what the paw does is never said"])  # fmt: skip
+    found = story.misheard(_paw(), heard)
+    assert any("took «Моррис» for the hero" in p for p in found)
+    assert any("wants or fears" in p for p in found)
+    assert any("what the paw does" in p for p in found)
+    assert story.misheard(_paw(), story.Heard(**{**HEARD, "hero": "старик Уайт"})) == []
+
+
+async def test_a_plan_the_listener_could_not_follow_is_written_again(tmp_path: Path) -> None:
+    outline = _outline(_golden())
+    lost = {**HEARD, "unclear": ["«рация» — whose radio it is"]}
+    llm = FakeLlm().answer("Outline", outline, outline).answer("Heard", lost, HEARD)
+    made, heard, left = await story.plan(context(tmp_path, llm), STYLE, "идея")
+    assert made == outline
+    assert left == []
+    assert heard is not None
+    assert "whose radio it is" in llm.calls[2][3]
+    assert llm.calls[1][3] == outline.narration
 
 
 def test_the_golden_episode_passes_every_check() -> None:
@@ -127,9 +222,10 @@ async def test_the_plan_is_made_again_while_the_narration_is_too_long(tmp_path: 
     ep = _golden()
     short = _outline(ep)
     long = short.model_copy(update={"narration": short.narration * 3})
-    llm = FakeLlm().answer("Outline", long, short)
-    outline = await story.plan(context(tmp_path, llm), STYLE, "идея")
+    llm = FakeLlm().answer("Outline", long, short).answer("Heard", HEARD)
+    outline, _, left = await story.plan(context(tmp_path, llm), STYLE, "идея")
     assert outline == short
+    assert left == []
     assert "was off" in llm.calls[1][3]
 
 
@@ -167,6 +263,7 @@ async def test_the_write_stage_leaves_a_staged_cast_episode(tmp_path: Path) -> N
     llm = (
         FakeLlm()
         .answer("Outline", _outline(ep))
+        .answer("Heard", HEARD)
         .answer(
             "Cut",
             {
@@ -188,6 +285,9 @@ async def test_the_write_stage_leaves_a_staged_cast_episode(tmp_path: Path) -> N
     assert all(c.card is not None for c in made.characters)
     assert all(b.staging is not None for b in made.beats)
     assert (jobs.folder(job) / "plan.json").is_file()
+    page = (jobs.folder(job) / "script.md").read_text(encoding="utf-8")
+    assert "Что понял слушатель" in page
+    assert "Герой: Артём" in page
 
 
 async def test_cards_under_other_keys_are_taken_in_order_and_a_missing_one_is_plain(

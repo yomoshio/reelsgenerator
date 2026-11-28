@@ -10,6 +10,8 @@ a book.
   into beats and add only what the structure above needs. When the text numbers its
   events, every numbered event becomes a beat of its own, in its order: none is merged
   away or dropped, least of all the one the ending depends on, such as a lie or a wish.
+  A side detail inside an event is another matter: if it would need a sentence of
+  explaining and the ending does not use it, leave it out.
 - One sentence: invent the episode inside the structure above.
 
 Plan in the order of the fields: each one rests on the one before.
@@ -23,6 +25,15 @@ Plan in the order of the fields: each one rests on the one before.
   gives a look, copy it word for word. Otherwise write each `look` in English: age, build,
   one feature that sets the face apart, hair, clothes in one signature colour and shoes,
   all of the story's time and place. A look never holds a thing in the hands or an action.
+  `who` is who they are in the story, two or three words in {language}, the words the
+  narrator will use when first naming them: «старик, хозяин дома», «его сын», «старый
+  друг семьи».
+- `hero`: the key of the one character whose story this is. The episode is told from
+  their side.
+- `want`: one plain sentence in {language}: what the hero wants or fears.
+- `obstacle`: one plain sentence in {language}: what stands in the way, or what getting it
+  costs. If you cannot write `want` and `obstacle` simply, the story is not ready: think
+  again before going on.
 - `places`: the two to four places where the episode happens. `key` is a short latin id,
   `name` is in {language}, `kind` is the nearest of room, stairwell, section (a cut
   through a building), street, shop, outdoors, or custom when none fits. `look` is in
@@ -62,5 +73,22 @@ Plan in the order of the fields: each one rests on the one before.
   - numbers written as words; no lists, no headings, no stage directions, nothing in
     brackets: every word is read aloud;
   - only real words of {language} in their right forms, the way a careful editor writes.
+
+  The listener hears it once, cannot go back, and knows nothing you have not said:
+  - the hero is named within the first three sentences;
+  - the sentence that first names a person, or the next one, says who they are in the
+    words of their `who`. Call a person by one name all the way through; someone the
+    story can do without a name for stays «гость», «сосед», «врач»;
+  - a thing or a rule the story stands on is explained in plain words the moment it
+    appears, in a sentence of its own: what it does and what it costs;
+  - before the first half is over the listener has heard what the hero wants and what it
+    may cost them;
+  - one new thing a sentence, eighteen words at most; two facts are two sentences;
+  - every event has a cause the listener already heard, and nothing is mentioned that
+    does not matter later.
+- `stakes_line`: the one sentence of the narration, copied word for word, that tells the
+  listener what is at stake. It stands in the first two fifths of the narration.
+- `turn_line`: the one sentence of the narration, copied word for word, where everything
+  changes. It stands in the second half.
 
 Answer with JSON only.

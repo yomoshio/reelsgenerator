@@ -156,7 +156,7 @@ async def run_once(jobs: Jobs, ctx: Context, stages: Sequence[Stage]) -> int:
 # What each step leaves in the job's folder. A job sent back loses the work of the later
 # steps: left in place, a scene of the old story would be taken for one of the new.
 _MADE = {
-    Status.NEW: ["plan.json", "episode.json"],
+    Status.NEW: ["plan.json", "script.md", "episode.json"],
     Status.WRITTEN: ["voice"],
     Status.VOICED: ["scenes", "keys"],
     Status.STAGED: ["clips"],
