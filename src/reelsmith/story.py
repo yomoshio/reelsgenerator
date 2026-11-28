@@ -1,7 +1,10 @@
 """From an idea, a story or a piece of a book to an episode in beats, staged.
 
-The planner tells the story whole first: the premise, the people, the places, the beats and
-the full voiceover. The editor, when there is one, fixes the language of the voiceover.
+The planner tells the story whole first: the premise, whose story it is and what they want,
+the people, the places, the beats and the full voiceover. Code checks that the voiceover
+can be followed by ear, and a listener who gets nothing but the voiceover says what they
+understood; a plan they could not follow is written again. The editor, when there is one,
+fixes the language of the voiceover.
 The cutter splits the voiceover into beats word for word and puts the graphics on the
 narrator's words; casting turns each person's look into a card the rig draws; the director
 stages every beat with the whole episode in view, so places and the things in them stay
@@ -19,7 +22,17 @@ from pydantic import BaseModel, Field
 from reelsmith.catalog import Catalog
 from reelsmith.jobs import Context, Job
 from reelsmith.styles import Style
-from reelsmith.text import BETWEEN, foreign, language_name, seconds, sentences, words
+from reelsmith.text import (
+    BETWEEN,
+    alike,
+    foreign,
+    language_name,
+    seconds,
+    sentence_list,
+    sentences,
+    within,
+    words,
+)
 
 BEAT_SECONDS = (3.5, 11.0)
 LONG_BEAT = 7.0
@@ -29,6 +42,10 @@ LONG_BEATS = 4
 MEDIAN_MOST = 7.5 - BETWEEN
 THREAT_BY = 2.0
 RETOLD = 0.95
+LONG_SENTENCE = 18
+HERO_BY = 3
+STAKES_BY = 0.4
+TURN_FROM = 0.5
 _NUMBERED = re.compile(r"^\s*(\d+)\s*[.)]")
 _KEY = r"^[a-z][a-z0-9_]*$"
 Hex = str
@@ -60,6 +77,9 @@ class Person(BaseModel):
     key: str = Field(pattern=_KEY, description="A short latin id, such as 'artem'.")
     name: str = Field(description="As the narrator calls them.")
     look: str = Field(description="In English: age, build, face, hair, clothes and colours.")
+    who: str = Field(
+        default="", description="Who they are in the story, two or three words: 'сын Уайта'."
+    )
 
 
 class Character(Person):
@@ -77,14 +97,23 @@ class Outline(BaseModel):
     title: str
     premise: str = Field(description="What the story is about: the thought the ending leaves.")
     characters: list[Person] = Field(min_length=1, max_length=4)
+    hero: str = Field(description="The key of the character whose story this is.")
+    want: str = Field(description="What the hero wants or fears, one plain sentence.")
+    obstacle: str = Field(description="What stands in the way or what it costs, one sentence.")
     places: list[Place] = Field(min_length=1, max_length=6)
     beats: list[str] = Field(min_length=4, max_length=16, description="One event each, in order.")
     planted: str = Field(description="The small detail shown early that the ending brings back.")
     ending: str = Field(description="The last line of the episode, a statement.")
     narration: str = Field(description="The whole voiceover, told as one story.")
+    stakes_line: str = Field(
+        description="The sentence of the narration, word for word, that says what is at stake."
+    )
+    turn_line: str = Field(
+        description="The sentence of the narration, word for word, where everything changes."
+    )
 
     def brief(self) -> str:
-        people = "\n".join(f"  - `{c.key}` {c.name}: {c.look}" for c in self.characters)
+        people = "\n".join(f"  - `{c.key}` {c.name} ({c.who}): {c.look}" for c in self.characters)
         places = "\n".join(f"  - `{p.key}` {p.name} ({p.kind}): {p.look}" for p in self.places)
         beats = "\n".join(f"  {n}. {b}" for n, b in enumerate(self.beats, 1))
         return (
@@ -92,6 +121,20 @@ class Outline(BaseModel):
             f"Places:\n{places}\nBeats:\n{beats}\nPlanted detail: {self.planted}\n"
             f"Last line: {self.ending}\nNarration:\n{self.narration}"
         )
+
+
+class Heard(BaseModel):
+    """What someone who heard the voiceover once, and nothing else, took from it."""
+
+    hero: str = Field(description="Whose story it is, as the narrator calls them.")
+    wants: str = Field(description="What the hero wants or fears; 'not said' if it is not said.")
+    danger: str = Field(description="What threatens them; 'not said' if it is not said.")
+    story: str = Field(description="What happened, in two or three sentences.")
+    unclear: list[str] = Field(
+        default_factory=list,
+        max_length=6,
+        description="Each a quote and what a listener cannot tell from what came before it.",
+    )
 
 
 class Edited(BaseModel):
@@ -219,6 +262,104 @@ def told_length(narration: str, style: Style) -> str:
             "what the hero sees, does and feels, and what it costs them; add no new events."
         )
     return ""
+
+
+def named(person: Person, told: list[str]) -> int | None:
+    """The sentence that first says the person's name: the whole name, else its last word."""
+    name = words(person.name)
+    for wanted in (name, name[-1:]):
+        for n, sentence in enumerate(told):
+            said = words(sentence)
+            if any(
+                all(alike(a, b) for a, b in zip(said[i:], wanted, strict=False))
+                for i in range(len(said) - len(wanted) + 1)
+            ):
+                return n
+    return None
+
+
+def _shared(one: str, other: str, but: str = "") -> bool:
+    """Some word of `one` is said in `other`, the words of `but` aside."""
+    skip = words(but)
+    return any(
+        alike(a, b)
+        for a in words(one)
+        for b in words(other)
+        if not any(alike(a, s) or alike(b, s) for s in skip)
+    )
+
+
+def unclear(outline: Outline) -> list[str]:
+    """What keeps a listener from following the voiceover, each as one instruction to the
+    planner: a person named without a word on who they are, a hero who comes late, stakes
+    and a turn that are not said where they belong, sentences too long to hear."""
+    told = sentence_list(outline.narration)
+    count = len(words(outline.narration))
+    found = []
+    people = {c.key: c for c in outline.characters}
+    if outline.hero not in people:
+        found.append(f"`hero` is '{outline.hero}'; it is one of {', '.join(sorted(people))}.")
+    elif (at := named(people[outline.hero], told)) is None or at >= HERO_BY:
+        found.append(
+            f"The listener must know whose story it is: name {people[outline.hero].name} "
+            f"within the first {HERO_BY} sentences of the narration."
+        )
+    bare_names = []
+    for person in outline.characters:
+        if (at := named(person, told)) is None:
+            continue
+        if not _shared(person.who, " ".join(told[at : at + 2]), but=person.name):
+            bare_names.append(f"{person.name} («{told[at]}»)")
+    if bare_names:
+        found.append(
+            f"Named without a word on who they are: {'; '.join(bare_names)}. The sentence that "
+            "first names a person, or the one after it, says who they are in the words of "
+            "their `who`: a son, an old friend, a neighbour."
+        )
+    for field, line in (("stakes_line", outline.stakes_line), ("turn_line", outline.turn_line)):
+        if within(line, outline.narration) is None:
+            found.append(f"`{field}` is a sentence of the narration, copied word for word.")
+    stakes, turn = (within(q, outline.narration) for q in (outline.stakes_line, outline.turn_line))
+    if stakes is not None and stakes > STAKES_BY * count:
+        found.append(
+            "The narration says what is at stake too late. Before the first half is over the "
+            "listener hears in plain words what the hero wants and what it may cost them."
+        )
+    if turn is not None and turn < TURN_FROM * count:
+        found.append(
+            "The turn comes in the first half, and nothing after it changes anything. The "
+            "moment everything changes belongs to the second half of the narration."
+        )
+    if told and words(told[-1]) != words(outline.ending):
+        found.append("The last sentence of the narration is `ending`, word for word.")
+    if long := [s for s in told if len(words(s)) > LONG_SENTENCE]:
+        starts = "; ".join("«" + " ".join(s.split()[:5]) + "…»" for s in long)
+        found.append(
+            f"Sentences too long to follow by ear: {starts}. A sentence has at most "
+            f"{LONG_SENTENCE} words and brings one new thing; split these."
+        )
+    return found
+
+
+def misheard(outline: Outline, heard: Heard) -> list[str]:
+    """What the listener did not get, as instructions to the planner."""
+    found = []
+    hero = next((c for c in outline.characters if c.key == outline.hero), None)
+    if hero is not None and not _shared(f"{hero.name} {hero.who}", heard.hero):
+        found.append(
+            f"A listener took «{heard.hero}» for the hero; the story is {hero.name}'s. "
+            "Open on them and tell every event from their side."
+        )
+    for field, said in (("wants or fears", heard.wants), ("is in danger of", heard.danger)):
+        if "not said" in said.lower() or not said.strip():
+            found.append(f"A listener could not tell what the hero {field}. Say it in plain words.")
+    if heard.unclear:
+        found.append(
+            "A listener who heard the narration once could not follow: "
+            + " | ".join(heard.unclear)
+            + ". Say what is missing before it is needed, or drop the detail."
+        )
+    return found
 
 
 def problems(
@@ -435,8 +576,18 @@ def prompt(name: str, **values: object) -> str:
     return text
 
 
-async def plan(ctx: Context, style: Style, source: str, notes: str = "") -> Outline:
-    """The episode told whole; planned again while its voiceover runs too long or short."""
+async def listen(ctx: Context, outline: Outline) -> Heard:
+    """What a listener who gets the voiceover and nothing else takes from it."""
+    system = prompt("listener", language=language_name(ctx.settings.language))
+    return await ctx.llm.json(ctx.settings.planner, system, outline.narration, Heard)
+
+
+async def plan(
+    ctx: Context, style: Style, source: str, notes: str = ""
+) -> tuple[Outline, Heard | None, list[str]]:
+    """The episode told whole; planned again while its voiceover runs too long or short or
+    cannot be followed. Gives the best plan, what a listener took from it, and what is
+    left wrong. A plan of the wrong length is not played to the listener."""
     low, high = style.story.narration_words()
     system = prompt(
         "planner",
@@ -447,14 +598,47 @@ async def plan(ctx: Context, style: Style, source: str, notes: str = "") -> Outl
         words=f"{low} to {high}",
     )
     user = source if not notes else f"{source}\n\nNotes on the last plan: {notes}"
-    outline = await ctx.llm.json(ctx.settings.planner, system, user, Outline)
+
+    async def judged(said: str) -> tuple[Outline, Heard | None, list[str]]:
+        outline = await ctx.llm.json(ctx.settings.planner, system, said, Outline)
+        if wrong := told_length(outline.narration, style):
+            return outline, None, [wrong]
+        if found := unclear(outline):
+            return outline, None, found
+        heard = await listen(ctx, outline)
+        return outline, heard, misheard(outline, heard)
+
+    best = await judged(user)
     for _ in range(ctx.settings.rewrites):
-        if not (wrong := told_length(outline.narration, style)):
+        if not best[2]:
             break
-        outline = await ctx.llm.json(
-            ctx.settings.planner, system, f"{user}\n\nThe last plan was off: {wrong}", Outline
-        )
-    return outline
+        again = await judged(f"{user}\n\nThe last plan was off: {' '.join(best[2])}")
+        if len(again[2]) <= len(best[2]):
+            best = again
+    return best
+
+
+def script(outline: Outline, heard: Heard | None, left: list[str]) -> str:
+    """The plan as a page a person reads before the episode is voiced and drawn."""
+    hero = next((c.name for c in outline.characters if c.key == outline.hero), outline.hero)
+    return prompt(
+        "script",
+        title=outline.title,
+        premise=outline.premise,
+        hero=hero,
+        want=outline.want,
+        obstacle=outline.obstacle,
+        people="\n".join(f"- {c.name}: {c.who}" for c in outline.characters),
+        stakes=outline.stakes_line,
+        turn=outline.turn_line,
+        ending=outline.ending,
+        narration="\n".join(sentence_list(outline.narration)),
+        heard_hero=heard.hero if heard else "—",
+        heard_wants=heard.wants if heard else "—",
+        heard_danger=heard.danger if heard else "—",
+        heard_story=heard.story if heard else "—",
+        left="\n".join(f"- {p}" for p in left) or "—",
+    )
 
 
 async def edit(ctx: Context, outline: Outline) -> Outline:
@@ -622,9 +806,13 @@ async def write(job: Job, folder: Path, ctx: Context) -> None:
     """The write stage: plan.json and episode.json in the job's folder."""
     style = ctx.styles.get(job.style)
     source = job.source.text
-    outline = await edit(ctx, await plan(ctx, style, source))
+    outline, heard, unsolved = await plan(ctx, style, source)
+    outline = await edit(ctx, outline)
     (folder / "plan.json").write_text(outline.model_dump_json(indent=1), encoding="utf-8")
+    (folder / "script.md").write_text(script(outline, heard, unsolved), encoding="utf-8")
     job.note("plan", model=ctx.settings.planner, note=outline.title)
+    if unsolved:
+        job.note("plan", note="unclear: " + " | ".join(unsolved))
     ep, left = await cut(ctx, style, outline)
     ep = await cast(ctx, style, ep)
     looks = " ".join([*(p.look for p in outline.places), *(c.look for c in outline.characters)])

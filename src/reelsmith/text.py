@@ -19,6 +19,7 @@ _SPACES = re.compile("[\\s\\-\\u2013\\u2014]+")
 _WORD = re.compile(r"[^\W\d_]+")
 _VOWELS = re.compile(r"[аеёиоуыэюяєіїaeiouy]", re.IGNORECASE)  # noqa: RUF001
 _SENTENCE = re.compile(r"[.!?…]+")
+_CUT = re.compile(r"(?<=[.!?…])\s+")
 
 
 def bare(word: str) -> str:
@@ -36,6 +37,32 @@ def syllables(text: str) -> int:
 
 def sentences(text: str) -> int:
     return len(_SENTENCE.findall(text))
+
+
+def sentence_list(text: str) -> list[str]:
+    return [s for s in (part.strip() for part in _CUT.split(text)) if s]
+
+
+def alike(one: str, other: str) -> bool:
+    """Two forms of one word, roughly: «сыном» and «сын», «Уайта» and «Уайт»."""
+    one, other = bare(one), bare(other)
+    same = 0
+    for a, b in zip(one, other, strict=False):
+        if a != b:
+            break
+        same += 1
+    return same >= max(3, min(len(one), len(other)) - 2)
+
+
+def within(quote: str, text: str) -> int | None:
+    """Where the words of `quote` stand in a row among the words of `text`, or None."""
+    wanted, said = words(quote), words(text)
+    if not wanted:
+        return None
+    for i in range(len(said) - len(wanted) + 1):
+        if said[i : i + len(wanted)] == wanted:
+            return i
+    return None
 
 
 def seconds(text: str) -> float:
