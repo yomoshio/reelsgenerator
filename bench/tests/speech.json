@@ -1,0 +1,71 @@
+[
+ {
+  "name": "ltx-russian",
+  "workflow": "video_ltx2_5_t2v",
+  "seed": 3,
+  "set": [
+   [
+    "ResolutionSelector",
+    "aspect_ratio",
+    "9:16 (Portrait Widescreen)"
+   ],
+   [
+    "ResolutionSelector",
+    "megapixels",
+    0.98
+   ],
+   [
+    "ResolutionSelector",
+    "multiple",
+    32
+   ],
+   [
+    "Duration",
+    "value",
+    5
+   ],
+   [
+    "Prompt",
+    "value",
+    "2D hand-drawn animated film in the manner of a gothic storybook: confident clean ink outlines, cel-shaded colour over painted gouache textures, richly detailed backgrounds, warm amber firelight against the cold blue of a rainy night, deep soft shadows, fluid full animation at 24 frames. England, 1902.\n\nMedium close-up of Mr White standing before the fire, holding up a small dried monkey's paw in his right fist. He says loudly and clearly in Russian: \"Я хочу двести фунтов!\" Then silence, only the fire crackling and rain. Mr White is a thin man of sixty with a bald crown, grey hair at the sides, a long grey moustache and small round spectacles, in a dark green knitted cardigan over a white collarless shirt, brown trousers and slippers. No text or captions."
+   ]
+  ]
+ },
+ {
+  "name": "h3-russian",
+  "workflow": "video_minimax_h3_t2v",
+  "seed": 3,
+  "set": [
+   [
+    "ResolutionSelector",
+    "aspect_ratio",
+    "9:16 (Portrait Widescreen)"
+   ],
+   [
+    "ResolutionSelector",
+    "megapixels",
+    0.98
+   ],
+   [
+    "ResolutionSelector",
+    "multiple",
+    32
+   ],
+   [
+    "Boolean (Enable Lightning LoRA)",
+    "value",
+    true
+   ],
+   [
+    "Float (duration)",
+    "value",
+    5.0
+   ],
+   [
+    "MiniMaxH3ImageToVideo",
+    "prompt",
+    "2D hand-drawn animated film in the manner of a gothic storybook: confident clean ink outlines, cel-shaded colour over painted gouache textures, richly detailed backgrounds, warm amber firelight against the cold blue of a rainy night, deep soft shadows, fluid full animation at 24 frames. England, 1902.\n\nMedium close-up of Mr White standing before the fire, holding up a small dried monkey's paw in his right fist. He says loudly and clearly in Russian: \"Я хочу двести фунтов!\" Then silence, only the fire crackling and rain. Mr White is a thin man of sixty with a bald crown, grey hair at the sides, a long grey moustache and small round spectacles, in a dark green knitted cardigan over a white collarless shirt, brown trousers and slippers. No text or captions."
+   ]
+  ]
+ }
+]

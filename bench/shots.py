@@ -23,7 +23,8 @@ CLEAN = (
 )
 SHEETS = {
     "person": "Character reference: full-length view of {look}, standing, turned three-quarters "
-              "to the viewer, calm face, plain pale grey background, even soft light.",
+              "to the viewer, calm face. The background is one flat pale grey with nothing in it: "
+              "no room, no street, no fire, no rain.",
     "place": "Wide establishing view of {look}. Nobody in the room.",
     "thing": "Close view of {look}, lying on a dark wooden table under a warm lamp.",
 }  # fmt: skip
@@ -81,7 +82,8 @@ def tests(story: dict, way: str, args: argparse.Namespace) -> list[dict]:
     if way == "refs":
         return [
             {"name": key, "workflow": "image_minimax_h3_t2i", "seed": args.seed,
-             "set": [*size, ["CLIPTextEncode", "text", f"{story['style']}\n\n"
+             "set": [*size, ["CLIPTextEncode", "text",
+                     f"{story['sheet_style' if kind(subject) == 'person' else 'style']}\n\n"
                      f"{SHEETS[kind(subject)].format(look=subject['look'])}\n\n{CLEAN}"]]}
             for key, subject in story["subjects"].items()
         ]  # fmt: skip

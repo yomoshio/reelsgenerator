@@ -17,6 +17,8 @@ export PATH="$HOME/.local/bin:$PATH"
 comfy() {
     # Автообновления держат замок dpkg и ломают драйвер новой версией ядра.
     systemctl disable --now unattended-upgrades apt-daily.timer apt-daily-upgrade.timer 2>/dev/null || true
+    # Квантованные веса собирают свои ядра на лету: без компилятора кодировщик текста падает.
+    command -v gcc >/dev/null || DEBIAN_FRONTEND=noninteractive apt-get install -y -qq build-essential >/dev/null
     command -v uv >/dev/null || curl -LsSf https://astral.sh/uv/install.sh | sh
     [ -d "$COMFY" ] || git clone -q --depth 1 https://github.com/comfyanonymous/ComfyUI.git "$COMFY"
     [ -d "$VENV" ] || uv venv -q --python 3.12 "$VENV"

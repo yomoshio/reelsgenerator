@@ -24,6 +24,8 @@ import autostop
 
 IMAGE = "docker.io/vastai/kvm:cuda-12.9.1-auto"  # Ubuntu 22.04 with the NVIDIA driver in
 BOOT_SECONDS = 1200
+# Some hosts bill every gigabyte downloaded; at $0.04 the weights cost more than a day of the card.
+TRAFFIC = 0.003  # dollars a GB, at most
 
 
 def offers(vram: float, price: float, disk: int) -> list[dict[str, Any]]:
@@ -35,7 +37,7 @@ def offers(vram: float, price: float, disk: int) -> list[dict[str, Any]]:
         "order": [["dph_total", "asc"]], "limit": 50,
     }  # fmt: skip
     found: list[dict[str, Any]] = autostop._vast("POST", "/bundles/", query).get("offers", [])
-    return [o for o in found if o.get("vms_enabled")]
+    return [o for o in found if o.get("vms_enabled") and (o.get("inet_down_cost") or 0) <= TRAFFIC]
 
 
 def told(offer: dict[str, Any]) -> str:

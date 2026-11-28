@@ -152,7 +152,7 @@ def _finish(instance: str, *, dry: bool) -> None:
     then destroys it."""
     _log("copying the job folders and the voices")
     subprocess.run(["bash", ROOT / "run.sh", "box", "pull"], cwd=ROOT, check=True)
-    there = _remote('for f in jobs/*/final.mp4; do [ -f "$f" ] && stat -c \'%n %s\' "$f"; done')
+    there = _remote('for f in jobs/*/final.mp4; do [ ! -f "$f" ] || stat -c \'%n %s\' "$f"; done')
     sizes = dict(line.rsplit(" ", 1) for line in there.splitlines() if " " in line)
     missing = [
         name for name, size in sizes.items()
